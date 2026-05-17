@@ -298,7 +298,8 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
 }
 
 // ── Reusable dropdown for managing generator / utility lines ─────────────────
-function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint, deleteEndpoint, onTotalChange }) {
+function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint, deleteEndpoint, onTotalChange,
+  generatorMode, onGeneratorModeChange, genNeeded }) {
   const [lines, setLines]   = useState([]);
   const [total, setTotal]   = useState(0);
   const [open, setOpen]     = useState(false);
@@ -361,10 +362,14 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
         <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">{icon}</div>
         <div className="text-left">
           <p className="text-xs text-emerald-100 leading-none mb-0.5">{label}</p>
-          <p className="text-sm font-semibold leading-none">{fmt(total)}</p>
-          {lines.length > 0 && (
-            <p className="text-xs text-emerald-200 leading-none mt-0.5">{lines.length} unit{lines.length !== 1 ? 's' : ''}</p>
-          )}
+          <p className="text-sm font-semibold leading-none">
+            {generatorMode === 'needed' ? fmt(genNeeded) : fmt(total)}
+          </p>
+          <p className="text-xs text-emerald-200 leading-none mt-0.5">
+            {generatorMode === 'needed'
+              ? 'sized for load'
+              : lines.length > 0 ? `${lines.length} unit${lines.length !== 1 ? 's' : ''}` : ''}
+          </p>
         </div>
         <svg className={`w-3.5 h-3.5 text-emerald-200 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -378,13 +383,54 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-white/70 leading-none mb-0.5">{label} Lines</p>
-                <p className="text-base font-bold text-white leading-none">{fmt(total)}</p>
+                <p className="text-base font-bold text-white leading-none">
+                  {generatorMode === 'needed' ? fmt(genNeeded) : fmt(total)}
+                </p>
+                {generatorMode === 'needed' && (
+                  <p className="text-xs text-white/60 leading-none mt-0.5">sized for load</p>
+                )}
               </div>
               <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">
                 {lines.length} unit{lines.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
+
+          {/* Generator mode toggle — only for generator (not utility) */}
+          {generatorMode !== undefined && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wide">Capacity in Calculations</p>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+                <button
+                  onClick={() => generatorMode !== 'existing' && onGeneratorModeChange?.('existing')}
+                  className={`flex-1 px-3 py-2 transition-colors ${
+                    generatorMode === 'existing' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                  }`}>
+                  Existing
+                </button>
+                <button
+                  onClick={() => generatorMode !== 'needed' && onGeneratorModeChange?.('needed')}
+                  className={`flex-1 px-3 py-2 border-l border-gray-200 transition-colors ${
+                    generatorMode === 'needed' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                  }`}>
+                  Needed ×1.25
+                </button>
+              </div>
+              {genNeeded > 0 && (
+                <div className="flex items-center justify-between mt-2 px-1">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Required for loads</span>
+                  <span className="text-xs font-bold text-orange-600">{fmt(genNeeded)}</span>
+                </div>
+              )}
+              {generatorMode === 'existing' && total > 0 && genNeeded > 0 && (
+                <p className={`text-[10px] font-medium mt-1.5 px-1 ${total >= genNeeded ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {total >= genNeeded
+                    ? `✓ Your generators cover the load (${fmt(total - genNeeded)} surplus)`
+                    : `⚠ ${fmt(genNeeded - total)} short of required capacity`}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="max-h-52 overflow-y-auto">
             {lines.length === 0 ? (
@@ -490,13 +536,14 @@ export default function PowerSourcesBanner({
   maxLoad       = 0,
   optimizedLoad = 0,
 }) {
-  const [open, setOpen]         = useState(false);
-  const [genTotal, setGenTotal] = useState(0);
-  const [utilTotal, setUtilTotal] = useState(0);
+  const [open, setOpen]               = useState(false);
+  const [genTotal, setGenTotal]       = useState(0);
+  const [utilTotal, setUtilTotal]     = useState(0);
   const [bldgGenTotal,  setBldgGenTotal]  = useState(0);
   const [bldgUtilTotal, setBldgUtilTotal] = useState(0);
   const [bldgGenLines,  setBldgGenLines]  = useState([]);
   const [bldgUtilLines, setBldgUtilLines] = useState([]);
+  const [generatorMode, setGeneratorMode] = useState(entity?.generator_source ?? 'existing');
 
   useEffect(() => {
     if (!projectId) return;
@@ -516,8 +563,20 @@ export default function PowerSourcesBanner({
   const solarMaxAvailable = solarComputed !== undefined ? Number(solarComputed) : Number(entity?.solar_power ?? 0);
   const solar             = solarMode === 'existing' ? solarExisting : solarMaxAvailable;
 
-  const totalAvailable = solar + genTotal + utilTotal + bldgGenTotal + bldgUtilTotal;
+  const genNeeded    = maxLoad * 1.25;
+  const effectiveGen = generatorMode === 'needed' ? genNeeded : genTotal;
+
+  const totalAvailable = solar + effectiveGen + utilTotal + bldgGenTotal + bldgUtilTotal;
   const hasLoadData    = maxLoad > 0 || optimizedLoad > 0;
+
+  async function handleGeneratorModeChange(mode) {
+    setGeneratorMode(mode);
+    if (!updateEndpoint) return;
+    try {
+      const { data } = await api.put(updateEndpoint, { generator_source: mode });
+      onUpdate?.(data.data);
+    } catch (_) { /* best-effort */ }
+  }
 
   if (!entity) return null;
 
@@ -586,6 +645,9 @@ export default function PowerSourcesBanner({
               accentFrom="from-orange-500" accentTo="to-orange-400"
               endpoint={generatorEndpoint} deleteEndpoint="/api/generator-lines"
               onTotalChange={setGenTotal}
+              generatorMode={generatorMode}
+              onGeneratorModeChange={handleGeneratorModeChange}
+              genNeeded={genNeeded}
             />
           </>
         )}
@@ -662,8 +724,9 @@ export default function PowerSourcesBanner({
             />
             {generatorEndpoint && (
               <SourceCard
-                label="Generator" dot="bg-orange-400"
-                capacity={genTotal}
+                label={generatorMode === 'needed' ? 'Generator (×1.25)' : 'Generator'}
+                dot="bg-orange-400"
+                capacity={effectiveGen}
                 maxLoad={maxLoad} optLoad={optimizedLoad}
               />
             )}
