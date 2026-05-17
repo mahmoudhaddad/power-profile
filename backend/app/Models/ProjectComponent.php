@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class ProjectComponent extends Model
+{
+    protected $fillable = ['project_id', 'component_type_id', 'power', 'phases', 'power_factor', 'quantity', 'group_name', 'priority', 'needs_socket', 'usage_season', 'usage_day_type', 'usage_time_intervals'];
+
+    protected $casts = ['needs_socket' => 'boolean', 'usage_time_intervals' => 'array'];
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    public function componentType()
+    {
+        return $this->belongsTo(ComponentType::class);
+    }
+}

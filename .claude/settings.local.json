@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(where php *)",
+      "Bash(ls /c/php*)",
+      "Bash(ls /d/php*)",
+      "Bash(/c/Users/ASUS/.config/herd/bin/php.bat artisan *)"
+    ]
+  }
+}

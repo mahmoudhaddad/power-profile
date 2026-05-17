@@ -1,0 +1,27 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        foreach (['projects', 'buildings', 'floors', 'rooms'] as $table) {
+            Schema::table($table, function (Blueprint $table) {
+                $table->decimal('solar_power',     12, 2)->default(0)->nullable();
+                $table->decimal('generator_power', 12, 2)->default(0)->nullable();
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        foreach (['projects', 'buildings', 'floors', 'rooms'] as $table) {
+            Schema::table($table, function (Blueprint $table) {
+                $table->dropColumn(['solar_power', 'generator_power']);
+            });
+        }
+    }
+};

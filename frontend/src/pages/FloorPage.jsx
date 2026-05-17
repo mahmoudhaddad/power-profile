@@ -1,0 +1,546 @@
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api/axios';
+import { getNav, setNav } from '../utils/navContext';
+import EntityComponents from '../components/EntityComponents';
+import EntitySockets from '../components/EntitySockets';
+import PowerBanner from '../components/PowerBanner';
+import PowerSourcesBanner from '../components/PowerSourcesBanner';
+import { downloadJson } from '../utils/downloadJson';
+import BackupChoiceModal from '../components/BackupChoiceModal';
+import ServerBackupsList from '../components/ServerBackupsList';
+import EntityScheduleModal from '../components/EntityScheduleModal';
+import ProjectSidebar from '../components/ProjectSidebar';
+
+export default function FloorPage() {
+  const navigate = useNavigate();
+  const { buildingId, floorId } = getNav();
+
+  const [project, setProject]   = useState(null);
+  const [building, setBuilding] = useState(null);
+  const [floor, setFloor]       = useState(null);
+  const [rooms, setRooms]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+
+  const [showModal, setShowModal] = useState(false);
+  const [newRoom, setNewRoom]     = useState({ name: '', area: '' });
+
+  const [editingRoom, setEditingRoom] = useState(null);
+  const [editForm, setEditForm]       = useState({ name: '', area: '' });
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput]     = useState('');
+  const [componentTypes, setComponentTypes] = useState([]);
+  const [powerKey, setPowerKey]     = useState(0);
+  const [powerSources, setPowerSources] = useState({ solar_computed: null, generator_computed: null, max_va: 0, total_va: 0 });
+
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [backupTarget, setBackupTarget] = useState(null); // { type: 'floor'|'room', entity }
+  const [restoreFile, setRestoreFile]   = useState(null);
+  const [restoring, setRestoring]       = useState(false);
+  const [restoreError, setRestoreError] = useState(null);
+  const [dragOver, setDragOver]         = useState(false);
+  const [confirmData, setConfirmData]   = useState(null);
+  const [restoreTab, setRestoreTab]     = useState('computer');
+  const fileInputRef = useRef(null);
+
+  const userRole = project?.user_role ?? null;
+  const canEdit  = userRole === 'admin' || userRole === 'main';
+  const [openRooms, setOpenRooms] = useState(true);
+
+  useEffect(() => {
+    if (!floorId) { navigate('/dashboard'); return; }
+    Promise.all([
+      api.get(`/api/floors/${floorId}/rooms`),
+      api.get('/api/component-types'),
+    ]).then(([roomsRes, typesRes]) => {
+        setFloor(roomsRes.data.floor);
+        setBuilding(roomsRes.data.floor.building);
+        setProject(roomsRes.data.floor.building.project);
+        setNameInput(roomsRes.data.floor.name);
+        setRooms(roomsRes.data.data);
+        setComponentTypes(typesRes.data.data);
+      })
+      .catch(() => navigate('/project/building'))
+      .finally(() => setLoading(false));
+  }, [floorId]);
+
+  async function saveName() {
+    if (!nameInput.trim() || nameInput === floor.name) { setEditingName(false); return; }
+    const { data } = await api.put(
+      `/api/buildings/${buildingId}/floors/${floor.id}`,
+      { name: nameInput.trim() }
+    );
+    setFloor(data.data);
+    setEditingName(false);
+  }
+
+  async function handleAdd() {
+    if (!newRoom.name.trim()) return;
+    const { data } = await api.post(`/api/floors/${floor.id}/rooms`, {
+      name: newRoom.name.trim(),
+      area: newRoom.area || 0,
+    });
+    setShowModal(false);
+    setNav({ roomId: data.data.id });
+    navigate('/project/building/floor/room');
+  }
+
+  function openEdit(room) {
+    setEditingRoom(room);
+    setEditForm({ name: room.name, area: room.area });
+  }
+
+  async function handleEdit() {
+    if (!editForm.name.trim()) return;
+    const { data } = await api.put(
+      `/api/floors/${floor.id}/rooms/${editingRoom.id}`,
+      { name: editForm.name.trim(), area: editForm.area }
+    );
+    setRooms(rooms.map(r => r.id === editingRoom.id ? data.data : r));
+    setEditingRoom(null);
+  }
+
+  async function handleDelete(roomId) {
+    await api.delete(`/api/floors/${floor.id}/rooms/${roomId}`);
+    setRooms(rooms.filter(r => r.id !== roomId));
+  }
+
+  async function handleBackupDownload(type, entity) {
+    try {
+      const url = type === 'floor' ? `/api/floors/${entity.id}/backup` : `/api/rooms/${entity.id}/backup`;
+      const { data } = await api.get(url);
+      downloadJson(data, `${entity.name.replace(/\s+/g, '-')}-backup.json`);
+    } catch (err) {
+      alert('Backup failed: ' + (err.response?.data?.message || err.message || 'Unknown error'));
+    }
+  }
+
+  async function handleBackupToServer(type, entity) {
+    const url = type === 'floor' ? `/api/floors/${entity.id}/save-backup` : `/api/rooms/${entity.id}/save-backup`;
+    await api.post(url);
+  }
+
+  function handleServerRestore(serverData) {
+    const fileData = { raw: serverData, name: serverData.room?.name || 'Server Backup' };
+    setRestoreFile(fileData);
+    setRestoreTab('computer');
+    doRestore(false, fileData);
+  }
+
+  async function handleDuplicate(room) {
+    const { data } = await api.post(
+      `/api/floors/${floor.id}/rooms/${room.id}/duplicate`
+    );
+    setRooms(prev => [data.data, ...prev]);
+  }
+
+  function loadRestoreFile(file) {
+    if (!file) return;
+    setRestoreError(null);
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        setRestoreFile({ raw: parsed, name: file.name });
+      } catch {
+        setRestoreError('Invalid JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function doRestore(overwrite = false, fileOverride = null) {
+    const file = fileOverride || restoreFile;
+    if (!file || !floor) return;
+    setRestoring(true);
+    setRestoreError(null);
+    try {
+      const { data } = await api.post(
+        `/api/floors/${floor.id}/rooms/restore`,
+        { data: file.raw, overwrite }
+      );
+      setRooms(prev => [data.data, ...prev]);
+      setRestoreFile(null);
+      setConfirmData(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err) {
+      if (err.response?.data?.conflict) {
+        setConfirmData(err.response.data);
+      } else {
+        setRestoreError(err.response?.data?.message || 'Restore failed.');
+      }
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+
+      <div className="sticky top-0 z-40">
+        <PowerBanner
+          endpoint={floor ? `/api/floors/${floor.id}/total-power` : null}
+          refreshKey={powerKey}
+          onData={d => setPowerSources({ solar_computed: d.solar_computed, generator_computed: d.generator_computed, max_va: d.max_va ?? 0, total_va: d.total_va ?? 0 })}
+        />
+        <PowerSourcesBanner
+          entity={floor}
+          updateEndpoint={floor ? `/api/buildings/${buildingId}/floors/${floor.id}` : null}
+          onUpdate={updated => setFloor(updated)}
+          solarComputed={powerSources.solar_computed}
+          projectId={project?.id}
+          maxLoad={powerSources.max_va}
+          optimizedLoad={powerSources.total_va}
+        />
+      </div>
+
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+        <button onClick={() => navigate('/project/building')}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-0.5 flex-wrap">
+            <span onClick={() => navigate('/dashboard')} className="hover:text-blue-500 cursor-pointer transition-colors">Projects</span>
+            <Chevron />
+            <span onClick={() => navigate('/project')} className="hover:text-blue-500 cursor-pointer transition-colors">{project?.name}</span>
+            <Chevron />
+            <span onClick={() => navigate('/project/building')} className="hover:text-blue-500 cursor-pointer transition-colors">{building?.name}</span>
+            <Chevron />
+            <span className="text-gray-600 font-medium">{floor?.name}</span>
+          </div>
+
+          {editingName ? (
+            <div className="flex items-center gap-2 mt-0.5">
+              <input autoFocus value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
+                className="text-lg font-semibold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-56" />
+              <button onClick={saveName}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">Save</button>
+              <button onClick={() => setEditingName(false)}
+                className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 rounded hover:bg-gray-100 transition-colors">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-0.5">
+              <h1 className="text-lg font-semibold text-gray-900">{floor?.name}</h1>
+              {canEdit && (
+                <button onClick={() => { setNameInput(floor.name); setEditingName(true); }}
+                  className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded hover:bg-blue-50">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {canEdit && <button onClick={() => setShowSchedule(true)}
+          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
+            rounded-lg border border-gray-200 bg-white hover:border-indigo-400 hover:text-indigo-600
+            hover:bg-indigo-50 transition-all duration-150 flex-shrink-0">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Schedule
+        </button>}
+        {canEdit && <button onClick={() => setBackupTarget({ type: 'floor', entity: floor })}
+          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
+            rounded-lg border border-gray-200 bg-white hover:border-emerald-400 hover:text-emerald-600
+            hover:bg-emerald-50 transition-all duration-150 flex-shrink-0">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Backup Floor
+        </button>}
+      </header>
+
+      <main className="px-8 sm:px-12 py-8 flex gap-6 items-start">
+        <ProjectSidebar />
+        <div className="flex-1 min-w-0">
+
+        <section>
+          <div className={`flex items-center justify-between ${openRooms ? 'mb-4' : 'mb-0'}`}>
+            <button onClick={() => setOpenRooms(o => !o)} className="flex items-center gap-2 group">
+              <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openRooms ? 'rotate-90' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+              </svg>
+              <h2 className="text-base font-semibold text-gray-900 group-hover:text-gray-700">
+                Rooms
+                <span className="ml-2 text-xs font-normal text-gray-400">({rooms.length})</span>
+              </h2>
+            </button>
+          </div>
+          {openRooms && <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            {rooms.length === 0 ? (
+              <div className="py-14 text-center text-gray-400">
+                <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <p className="text-sm font-medium">No rooms yet. Add your first one!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-4 p-4">
+                {rooms.map(room => (
+                  <RoomCard
+                    key={room.id}
+                    room={room}
+                    canEdit={canEdit}
+                    onOpen={() => { setNav({ roomId: room.id }); navigate('/project/building/floor/room'); }}
+                    onEdit={() => openEdit(room)}
+                    onDelete={() => handleDelete(room.id)}
+                    onBackup={() => setBackupTarget({ type: 'room', entity: room })}
+                    onDuplicate={() => handleDuplicate(room)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>}
+        </section>
+
+        <EntityComponents
+          endpoint={floor ? `/api/floors/${floor.id}/components` : null}
+          componentTypes={componentTypes}
+          onTypesUpdated={t => setComponentTypes(prev => [...prev, t])}
+          onChanged={() => setPowerKey(k => k + 1)}
+          canEdit={canEdit}
+        />
+        <EntitySockets
+          endpoint={floor ? `/api/floors/${floor.id}/sockets` : null}
+          onChanged={() => setPowerKey(k => k + 1)}
+          canEdit={canEdit}
+        />
+        </div>
+
+        {canEdit && (
+          <aside className="w-72 flex-shrink-0 flex flex-col gap-4">
+            <div className="bg-white rounded-xl shadow-lg p-4">
+              <h2 className="text-sm font-semibold text-gray-900 mb-3">Add Room</h2>
+              <button onClick={() => setShowModal(true)}
+                className="group flex items-center gap-3 border-2 border-dashed border-blue-300
+                  hover:border-blue-500 hover:bg-blue-50 text-blue-500 hover:text-blue-700
+                  rounded-xl px-4 py-3 w-full transition-all duration-200 hover:shadow-sm">
+                <span className="w-8 h-8 rounded-full bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </span>
+                <div className="text-left">
+                  <p className="font-semibold text-xs">Add New Room</p>
+                  <p className="text-xs text-blue-400 group-hover:text-blue-500 transition-colors">Add a room to this floor</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg p-4">
+              <h2 className="text-sm font-semibold text-gray-900 mb-3">Restore Room</h2>
+              <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-1">
+                <button onClick={() => setRestoreTab('computer')}
+                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${restoreTab === 'computer' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  Computer
+                </button>
+                <button onClick={() => setRestoreTab('server')}
+                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${restoreTab === 'server' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  Server
+                </button>
+              </div>
+              {restoreTab === 'computer' ? (
+                <>
+                  <div
+                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setDragOver(false); loadRestoreFile(e.dataTransfer.files[0]); }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl px-4 py-5 text-center cursor-pointer transition-all duration-200
+                      ${dragOver ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50'}`}>
+                    <input ref={fileInputRef} type="file" accept=".json" className="hidden"
+                      onChange={e => loadRestoreFile(e.target.files[0])} />
+                    <svg className="w-7 h-7 mx-auto mb-1.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                    <p className="text-xs font-medium text-emerald-700">Drop backup or click to browse</p>
+                    <p className="text-xs text-emerald-500 mt-0.5">Accepts .json files</p>
+                  </div>
+                  {restoreFile && (
+                    <div className="mt-2 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                      <p className="text-xs font-semibold text-gray-900 truncate min-w-0">
+                        {restoreFile.raw?.room?.name ?? restoreFile.raw?.name ?? restoreFile.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                        <button onClick={() => { setRestoreFile(null); setRestoreError(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                          className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors">Clear</button>
+                        <button onClick={() => doRestore(false)} disabled={restoring}
+                          className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1 rounded-lg transition-colors disabled:opacity-50">
+                          {restoring ? '…' : 'Restore'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {restoreError && <p className="mt-2 text-xs text-red-500">{restoreError}</p>}
+                </>
+              ) : (
+                <ServerBackupsList
+                  projectId={project?.id}
+                  entityType="room"
+                  onRestore={handleServerRestore}
+                />
+              )}
+            </div>
+          </aside>
+        )}
+      </main>
+
+      {showModal && (
+        <Modal title="New Room" form={newRoom} onChange={setNewRoom}
+          onSubmit={handleAdd}
+          onClose={() => { setShowModal(false); setNewRoom({ name: '', area: '' }); }}
+          submitLabel="Add Room" />
+      )}
+      {editingRoom && (
+        <Modal title="Edit Room" form={editForm} onChange={setEditForm}
+          onSubmit={handleEdit} onClose={() => setEditingRoom(null)}
+          submitLabel="Save Changes" />
+      )}
+      {confirmData && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 text-center mb-2">Room Already Exists</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">{confirmData.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmData(null)}
+                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={() => doRestore(true)}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors">Overwrite</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {backupTarget && (
+        <BackupChoiceModal
+          entityName={backupTarget.entity.name}
+          onDownload={() => handleBackupDownload(backupTarget.type, backupTarget.entity)}
+          onSaveToServer={() => handleBackupToServer(backupTarget.type, backupTarget.entity)}
+          onClose={() => setBackupTarget(null)}
+        />
+      )}
+      {showSchedule && floor && building && (
+        <EntityScheduleModal
+          entity={floor}
+          updateEndpoint={`/api/buildings/${building.id}/floors/${floor.id}`}
+          parentSchedule={{
+            work_days: building.work_days ?? project?.work_days ?? null,
+            work_time_intervals: building.work_time_intervals ?? project?.work_time_intervals ?? null,
+            working_season_intervals: building.working_season_intervals ?? project?.working_season_intervals ?? null,
+          }}
+          parentLabel="Building"
+          onUpdate={updated => setFloor(updated)}
+          onClose={() => setShowSchedule(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function RoomCard({ room, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplicate }) {
+  return (
+    <div onClick={onOpen} className="aspect-square flex flex-col border border-blue-300 rounded-xl p-4 cursor-pointer
+      group transition-all duration-200 hover:bg-blue-50 hover:-translate-y-1 hover:shadow-md bg-white">
+      <div className="w-10 h-10 bg-blue-50 group-hover:bg-blue-100 rounded-lg flex items-center
+        justify-center mb-3 flex-shrink-0 transition-colors duration-200">
+        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </div>
+      <p className="font-semibold text-gray-900 text-sm truncate mb-1">{room.name}</p>
+      <p className="text-xs text-gray-400 mb-auto">{Number(room.area).toLocaleString()} m²</p>
+      {canEdit && (
+        <div className="flex flex-col gap-1 mt-3">
+          <div className="flex items-center gap-1.5">
+            <button onClick={e => { e.stopPropagation(); onBackup(); }}
+              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
+                hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-150">Backup</button>
+            <button onClick={e => { e.stopPropagation(); onDuplicate(); }}
+              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
+                hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-all duration-150">Dup</button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={e => { e.stopPropagation(); onEdit(); }}
+              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
+                hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-150">Edit</button>
+            <button onClick={e => { e.stopPropagation(); onDelete(); }}
+              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
+                hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-all duration-150">Delete</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Modal({ title, form, onChange, onSubmit, onClose, submitLabel }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-5">{title}</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Room Name</label>
+            <input type="text" autoFocus value={form.name}
+              onChange={e => onChange({ ...form, name: e.target.value })}
+              onKeyDown={e => e.key === 'Enter' && onSubmit()}
+              placeholder="e.g. Living Room"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>
+            <input type="number" min="0.01" step="0.01" value={form.area}
+              onChange={e => onChange({ ...form, area: e.target.value })}
+              placeholder="e.g. 20"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose}
+            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+          <button onClick={onSubmit} disabled={!form.name.trim() || Number(form.area) <= 0}
+            className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            {submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
