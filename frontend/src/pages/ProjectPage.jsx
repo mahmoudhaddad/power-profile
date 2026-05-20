@@ -109,6 +109,15 @@ export default function ProjectPage() {
     setBuildings(prev => [data.data, ...prev]);
   }
 
+  async function handleDuplicateFromSuggestion(buildingId) {
+    const { data } = await api.post(
+      `/api/projects/${project.id}/buildings/${buildingId}/duplicate`
+    );
+    setBuildings(prev => [data.data, ...prev]);
+    setShowModal(false);
+    setNewBuilding({ name: '', area: '' });
+  }
+
   async function handleBackupDownload(building) {
     try {
       const { data } = await api.get(`/api/buildings/${building.id}/backup`);
@@ -433,7 +442,11 @@ export default function ProjectPage() {
         <Modal title="New Building" form={newBuilding} onChange={setNewBuilding}
           onSubmit={handleAdd}
           onClose={() => { setShowModal(false); setNewBuilding({ name: '', area: '' }); }}
-          submitLabel="Add Building" />
+          submitLabel="Add Building"
+          suggestions={buildings}
+          nameLabel="Building Name"
+          namePlaceholder="e.g. Block A"
+          onDuplicateFrom={handleDuplicateFromSuggestion} />
       )}
       {editingBuilding && (
         <Modal title="Edit Building" form={editForm} onChange={setEditForm}
@@ -812,20 +825,58 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
   );
 }
 
-function Modal({ title, form, onChange, onSubmit, onClose, submitLabel }) {
+function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggestions = [], nameLabel = 'Building Name', namePlaceholder = 'e.g. Block A', onDuplicateFrom }) {
+  const wrapperRef = useRef(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowSuggestions(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  const filtered = suggestions.filter(s => !form.name || s.name.toLowerCase().includes(form.name.toLowerCase()));
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-5">{title}</h3>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Building Name</label>
+          <div className="relative" ref={wrapperRef}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{nameLabel}</label>
             <input type="text" autoFocus value={form.name}
-              onChange={e => onChange({ ...form, name: e.target.value })}
-              onKeyDown={e => e.key === 'Enter' && onSubmit()}
-              placeholder="e.g. Block A"
+              onChange={e => { onChange({ ...form, name: e.target.value }); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={e => { if (e.key === 'Escape') setShowSuggestions(false); if (e.key === 'Enter') onSubmit(); }}
+              placeholder={namePlaceholder}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            {showSuggestions && filtered.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                {filtered.map((s, i) => (
+                  <li key={i} className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium truncate block">{s.name}</span>
+                      {Number(s.area) > 0 && <span className="text-xs text-gray-400">{Number(s.area).toLocaleString()} m²</span>}
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onMouseDown={() => { onChange({ ...form, name: s.name, area: s.area ?? form.area }); setShowSuggestions(false); }}
+                        className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
+                        Empty
+                      </button>
+                      {onDuplicateFrom && (
+                        <button onMouseDown={() => { setShowSuggestions(false); onDuplicateFrom(s.id); }}
+                          className="text-xs px-2 py-1 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+                          Copy all
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>

@@ -34,6 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/projects/{project}', [ProjectController::class, 'update']);
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);
 
+    // Project-wide listing
+    Route::get('/projects/{project}/all-floors', [ProjectController::class, 'allFloors']);
+    Route::get('/projects/{project}/all-rooms',  [ProjectController::class, 'allRooms']);
+
     // Project backup / restore
     Route::get('/projects/{project}/backup', [ProjectBackupController::class, 'backup']);
     Route::post('/projects/restore',         [ProjectBackupController::class, 'restore']);

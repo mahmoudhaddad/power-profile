@@ -381,8 +381,13 @@ class ProjectBackupController extends Controller
 
     public function duplicateFloor(Request $request, Building $building, Floor $floor)
     {
-        $role = $building->project->userRole($request->user()->id);
-        if (! in_array($role, ['admin', 'main']) || $floor->building_id !== $building->id) {
+        $project = $building->project;
+        $role    = $project->userRole($request->user()->id);
+        if (! in_array($role, ['admin', 'main'])) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+        // Floor must belong to the same project (not necessarily the same building)
+        if ($floor->building->project_id !== $project->id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -401,8 +406,13 @@ class ProjectBackupController extends Controller
 
     public function duplicateRoom(Request $request, Floor $floor, Room $room)
     {
-        $role = $floor->building->project->userRole($request->user()->id);
-        if (! in_array($role, ['admin', 'main']) || $room->floor_id !== $floor->id) {
+        $project = $floor->building->project;
+        $role    = $project->userRole($request->user()->id);
+        if (! in_array($role, ['admin', 'main'])) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+        // Room must belong to the same project (not necessarily the same floor)
+        if ($room->floor->building->project_id !== $project->id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -502,19 +512,7 @@ class ProjectBackupController extends Controller
 
         $this->importLines($room, $data);
 
-        foreach ($data['components'] ?? [] as $compData) {
-            $ct = ComponentType::firstOrCreate(
-                ['name' => $compData['component_name']],
-                ['is_preset' => false]
-            );
-            $room->components()->create([
-                'component_type_id' => $ct->id,
-                'power'             => $compData['power'],
-                'phases'            => $compData['phases']        ?? '1phase',
-                'power_factor'      => $compData['power_factor']  ?? 1.00,
-                'quantity'          => $compData['quantity']       ?? 1,
-            ]);
-        }
+        $this->importComponents($room, $data['components'] ?? []);
 
         return $room;
     }
@@ -527,12 +525,17 @@ class ProjectBackupController extends Controller
                 ['is_preset' => false]
             );
             $parent->components()->create([
-                'component_type_id' => $ct->id,
-                'power'             => $compData['power'],
-                'phases'            => $compData['phases']        ?? '1phase',
-                'power_factor'      => $compData['power_factor']  ?? 1.00,
-                'quantity'          => $compData['quantity']       ?? 1,
-                'priority'          => $compData['priority']       ?? 'normal',
+                'component_type_id'    => $ct->id,
+                'power'                => $compData['power'],
+                'phases'               => $compData['phases']               ?? '1phase',
+                'power_factor'         => $compData['power_factor']         ?? 1.00,
+                'quantity'             => $compData['quantity']              ?? 1,
+                'priority'             => $compData['priority']              ?? 'normal',
+                'group_name'           => $compData['group_name']            ?? null,
+                'needs_socket'         => $compData['needs_socket']          ?? false,
+                'usage_season'         => $compData['usage_season']          ?? 'all',
+                'usage_day_type'       => $compData['usage_day_type']        ?? 'all',
+                'usage_time_intervals' => $compData['usage_time_intervals']  ?? null,
             ]);
         }
     }
