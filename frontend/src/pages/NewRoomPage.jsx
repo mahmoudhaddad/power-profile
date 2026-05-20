@@ -53,7 +53,7 @@ export default function RoomPage() {
     })
     .catch(() => navigate('/project/building/floor'))
     .finally(() => setLoading(false));
-  }, [roomId]);
+  }, [roomId, navigate]);
 
   async function handleAdd() {
     if (!newComp.name.trim() || Number(newComp.power) <= 0) return;
