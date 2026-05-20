@@ -124,4 +124,34 @@ class ProjectController extends Controller
 
         return response()->json(['message' => 'Project deleted.']);
     }
+
+    public function allFloors(Request $request, Project $project)
+    {
+        $role = $project->userRole($request->user()->id);
+        if (! $role) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $floors = \App\Models\Floor::whereHas('building', fn($q) => $q->where('project_id', $project->id))
+            ->select('id', 'name', 'area')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(['data' => $floors]);
+    }
+
+    public function allRooms(Request $request, Project $project)
+    {
+        $role = $project->userRole($request->user()->id);
+        if (! $role) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $rooms = \App\Models\Room::whereHas('floor.building', fn($q) => $q->where('project_id', $project->id))
+            ->select('id', 'name', 'area')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(['data' => $rooms]);
+    }
 }

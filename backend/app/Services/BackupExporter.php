@@ -60,14 +60,7 @@ class BackupExporter
             'area'            => $room->area,
             'utility_lines'   => $room->utilityLines()->get(['name', 'power', 'phases'])->toArray(),
             'generator_lines' => $room->generatorLines()->get(['name', 'power', 'phases'])->toArray(),
-            'components'      => $room->components()->with('componentType')->get()
-                ->map(fn($c) => [
-                    'component_name' => $c->componentType->name,
-                    'power'          => $c->power,
-                    'phases'         => $c->phases,
-                    'power_factor'   => $c->power_factor,
-                    'quantity'       => $c->quantity,
-                ])->toArray(),
+            'components'      => $this->exportComponents($room->components()->with('componentType')->get()),
             'sockets'         => $room->sockets()->get(['phase_type', 'power', 'quantity'])->toArray(),
         ];
     }

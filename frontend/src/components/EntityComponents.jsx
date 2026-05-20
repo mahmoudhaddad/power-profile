@@ -73,7 +73,7 @@ export default function EntityComponents({ endpoint, componentTypes, onTypesUpda
       needs_socket:         comp.needs_socket,
       usage_season:         comp.usage_season         ?? 'all',
       usage_day_type:       comp.usage_day_type       ?? 'all',
-      usage_time_intervals: comp.usage_time_intervals ?? [{ start: '08:00', end: '18:00' }],
+      usage_time_intervals: (() => { const r = comp.usage_time_intervals; return r ? (typeof r === 'string' ? JSON.parse(r) : r) : [{ start: '08:00', end: '18:00' }]; })(),
     });
     setComponents(prev => [data.data, ...prev]);
     onChanged?.();
@@ -92,7 +92,7 @@ export default function EntityComponents({ endpoint, componentTypes, onTypesUpda
       needs_socket:         comp.needs_socket         ?? false,
       usage_season:         comp.usage_season         ?? 'all',
       usage_day_type:       comp.usage_day_type       ?? 'all',
-      usage_time_intervals: comp.usage_time_intervals ?? [{ start: '08:00', end: '18:00' }],
+      usage_time_intervals: (() => { const r = comp.usage_time_intervals; return r ? (typeof r === 'string' ? JSON.parse(r) : r) : [{ start: '08:00', end: '18:00' }]; })(),
     });
     setShowModal(true);
   }
@@ -353,7 +353,10 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
                       if (t.default_needs_socket    != null) next.needs_socket      = t.default_needs_socket;
                       if (t.default_usage_season)          next.usage_season      = t.default_usage_season;
                       if (t.default_usage_day_type)        next.usage_day_type    = t.default_usage_day_type;
-                      if (t.default_usage_time_intervals)  next.usage_time_intervals = t.default_usage_time_intervals;
+                      if (t.default_usage_time_intervals) {
+                        const raw = t.default_usage_time_intervals;
+                        next.usage_time_intervals = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                      }
                       onChange(next);
                       setShowSuggestions(false);
                     }}

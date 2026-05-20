@@ -45,6 +45,8 @@ class ProjectMemberController extends Controller
         $request->validate([
             'email' => 'required|email|exists:users,email',
             'role'  => 'required|in:admin,main,normal',
+        ], [
+            'email.exists' => 'No account found with this email. The user must sign up first.',
         ]);
 
         $user = User::where('email', $request->email)->firstOrFail();
