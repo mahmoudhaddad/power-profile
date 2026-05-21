@@ -4,13 +4,18 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 
 class GoogleController extends Controller
 {
-    public function redirect()
+    public function redirect(Request $request)
     {
+        if ($request->filled('origin')) {
+            session(['auth_origin' => $request->input('origin')]);
+        }
+
         return Socialite::driver('google')->redirect();
     }
 
@@ -33,7 +38,8 @@ class GoogleController extends Controller
 
         $token = $user->createToken('google-auth')->plainTextToken;
 
-        $frontendUrl = config('app.frontend_url', 'http://localhost:3000');
+        $frontendUrl = session('auth_origin', config('app.frontend_url', 'http://localhost:5173'));
+        session()->forget('auth_origin');
 
         return redirect("{$frontendUrl}/auth/callback?token={$token}");
     }
