@@ -35,6 +35,7 @@ class ProjectBackupController extends Controller
 
     public function restore(Request $request)
     {
+        set_time_limit(300);
         $request->validate([
             'data'      => 'required|array',
             'overwrite' => 'sometimes|boolean',
@@ -196,6 +197,7 @@ class ProjectBackupController extends Controller
 
     public function restoreBuilding(Request $request, Project $project)
     {
+        set_time_limit(300);
         $role = $project->userRole($request->user()->id);
         if (! in_array($role, ['admin', 'main'])) {
             return response()->json(['message' => 'Forbidden.'], 403);
@@ -255,6 +257,7 @@ class ProjectBackupController extends Controller
 
     public function restoreFloor(Request $request, Building $building)
     {
+        set_time_limit(300);
         $project = $building->project;
         $role    = $project->userRole($request->user()->id);
         if (! in_array($role, ['admin', 'main'])) {
@@ -315,6 +318,7 @@ class ProjectBackupController extends Controller
 
     public function restoreRoom(Request $request, Floor $floor)
     {
+        set_time_limit(300);
         $project = $floor->building->project;
         $role    = $project->userRole($request->user()->id);
         if (! in_array($role, ['admin', 'main'])) {
@@ -519,49 +523,89 @@ class ProjectBackupController extends Controller
 
     private function importComponents($parent, array $components): void
     {
-        foreach ($components as $compData) {
-            $ct = ComponentType::firstOrCreate(
-                ['name' => $compData['component_name']],
-                ['is_preset' => false]
-            );
-            $parent->components()->create([
-                'component_type_id'    => $ct->id,
-                'power'                => $compData['power'],
-                'phases'               => $compData['phases']               ?? '1phase',
-                'power_factor'         => $compData['power_factor']         ?? 1.00,
-                'quantity'             => $compData['quantity']              ?? 1,
-                'priority'             => $compData['priority']              ?? 'normal',
-                'group_name'           => $compData['group_name']            ?? null,
-                'needs_socket'         => $compData['needs_socket']          ?? false,
-                'usage_season'         => $compData['usage_season']          ?? 'all',
-                'usage_day_type'       => $compData['usage_day_type']        ?? 'all',
-                'usage_time_intervals' => $compData['usage_time_intervals']  ?? null,
-            ]);
+        if (empty($components)) return;
+
+        $now = now()->toDateTimeString();
+
+        // Resolve all component types in one query instead of N firstOrCreate calls
+        $names   = array_unique(array_column($components, 'component_name'));
+        $ctMap   = ComponentType::whereIn('name', $names)->pluck('id', 'name');
+        $missing = array_diff($names, $ctMap->keys()->all());
+        if ($missing) {
+            ComponentType::insert(array_map(fn($n) => [
+                'name' => $n, 'is_preset' => false,
+                'created_at' => $now, 'updated_at' => $now,
+            ], array_values($missing)));
+            $ctMap = ComponentType::whereIn('name', $names)->pluck('id', 'name');
         }
+
+        [$table, $parentCol] = match(true) {
+            $parent instanceof \App\Models\Project  => ['project_components',  'project_id'],
+            $parent instanceof \App\Models\Building => ['building_components', 'building_id'],
+            $parent instanceof \App\Models\Floor    => ['floor_components',    'floor_id'],
+            default                                 => ['room_components',     'room_id'],
+        };
+
+        $rows = [];
+        foreach ($components as $c) {
+            $rows[] = [
+                $parentCol             => $parent->id,
+                'component_type_id'    => $ctMap[$c['component_name']],
+                'power'                => $c['power'],
+                'phases'               => $c['phases']               ?? '1phase',
+                'power_factor'         => $c['power_factor']         ?? 1.00,
+                'quantity'             => $c['quantity']              ?? 1,
+                'priority'             => $c['priority']              ?? 'normal',
+                'group_name'           => $c['group_name']            ?? null,
+                'needs_socket'         => $c['needs_socket']          ?? false,
+                'usage_season'         => $c['usage_season']          ?? 'all',
+                'usage_day_type'       => $c['usage_day_type']        ?? 'all',
+                'usage_time_intervals' => isset($c['usage_time_intervals'])
+                    ? json_encode($c['usage_time_intervals']) : null,
+                'created_at'           => $now,
+                'updated_at'           => $now,
+            ];
+        }
+        DB::table($table)->insert($rows);
     }
 
     private function importLines($parent, array $data): void
     {
+        $now      = now()->toDateTimeString();
+        $morphType = get_class($parent);
+        $id        = $parent->id;
+
+        $utilityRows = [];
         foreach ($data['utility_lines'] ?? [] as $line) {
-            $parent->utilityLines()->create([
-                'name'   => $line['name'],
-                'power'  => $line['power'],
+            $utilityRows[] = [
+                'lineable_type' => $morphType, 'lineable_id' => $id,
+                'name' => $line['name'], 'power' => $line['power'],
                 'phases' => $line['phases'] ?? '1phase',
-            ]);
+                'created_at' => $now, 'updated_at' => $now,
+            ];
         }
+        if ($utilityRows) DB::table('utility_lines')->insert($utilityRows);
+
+        $generatorRows = [];
         foreach ($data['generator_lines'] ?? [] as $line) {
-            $parent->generatorLines()->create([
-                'name'   => $line['name'],
-                'power'  => $line['power'],
+            $generatorRows[] = [
+                'generable_type' => $morphType, 'generable_id' => $id,
+                'name' => $line['name'], 'power' => $line['power'],
                 'phases' => $line['phases'] ?? '1phase',
-            ]);
+                'created_at' => $now, 'updated_at' => $now,
+            ];
         }
+        if ($generatorRows) DB::table('generator_lines')->insert($generatorRows);
+
+        $socketRows = [];
         foreach ($data['sockets'] ?? [] as $s) {
-            $parent->sockets()->create([
+            $socketRows[] = [
+                'socketable_type' => $morphType, 'socketable_id' => $id,
                 'phase_type' => $s['phase_type'] ?? '1phase',
-                'power'      => $s['power'],
-                'quantity'   => $s['quantity'] ?? 1,
-            ]);
+                'power' => $s['power'], 'quantity' => $s['quantity'] ?? 1,
+                'created_at' => $now, 'updated_at' => $now,
+            ];
         }
+        if ($socketRows) DB::table('sockets')->insert($socketRows);
     }
 }
