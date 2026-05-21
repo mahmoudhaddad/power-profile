@@ -32,7 +32,7 @@ export default function LoginPage() {
             <p className="text-center text-gray-600 text-sm">Sign in to access your dashboard</p>
 
             <a
-              href={`${apiUrl}/auth/google`}
+              href={`${apiUrl}/auth/google?origin=${encodeURIComponent(window.location.origin)}`}
               className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-white border-2
                 border-gray-200 rounded-xl text-gray-700 font-medium hover:border-blue-400
                 hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow group"
