@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import api from '../api/axios';
-import { getNav, setNav } from '../utils/navContext';
 
 // ─── icons ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +49,15 @@ function IconSchedule() {
   );
 }
 
+function IconPhase() {
+  return (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+
 function Chevron({ open }) {
   return (
     <svg
@@ -73,10 +81,7 @@ function Spinner() {
 export default function ProjectSidebar() {
   const navigate  = useNavigate();
   const location  = useLocation();
-
-  // Re-derive active IDs from sessionStorage on every navigation
-  const { projectId, buildingId: activeBuildingId, floorId: activeFloorId, roomId: activeRoomId } =
-    useMemo(() => getNav(), [location.pathname]);
+  const { projectId, buildingId: activeBuildingId, floorId: activeFloorId, roomId: activeRoomId } = useParams();
 
   const [project,   setProject]   = useState(null);
   const [buildings, setBuildings] = useState([]);
@@ -178,27 +183,25 @@ export default function ProjectSidebar() {
 
   // ── navigation ──
   function goProject() {
-    navigate('/project');
+    navigate(`/projects/${projectId}`);
   }
 
   function goBuilding(building) {
-    setNav({ buildingId: building.id, floorId: null, roomId: null });
-    navigate('/project/building');
+    navigate(`/projects/${projectId}/buildings/${building.id}`);
   }
 
   function goFloor(floor, buildingId) {
-    setNav({ buildingId, floorId: floor.id, roomId: null });
-    navigate('/project/building/floor');
+    navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floor.id}`);
   }
 
   function goRoom(room, floorId, buildingId) {
-    setNav({ buildingId, floorId, roomId: room.id });
-    navigate('/project/building/floor/room');
+    navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floorId}/rooms/${room.id}`);
   }
 
   // ── active checks ──
-  const isOnSchedule = location.pathname === '/project/schedule';
-  const isOnProject  = !activeBuildingId && !isOnSchedule;
+  const isOnSchedule     = location.pathname.endsWith('/schedule');
+  const isOnPhaseBalance = location.pathname.endsWith('/phase-balance');
+  const isOnProject      = !activeBuildingId && !isOnSchedule && !isOnPhaseBalance;
   const isOnBuilding = bId => Number(activeBuildingId) === Number(bId) && !activeFloorId;
   const isOnFloor    = fId => Number(activeFloorId)    === Number(fId) && !activeRoomId;
   const isOnRoom     = rId => Number(activeRoomId)     === Number(rId);
@@ -222,10 +225,24 @@ export default function ProjectSidebar() {
 
       <div className="mx-3 border-t border-gray-100 flex-shrink-0" />
 
-      {/* Schedule link */}
+      {/* Phase Balance link */}
       <div className="px-3 pt-2 flex-shrink-0">
         <button
-          onClick={() => navigate('/project/schedule')}
+          onClick={() => navigate(`/projects/${projectId}/phase-balance`)}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
+            ${isOnPhaseBalance
+              ? 'bg-violet-50 text-violet-700'
+              : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <IconPhase />
+          <span>Phase Balance</span>
+        </button>
+      </div>
+
+      {/* Schedule link */}
+      <div className="px-3 pt-1 flex-shrink-0">
+        <button
+          onClick={() => navigate(`/projects/${projectId}/schedule`)}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
             ${isOnSchedule
               ? 'bg-amber-50 text-amber-700'

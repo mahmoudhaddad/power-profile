@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/axios';
-import { getNav, setNav } from '../utils/navContext';
 import EntityComponents from '../components/EntityComponents';
 import EntitySockets from '../components/EntitySockets';
 import PowerBanner from '../components/PowerBanner';
@@ -11,10 +10,11 @@ import BackupChoiceModal from '../components/BackupChoiceModal';
 import ServerBackupsList from '../components/ServerBackupsList';
 import EntityScheduleModal from '../components/EntityScheduleModal';
 import ProjectSidebar from '../components/ProjectSidebar';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function BuildingPage() {
   const navigate = useNavigate();
-  const { projectId, buildingId } = getNav();
+  const { projectId, buildingId } = useParams();
 
   const [project, setProject]   = useState(null);
   const [building, setBuilding] = useState(null);
@@ -24,9 +24,11 @@ export default function BuildingPage() {
   const [showModal, setShowModal] = useState(false);
   const [newFloor, setNewFloor]   = useState({ name: '', area: '' });
   const [allProjectFloors, setAllProjectFloors] = useState([]);
+  const [addFieldErrors, setAddFieldErrors] = useState({});
 
   const [editingFloor, setEditingFloor] = useState(null);
   const [editForm, setEditForm]         = useState({ name: '', area: '' });
+  const [editFieldErrors, setEditFieldErrors] = useState({});
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput]     = useState('');
@@ -64,7 +66,7 @@ export default function BuildingPage() {
           .then(r => setAllProjectFloors(r.data.data))
           .catch(() => {});
       })
-      .catch(() => navigate('/project'))
+      .catch(() => navigate(`/projects/${projectId}`))
       .finally(() => setLoading(false));
   }, [buildingId]);
 
@@ -80,13 +82,16 @@ export default function BuildingPage() {
 
   async function handleAdd() {
     if (!newFloor.name.trim()) return;
-    const { data } = await api.post(`/api/buildings/${building.id}/floors`, {
-      name: newFloor.name.trim(),
-      area: newFloor.area || 0,
-    });
-    setShowModal(false);
-    setNav({ floorId: data.data.id });
-    navigate('/project/building/floor');
+    try {
+      const { data } = await api.post(`/api/buildings/${building.id}/floors`, {
+        name: newFloor.name.trim(),
+        area: newFloor.area || 0,
+      });
+      setShowModal(false);
+      navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${data.data.id}`);
+    } catch (err) {
+      if (err.response?.status === 422) setAddFieldErrors(err.response.data.errors ?? {});
+    }
   }
 
   function openEdit(floor) {
@@ -96,12 +101,16 @@ export default function BuildingPage() {
 
   async function handleEdit() {
     if (!editForm.name.trim()) return;
-    const { data } = await api.put(
-      `/api/buildings/${building.id}/floors/${editingFloor.id}`,
-      { name: editForm.name.trim(), area: editForm.area }
-    );
-    setFloors(floors.map(f => f.id === editingFloor.id ? data.data : f));
-    setEditingFloor(null);
+    try {
+      const { data } = await api.put(
+        `/api/buildings/${building.id}/floors/${editingFloor.id}`,
+        { name: editForm.name.trim(), area: editForm.area }
+      );
+      setFloors(floors.map(f => f.id === editingFloor.id ? data.data : f));
+      setEditingFloor(null);
+    } catch (err) {
+      if (err.response?.status === 422) setEditFieldErrors(err.response.data.errors ?? {});
+    }
   }
 
   async function handleDelete(floorId) {
@@ -199,23 +208,28 @@ export default function BuildingPage() {
     <div className="min-h-screen bg-gray-50">
 
       <div className="sticky top-0 z-40">
-        <PowerBanner
-          endpoint={building ? `/api/buildings/${building.id}/total-power` : null}
-          refreshKey={powerKey}
-          onData={d => setPowerSources({ solar_computed: d.solar_computed, generator_computed: d.generator_computed, max_va: d.max_va ?? 0, total_va: d.total_va ?? 0 })}
-        />
-        <PowerSourcesBanner
-          entity={building}
-          updateEndpoint={building ? `/api/projects/${projectId}/buildings/${building.id}` : null}
-          onUpdate={updated => setBuilding(updated)}
-          solarComputed={powerSources.solar_computed}
-          maxLoad={powerSources.max_va}
-          optimizedLoad={powerSources.total_va}
-        />
+        <ErrorBoundary label="power summary">
+          <PowerBanner
+            endpoint={building ? `/api/buildings/${building.id}/total-power` : null}
+            refreshKey={powerKey}
+            reportTitle={building ? `${building.name} — Power Analysis` : undefined}
+            onData={d => setPowerSources({ solar_computed: d.solar_computed, generator_computed: d.generator_computed, max_va: d.max_va ?? 0, total_va: d.total_va ?? 0 })}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary label="power sources">
+          <PowerSourcesBanner
+            entity={building}
+            updateEndpoint={building ? `/api/projects/${projectId}/buildings/${building.id}` : null}
+            onUpdate={updated => setBuilding(updated)}
+            solarComputed={powerSources.solar_computed}
+            maxLoad={powerSources.max_va}
+            optimizedLoad={powerSources.total_va}
+          />
+        </ErrorBoundary>
       </div>
 
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
-        <button onClick={() => navigate('/project')}
+        <button onClick={() => navigate(`/projects/${projectId}`)}
           className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -225,7 +239,7 @@ export default function BuildingPage() {
           <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-0.5 flex-wrap">
             <span onClick={() => navigate('/dashboard')} className="hover:text-blue-500 cursor-pointer transition-colors">Projects</span>
             <Chevron />
-            <span onClick={() => navigate('/project')} className="hover:text-blue-500 cursor-pointer transition-colors">{project?.name}</span>
+            <span onClick={() => navigate(`/projects/${projectId}`)} className="hover:text-blue-500 cursor-pointer transition-colors">{project?.name}</span>
             <Chevron />
             <span className="text-gray-600 font-medium">{building?.name}</span>
           </div>
@@ -310,7 +324,7 @@ export default function BuildingPage() {
                     key={floor.id}
                     floor={floor}
                     canEdit={canEdit}
-                    onOpen={() => { setNav({ floorId: floor.id }); navigate('/project/building/floor'); }}
+                    onOpen={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floor.id}`)}
                     onEdit={() => openEdit(floor)}
                     onDelete={() => handleDelete(floor.id)}
                     onBackup={() => setBackupTarget({ type: 'floor', entity: floor })}
@@ -322,18 +336,22 @@ export default function BuildingPage() {
           </div>}
         </section>
 
-        <EntityComponents
-          endpoint={building ? `/api/buildings/${building.id}/components` : null}
-          componentTypes={componentTypes}
-          onTypesUpdated={t => setComponentTypes(prev => [...prev, t])}
-          onChanged={() => setPowerKey(k => k + 1)}
-          canEdit={canEdit}
-        />
-        <EntitySockets
-          endpoint={building ? `/api/buildings/${building.id}/sockets` : null}
-          onChanged={() => setPowerKey(k => k + 1)}
-          canEdit={canEdit}
-        />
+        <ErrorBoundary label="components">
+          <EntityComponents
+            endpoint={building ? `/api/buildings/${building.id}/components` : null}
+            componentTypes={componentTypes}
+            onTypesUpdated={t => setComponentTypes(prev => [...prev, t])}
+            onChanged={() => setPowerKey(k => k + 1)}
+            canEdit={canEdit}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary label="sockets">
+          <EntitySockets
+            endpoint={building ? `/api/buildings/${building.id}/sockets` : null}
+            onChanged={() => setPowerKey(k => k + 1)}
+            canEdit={canEdit}
+          />
+        </ErrorBoundary>
         </div>
 
         {canEdit && (
@@ -404,11 +422,13 @@ export default function BuildingPage() {
                   {restoreError && <p className="mt-2 text-xs text-red-500">{restoreError}</p>}
                 </>
               ) : (
-                <ServerBackupsList
-                  projectId={project?.id}
-                  entityType="floor"
-                  onRestore={handleServerRestore}
-                />
+                <ErrorBoundary label="backups">
+                  <ServerBackupsList
+                    projectId={project?.id}
+                    entityType="floor"
+                    onRestore={handleServerRestore}
+                  />
+                </ErrorBoundary>
               )}
             </div>
           </aside>
@@ -418,17 +438,21 @@ export default function BuildingPage() {
       {showModal && (
         <Modal title="New Floor" form={newFloor} onChange={setNewFloor}
           onSubmit={handleAdd}
-          onClose={() => { setShowModal(false); setNewFloor({ name: '', area: '' }); }}
+          onClose={() => { setShowModal(false); setNewFloor({ name: '', area: '' }); setAddFieldErrors({}); }}
           submitLabel="Add Floor"
           suggestions={allProjectFloors}
           nameLabel="Floor Name"
           namePlaceholder="e.g. Ground Floor"
-          onDuplicateFrom={handleDuplicateFromSuggestion} />
+          onDuplicateFrom={handleDuplicateFromSuggestion}
+          fieldErrors={addFieldErrors}
+          onClearError={f => setAddFieldErrors(p => ({ ...p, [f]: null }))} />
       )}
       {editingFloor && (
         <Modal title="Edit Floor" form={editForm} onChange={setEditForm}
-          onSubmit={handleEdit} onClose={() => setEditingFloor(null)}
-          submitLabel="Save Changes" />
+          onSubmit={handleEdit} onClose={() => { setEditingFloor(null); setEditFieldErrors({}); }}
+          submitLabel="Save Changes"
+          fieldErrors={editFieldErrors}
+          onClearError={f => setEditFieldErrors(p => ({ ...p, [f]: null }))} />
       )}
       {confirmData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -559,7 +583,7 @@ function FloorRow({ floor, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplic
   );
 }
 
-function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggestions = [], nameLabel = 'Floor Name', namePlaceholder = 'e.g. Floor 1', onDuplicateFrom }) {
+function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggestions = [], nameLabel = 'Floor Name', namePlaceholder = 'e.g. Floor 1', onDuplicateFrom, fieldErrors = {}, onClearError }) {
   const wrapperRef = useRef(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -581,12 +605,12 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
           <div className="relative" ref={wrapperRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">{nameLabel}</label>
             <input type="text" autoFocus value={form.name}
-              onChange={e => { onChange({ ...form, name: e.target.value }); setShowSuggestions(true); }}
+              onChange={e => { onChange({ ...form, name: e.target.value }); setShowSuggestions(true); onClearError?.('name'); }}
               onFocus={() => setShowSuggestions(true)}
               onKeyDown={e => { if (e.key === 'Escape') setShowSuggestions(false); if (e.key === 'Enter') onSubmit(); }}
               placeholder={namePlaceholder}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldErrors?.name ? 'border-red-400' : 'border-gray-300'}`} />
+            {fieldErrors?.name?.[0] && <p className="text-red-500 text-xs mt-1">{fieldErrors.name[0]}</p>}
             {showSuggestions && filtered.length > 0 && (
               <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
                 {filtered.map((s, i) => (
@@ -615,10 +639,10 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>
             <input type="number" min="0.01" step="0.01" value={form.area}
-              onChange={e => onChange({ ...form, area: e.target.value })}
+              onChange={e => { onChange({ ...form, area: e.target.value }); onClearError?.('area'); }}
               placeholder="e.g. 20"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldErrors?.area ? 'border-red-400' : 'border-gray-300'}`} />
+            {fieldErrors?.area?.[0] && <p className="text-red-500 text-xs mt-1">{fieldErrors.area[0]}</p>}
           </div>
         </div>
         <div className="flex gap-3 mt-6">

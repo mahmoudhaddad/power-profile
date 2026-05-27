@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\PhaseBalanceController;
 use App\Http\Controllers\Api\ProjectBackupController;
 use App\Http\Controllers\Api\ServerBackupController;
 use App\Http\Controllers\Api\BuildingComponentController;
@@ -24,7 +25,7 @@ use App\Http\Controllers\Api\UtilityLineController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::post('/logout', [UserController::class, 'logout']);
 
@@ -39,7 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}/all-rooms',  [ProjectController::class, 'allRooms']);
 
     // Project backup / restore
-    Route::get('/projects/{project}/backup', [ProjectBackupController::class, 'backup']);
+    Route::get('/projects/{project}/backup', [ProjectBackupController::class, 'backup'])->middleware('throttle:api-heavy');
     Route::post('/projects/restore',         [ProjectBackupController::class, 'restore']);
 
     // Building backup / restore
@@ -55,7 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/floors/{floor}/rooms/restore',     [ProjectBackupController::class, 'restoreRoom']);
 
     // Save backup to server
-    Route::post('/projects/{project}/save-backup',   [ProjectBackupController::class, 'saveProjectToServer']);
+    Route::post('/projects/{project}/save-backup',   [ProjectBackupController::class, 'saveProjectToServer'])->middleware('throttle:api-heavy');
     Route::post('/buildings/{building}/save-backup', [ProjectBackupController::class, 'saveBuildingToServer']);
     Route::post('/floors/{floor}/save-backup',       [ProjectBackupController::class, 'saveFloorToServer']);
     Route::post('/rooms/{room}/save-backup',         [ProjectBackupController::class, 'saveRoomToServer']);
@@ -93,12 +94,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/component-types', [ComponentTypeController::class, 'index']);
 
-    Route::get('/projects/{project}/load-profile',  [LoadProfileController::class, 'project']);
+    Route::get('/projects/{project}/phase-balance',  [PhaseBalanceController::class, 'project'])->middleware('throttle:api-heavy');
+    Route::get('/buildings/{building}/phase-balance', [PhaseBalanceController::class, 'building'])->middleware('throttle:api-heavy');
+    Route::get('/floors/{floor}/phase-balance',      [PhaseBalanceController::class, 'floor'])->middleware('throttle:api-heavy');
+    Route::post('/rooms/{room}/assign-phase',                  [PhaseBalanceController::class, 'assignRoom']);
+    Route::post('/buildings/{building}/apply-optimal-phase',   [PhaseBalanceController::class, 'applyOptimalBuilding']);
+
+    Route::get('/projects/{project}/load-profile',  [LoadProfileController::class, 'project'])->middleware('throttle:api-heavy');
     Route::get('/projects/{project}/schedule',      [ScheduleController::class, 'project']);
-    Route::get('/projects/{project}/total-power',  [TotalPowerController::class, 'project']);
-    Route::get('/buildings/{building}/total-power', [TotalPowerController::class, 'building']);
-    Route::get('/floors/{floor}/total-power',       [TotalPowerController::class, 'floor']);
-    Route::get('/rooms/{room}/total-power',         [TotalPowerController::class, 'room']);
+    Route::get('/projects/{project}/total-power',  [TotalPowerController::class, 'project'])->middleware('throttle:api-heavy');
+    Route::get('/buildings/{building}/total-power', [TotalPowerController::class, 'building'])->middleware('throttle:api-heavy');
+    Route::get('/floors/{floor}/total-power',       [TotalPowerController::class, 'floor'])->middleware('throttle:api-heavy');
+    Route::get('/rooms/{room}/total-power',         [TotalPowerController::class, 'room'])->middleware('throttle:api-heavy');
 
     Route::get('/projects/{project}/components', [ProjectComponentController::class, 'index']);
     Route::post('/projects/{project}/components', [ProjectComponentController::class, 'store']);

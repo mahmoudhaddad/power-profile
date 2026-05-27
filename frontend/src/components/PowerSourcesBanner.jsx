@@ -546,6 +546,10 @@ export default function PowerSourcesBanner({
   const [generatorMode, setGeneratorMode] = useState(entity?.generator_source ?? 'existing');
 
   useEffect(() => {
+    if (entity?.generator_source) setGeneratorMode(entity.generator_source);
+  }, [entity?.generator_source]);
+
+  useEffect(() => {
     if (!projectId) return;
     Promise.all([
       api.get(`/api/projects/${projectId}/utility-lines`),

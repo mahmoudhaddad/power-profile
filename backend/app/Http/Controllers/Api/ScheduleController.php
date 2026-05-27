@@ -7,10 +7,16 @@ use App\Models\Project;
 use App\Services\SolarIrradianceService;
 use App\Services\SourceDispatchService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ScheduleController extends Controller
 {
     private const DEFAULT_WORK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
+    // IEC 60364-8-1 diversity factors — must match TotalPowerController and LoadProfileController.
+    private const DF_FLOOR    = 0.9;
+    private const DF_BUILDING = 0.8;
+    private const DF_PROJECT  = 0.7;
 
     private const MONTH_NAMES = [
         1 => 'January',  2 => 'February',  3 => 'March',    4 => 'April',
@@ -37,26 +43,45 @@ class ScheduleController extends Controller
 
         $month   = max(1, min(12, (int) $request->query('month', now()->month)));
         $dayType = $request->query('day_type', 'workday');
+        // Specific calendar day (1-31). Clamped to days-in-month for 2023.
+        $dayNum  = max(1, min(31, (int) $request->query('day', 15)));
+        $dayNum  = min($dayNum, (int) date('t', mktime(0, 0, 0, $month, 1, 2023)));
 
         // ── 1. Collect all components with schedule metadata ──────────────────
         $components = $this->collectComponents($project);
 
         // ── 2. Build 24-hour load profiles (W) ───────────────────────────────
-        $loadMax = $this->buildHourlyW($components, 'max',       $dayType, $month);
-        $loadOpt = $this->buildHourlyW($components, 'optimized', $dayType, $month);
+        $loadMax = $this->buildHourlyW($components, 'max',       $dayType, $month, false);
+        $loadOpt = $this->buildHourlyW($components, 'optimized', $dayType, $month, true);
+
+        Log::debug('Schedule profile peaks', [
+            'load_max_peak_w'       => max($loadMax),
+            'load_optimized_peak_w' => max($loadOpt),
+            'df_applied'            => true,
+        ]);
 
         // ── 3. Solar profile ──────────────────────────────────────────────────
-        $solarMode     = $project->solar_source ?? 'max';
-        $solarCapacity = $solarMode === 'existing'
-            ? (float) ($project->existing_solar_power ?? 0)
-            : (float) ($project->solar_power ?? 0);
+        $solarMode = $project->solar_source ?? 'max';
+
+        if ($solarMode === 'existing') {
+            // User-declared installed capacity: project-level + sum of buildings
+            $solarCapacityW = (float) ($project->existing_solar_power ?? 0)
+                            + (float) $project->buildings()->sum('existing_solar_power');
+        } else {
+            // 'max' mode: auto-compute from roof area (matches frontend formula)
+            // area_m² × 17% coverage × 1 000 W/m² STC × 0.75 PR = W
+            $totalAreaM2    = (float) $project->buildings()->sum('area');
+            $solarCapacityW = $totalAreaM2 * 0.17 * 1000 * 0.75;
+        }
 
         $lat = $project->location_lat !== null ? (float) $project->location_lat : null;
         $lng = $project->location_lng !== null ? (float) $project->location_lng : null;
 
-        $solarProfile = ($lat !== null && $lng !== null && $solarCapacity > 0)
-            ? $this->solarSvc->hourlyProfile($lat, $lng, $month, $solarCapacity)
-            : array_fill(0, 24, 0.0);
+        // NASA POWER first (uses exact calendar day), static PSH fallback
+        $solarProfile = $this->solarSvc->getHourlyOutputWatts(
+            $lat, $lng, $month, $solarCapacityW / 1000.0,
+            performanceRatio: 0.80, day: $dayNum
+        );
 
         $sunInfo = $lat !== null
             ? $this->solarSvc->sunriseSunset($lat, $month)
@@ -79,9 +104,12 @@ class ScheduleController extends Controller
         $dispatchMax = $this->dispatchSvc->dispatch($loadMax, $solarProfile, $utilCapW, $genCapW);
         $dispatchOpt = $this->dispatchSvc->dispatch($loadOpt, $solarProfile, $utilCapW, $genCapW);
 
+        $hourlyKvar = $this->buildHourlyKvar($components, $dayType, $month);
+
         return response()->json([
             'month'           => $month,
             'month_name'      => self::MONTH_NAMES[$month],
+            'day'             => $dayNum,
             'day_type'        => $dayType,
             'location'        => [
                 'lat'  => $lat,
@@ -91,7 +119,8 @@ class ScheduleController extends Controller
             'sunrise_hour'    => $sunInfo['sunrise'] ?? null,
             'sunset_hour'     => $sunInfo['sunset']  ?? null,
             'peak_sun_hours'  => $psh,
-            'solar_capacity_w'     => $solarCapacity,
+            'solar_capacity_w'     => $solarCapacityW,
+            'solar_data_source'    => $this->solarSvc->getDataSource(),
             'utility_capacity_va'  => $utilCapVA,
             'generator_capacity_va'=> $genCapVA,
             'load_max'         => $loadMax,
@@ -99,6 +128,7 @@ class ScheduleController extends Controller
             'solar'            => $solarProfile,
             'dispatch_max'     => $dispatchMax,
             'dispatch_optimized' => $dispatchOpt,
+            'hourly_kvar'      => $hourlyKvar,
         ]);
     }
 
@@ -110,7 +140,8 @@ class ScheduleController extends Controller
         $pSeasons = $project->working_season_intervals;
         $result   = [];
 
-        $this->extractRaw($result, $project->components, 'project_id', $pDays, $pSeasons);
+        // Project-own components: no diversity reduction at their own level.
+        $this->extractRaw($result, $project->components, 'project_id', $pDays, $pSeasons, 1.0);
 
         $buildings = $project->buildings()->with([
             'components',
@@ -121,17 +152,23 @@ class ScheduleController extends Controller
         foreach ($buildings as $building) {
             $bDays    = $building->work_days    ?? $pDays;
             $bSeasons = $building->working_season_intervals ?? $pSeasons;
-            $this->extractRaw($result, $building->components, 'building_id', $bDays, $bSeasons);
+            // Building → project: ×DF_PROJECT
+            $this->extractRaw($result, $building->components, 'building_id', $bDays, $bSeasons,
+                self::DF_PROJECT);
 
             foreach ($building->getRelation('floors') as $floor) {
                 $fDays    = $floor->work_days    ?? $bDays;
                 $fSeasons = $floor->working_season_intervals ?? $bSeasons;
-                $this->extractRaw($result, $floor->components, 'floor_id', $fDays, $fSeasons);
+                // Floor → building → project: ×DF_BUILDING × DF_PROJECT
+                $this->extractRaw($result, $floor->components, 'floor_id', $fDays, $fSeasons,
+                    self::DF_BUILDING * self::DF_PROJECT);
 
                 foreach ($floor->rooms as $room) {
                     $rDays    = $room->work_days    ?? $fDays;
                     $rSeasons = $room->working_season_intervals ?? $fSeasons;
-                    $this->extractRaw($result, $room->components, 'room_id', $rDays, $rSeasons);
+                    // Room → floor → building → project: ×DF_FLOOR × DF_BUILDING × DF_PROJECT
+                    $this->extractRaw($result, $room->components, 'room_id', $rDays, $rSeasons,
+                        self::DF_FLOOR * self::DF_BUILDING * self::DF_PROJECT);
                 }
             }
         }
@@ -139,28 +176,32 @@ class ScheduleController extends Controller
         return $result;
     }
 
-    private function extractRaw(array &$out, $components, string $key, ?array $workDays, ?array $seasons): void
+    private function extractRaw(array &$out, $components, string $key, ?array $workDays, ?array $seasons, float $df = 1.0): void
     {
         foreach ($components as $c) {
+            $pf    = max(0.01, (float) ($c->power_factor ?? 1));
             $out[] = [
-                'peak_w'     => (float) $c->power * (float) ($c->power_factor ?? 1) * (int) $c->quantity,
-                'intervals'  => $c->usage_time_intervals ?? [['start' => '08:00', 'end' => '18:00']],
-                'season'     => $c->usage_season  ?? 'all',
-                'day_type'   => $c->usage_day_type ?? 'all',
-                'priority'   => $c->priority,
-                'group_key'  => $c->group_name ? ($key . '|' . $c->{$key} . '|' . $c->group_name) : null,
-                'work_days'  => $workDays ?? self::DEFAULT_WORK_DAYS,
-                'seasons'    => $seasons,
+                'peak_w'    => (float) $c->power * $pf * (int) $c->quantity, // undiversified P = VA_rated × PF × qty
+                'df'        => $df,      // compounded IEC diversity factor for this hierarchy level
+                'pf'        => $pf,
+                'intervals' => $c->usage_time_intervals ?? [['start' => '08:00', 'end' => '18:00']],
+                'season'    => $c->usage_season  ?? 'all',
+                'day_type'  => $c->usage_day_type ?? 'all',
+                'priority'  => $c->priority,
+                'group_key' => $c->group_name ? ($key . '|' . $c->{$key} . '|' . $c->group_name) : null,
+                'work_days' => $workDays,
+                'seasons'   => $seasons,
             ];
         }
     }
 
     // ── 24-hour profile builder ───────────────────────────────────────────────
 
-    private function buildHourlyW(array $components, string $mode, string $dayType, int $month): array
+    private function buildHourlyW(array $components, string $mode, string $dayType, int $month, bool $applyDiversity = false): array
     {
         if ($mode === 'optimized') {
-            // Per group, keep only the component with the highest peak_w
+            // Group-max: within a group, keep only the highest-VA (peak_w) component.
+            // Selection is based on raw undiversified peak_w; DF is applied after selection.
             $groups    = [];
             $ungrouped = [];
             foreach ($components as $c) {
@@ -178,6 +219,17 @@ class ScheduleController extends Controller
         $profile = array_fill(0, 24, 0.0);
 
         foreach ($components as $c) {
+            $isCritical  = ($c['priority'] === 'critical');
+            // Critical loads are never diversified; max profile also uses df=1.0 for everything.
+            $effectiveDf = ($applyDiversity && ! $isCritical) ? (float) $c['df'] : 1.0;
+            $peakW       = $c['peak_w'] * $effectiveDf;
+
+            if ($isCritical) {
+                // Critical loads run 24/7 at full value — no schedule filtering.
+                for ($h = 0; $h < 24; $h++) { $profile[$h] += $peakW; }
+                continue;
+            }
+
             if (! $this->activeInMonth($c['seasons'], $month)) continue;
             if (! $this->componentSeasonOk($c['season'],   $month)) continue;
             if (! $this->dayTypeOk($c['work_days'], $c['day_type'], $dayType)) continue;
@@ -185,16 +237,14 @@ class ScheduleController extends Controller
             foreach ($c['intervals'] as $iv) {
                 $start = $this->dec($iv['start'] ?? '00:00');
                 $end   = $this->dec($iv['end']   ?? '23:59');
-                if ($end <= $start) $end += 24; // overnight interval
+                if ($end <= $start) $end += 24;
 
                 for ($h = 0; $h < 24; $h++) {
                     $mid = $h + 0.5;
-                    // Normal window
                     if ($mid >= $start && $mid < $end) {
-                        $profile[$h] += $c['peak_w'];
+                        $profile[$h] += $peakW;
                     } elseif ($end > 24 && ($mid + 24) >= $start && ($mid + 24) < $end) {
-                        // Wrapped overnight: check h in early-morning hours
-                        $profile[$h] += $c['peak_w'];
+                        $profile[$h] += $peakW;
                     }
                 }
             }
@@ -237,19 +287,26 @@ class ScheduleController extends Controller
         return $usageSeason === $s;
     }
 
-    private function dayTypeOk(array $workDays, string $compDayType, string $requestedDayType): bool
+    private function dayTypeOk(?array $workDays, string $compDayType, string $requestedDayType): bool
     {
         $weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         $weekend  = ['saturday', 'sunday'];
 
+        // DB stores 'weekday'; guard against old 'workday' entries too.
+        $isWeekdayComp = in_array($compDayType, ['weekday', 'workday'], true);
+
         if ($requestedDayType === 'workday') {
-            if (! array_intersect($workDays, $weekdays))           return false;
-            if ($compDayType === 'weekend')                         return false;
+            // null work_days → entity defaults to Mon-Fri (most entities are weekday ops)
+            $effective = $workDays ?? $weekdays;
+            if (! array_intersect($effective, $weekdays)) return false;
+            if ($compDayType === 'weekend')               return false;
         } elseif ($requestedDayType === 'weekend') {
-            if (! array_intersect($workDays, $weekend))            return false;
-            if ($compDayType === 'workday')                         return false;
+            // null work_days → entity not explicitly configured → runs all days
+            // Only block if entity was explicitly set to exclude weekends
+            if ($workDays !== null && ! array_intersect($workDays, $weekend)) return false;
+            // Weekday-tagged components don't run on weekends
+            if ($isWeekdayComp) return false;
         }
-        // 'all' — no filtering
         return true;
     }
 
@@ -257,5 +314,51 @@ class ScheduleController extends Controller
     {
         [$h, $m] = array_map('intval', explode(':', $t));
         return $h + $m / 60.0;
+    }
+
+    private function buildHourlyKvar(array $components, string $dayType, int $month): array
+    {
+        $hourlyQ = array_fill(0, 24, 0.0);
+
+        foreach ($components as $c) {
+            $peakW = (float) $c['peak_w'];
+            if ($peakW <= 0) continue;
+            $pf = max(0.01, min(1.0, (float) ($c['pf'] ?? 1.0)));
+            if ($pf >= 1.0) continue;
+
+            $isCritical  = ($c['priority'] === 'critical');
+            // kvar tracks the diversified (optimized) reactive profile to match load_optimized.
+            $effectiveDf = $isCritical ? 1.0 : (float) $c['df'];
+            $qi          = $peakW * $effectiveDf * tan(acos($pf));
+
+            if ($isCritical) {
+                for ($h = 0; $h < 24; $h++) { $hourlyQ[$h] += $qi; }
+                continue;
+            }
+
+            if (! $this->activeInMonth($c['seasons'], $month))                 continue;
+            if (! $this->componentSeasonOk($c['season'], $month))              continue;
+            if (! $this->dayTypeOk($c['work_days'], $c['day_type'], $dayType)) continue;
+
+            foreach ($c['intervals'] as $iv) {
+                $start = $this->dec($iv['start'] ?? '00:00');
+                $end   = $this->dec($iv['end']   ?? '23:59');
+                if ($end <= $start) $end += 24;
+
+                for ($h = 0; $h < 24; $h++) {
+                    $mid = $h + 0.5;
+                    if (($mid >= $start && $mid < $end) ||
+                        ($end > 24 && ($mid + 24) >= $start && ($mid + 24) < $end)) {
+                        $hourlyQ[$h] += $qi;
+                    }
+                }
+            }
+        }
+
+        $result = [];
+        for ($h = 0; $h < 24; $h++) {
+            $result[] = round($hourlyQ[$h] / 1000, 2);
+        }
+        return $result;
     }
 }

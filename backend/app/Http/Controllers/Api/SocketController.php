@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateSocketRequest;
 use App\Models\Building;
 use App\Models\Floor;
 use App\Models\Project;
@@ -45,35 +46,29 @@ class SocketController extends Controller
 
     public function store(Request $request, string $type, int $id)
     {
-        [$parent, $project] = $this->resolveParent($type, $id);
-
-        if (! in_array($project->userRole($request->user()->id), ['admin', 'main'])) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
         $request->validate([
             'phase_type' => 'required|in:1phase,3phase',
             'power'      => 'required|numeric|min:0.01',
             'quantity'   => 'required|integer|min:1',
         ]);
 
+        [$parent, $project] = $this->resolveParent($type, $id);
+
+        if (! in_array($project->userRole($request->user()->id), ['admin', 'main'])) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         $socket = $parent->sockets()->create($request->only('phase_type', 'power', 'quantity'));
 
         return response()->json(['data' => $socket], 201);
     }
 
-    public function update(Request $request, Socket $socket)
+    public function update(UpdateSocketRequest $request, Socket $socket)
     {
         $project = $this->socketProject($socket);
         if (! $project || ! in_array($project->userRole($request->user()->id), ['admin', 'main'])) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
-
-        $request->validate([
-            'phase_type' => 'sometimes|in:1phase,3phase',
-            'power'      => 'sometimes|numeric|min:0.01',
-            'quantity'   => 'sometimes|integer|min:1',
-        ]);
 
         $socket->fill($request->only('phase_type', 'power', 'quantity'))->save();
 

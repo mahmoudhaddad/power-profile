@@ -1,13 +1,12 @@
 /* eslint-disable react/prop-types */
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ResponsiveContainer, ComposedChart, AreaChart,
   Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ReferenceLine,
 } from 'recharts';
 import api from '../api/axios';
-import { getNav } from '../utils/navContext';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 function fmtW(w) {
@@ -51,6 +50,15 @@ function CustomTooltip({ active, payload, label, tab, mode }) {
         <>
           {row('#4f46e5', 'Max Load',   byKey.load_max)}
           {row('#10b981', 'Optimized', byKey.load_opt)}
+          {(byKey.kvar ?? 0) > 0 && (
+            <div className="flex items-center justify-between gap-6 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#f59e0b' }} />
+                <span className="text-gray-600">Reactive (kVAR)</span>
+              </div>
+              <span className="font-semibold text-gray-800">{Number(byKey.kvar).toFixed(2)} kVAR</span>
+            </div>
+          )}
         </>
       )}
       {tab === 'sources' && (
@@ -346,10 +354,120 @@ function LocationCard({ projectId, location, onSaved }) {
   );
 }
 
+// ── Mini Calendar Date Picker ─────────────────────────────────────────────────
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function MiniCalendar({ month, day, onDayChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Build calendar grid for the selected month (use 2024 as layout year — leap)
+  const year      = 2024;
+  const firstDow  = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const daysInMon = new Date(year, month, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMon; d++) cells.push(d);
+  // Pad to full weeks
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const today = new Date();
+  const isToday = (d) => d === today.getDate() && month === today.getMonth() + 1;
+
+  const weekends = new Set();
+  for (let d = 1; d <= daysInMon; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    if (dow === 0 || dow === 6) weekends.add(d);
+  }
+
+  const dateLabel = `${MONTHS[month - 1].slice(0, 3)} ${day}`;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
+          open
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        {dateLabel}
+        <svg className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 w-64">
+          <p className="text-[11px] font-semibold text-gray-500 text-center mb-2 uppercase tracking-wide">
+            {MONTHS[month - 1]} — pick a day
+          </p>
+
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 mb-1">
+            {DAY_NAMES.map(d => (
+              <div key={d} className={`text-center text-[10px] font-semibold py-0.5 ${
+                d === 'Sat' || d === 'Sun' ? 'text-indigo-400' : 'text-gray-400'
+              }`}>{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-0.5">
+            {cells.map((d, i) => {
+              if (!d) return <div key={`e${i}`} />;
+              const selected  = d === day;
+              const isWkend   = weekends.has(d);
+              const isTodayD  = isToday(d);
+              return (
+                <button key={d}
+                  onClick={() => { onDayChange(d); setOpen(false); }}
+                  className={`
+                    h-8 w-full rounded-lg text-xs font-semibold transition-all
+                    ${selected
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : isTodayD
+                        ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-300'
+                        : isWkend
+                          ? 'text-indigo-500 hover:bg-indigo-50'
+                          : 'text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-[10px] text-gray-400 text-center mt-2">
+            Solar curve uses actual 2023 irradiance for this date
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function LoadSchedulePage() {
   const navigate = useNavigate();
-  const { projectId } = getNav();
+  const { projectId } = useParams();
 
   const [project, setProject] = useState(null);
   const [data, setData]       = useState(null);
@@ -357,6 +475,7 @@ export default function LoadSchedulePage() {
   const [error, setError]     = useState('');
 
   const [month,   setMonth]   = useState(new Date().getMonth() + 1);
+  const [day,     setDay]     = useState(new Date().getDate());
   const [dayType, setDayType] = useState('workday');
   const [tab,     setTab]     = useState('load');    // load | sources | combined
   const [mode,    setMode]    = useState('optimized'); // optimized | max
@@ -371,11 +490,11 @@ export default function LoadSchedulePage() {
   const fetchSchedule = useCallback(() => {
     if (!projectId) return;
     setLoading(true); setError('');
-    api.get(`/api/projects/${projectId}/schedule`, { params: { month, day_type: dayType } })
+    api.get(`/api/projects/${projectId}/schedule`, { params: { month, day, day_type: dayType } })
       .then(r => setData(r.data))
       .catch(() => setError('Failed to load schedule.'))
       .finally(() => setLoading(false));
-  }, [projectId, month, dayType]);
+  }, [projectId, month, day, dayType]);
 
   useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
 
@@ -388,6 +507,7 @@ export default function LoadSchedulePage() {
           hour:         h,
           load_max:     data.load_max[h],
           load_opt:     data.load_optimized[h],
+          kvar:         data.hourly_kvar?.[h] ?? 0,
           solar:        data.solar[h],
           solar_cap:    data.solar_capacity_w,
           utility_cap:  data.utility_capacity_va || 0,
@@ -478,13 +598,22 @@ export default function LoadSchedulePage() {
         <div className="flex-1" />
 
         {/* Month selector */}
-        <select value={month} onChange={e => setMonth(Number(e.target.value))}
+        <select value={month} onChange={e => {
+          const m = Number(e.target.value);
+          setMonth(m);
+          // Clamp day to days-in-month for the new month (use 2024 as layout year)
+          const maxDay = new Date(2024, m, 0).getDate();
+          setDay(d => Math.min(d, maxDay));
+        }}
           className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700
             focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm">
           {MONTHS.map((m, i) => (
             <option key={i + 1} value={i + 1}>{m}</option>
           ))}
         </select>
+
+        {/* Day picker calendar */}
+        <MiniCalendar month={month} day={day} onDayChange={setDay} />
 
         {/* Day type */}
         <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-xs font-semibold">
@@ -572,7 +701,9 @@ export default function LoadSchedulePage() {
               </p>
             )}
             <div className="flex-1" />
-            <span className="text-xs text-gray-400 capitalize">{MONTHS[month - 1]} — {dayType === 'workday' ? 'Typical workday' : dayType === 'weekend' ? 'Weekend day' : 'All days'}</span>
+            <span className="text-xs text-gray-400 capitalize">
+              {MONTHS[month - 1]} {day} — {dayType === 'workday' ? 'Workday' : dayType === 'weekend' ? 'Weekend' : 'All days'}
+            </span>
           </div>
         )}
 
@@ -589,26 +720,30 @@ export default function LoadSchedulePage() {
             {/* ── Load Schedule Tab ── */}
             {tab === 'load' && (
               <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 5, right: 55, left: 10, bottom: 0 }}>
                   <Defs />
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                   <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                  <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                  <YAxis yAxisId="w" tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                  <YAxis yAxisId="kvar" orientation="right"
+                    tickFormatter={v => `${v} kVAR`} tick={{ fontSize: 10, fill: '#f59e0b' }} width={55} />
                   <Tooltip content={<CustomTooltip tab="load" />} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                   {data?.sunrise_hour != null && (
-                    <ReferenceLine x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3"
+                    <ReferenceLine yAxisId="w" x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3"
                       label={{ value: '☀ Rise', position: 'top', fontSize: 10, fill: '#d97706' }} />
                   )}
                   {data?.sunset_hour != null && (
-                    <ReferenceLine x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3"
+                    <ReferenceLine yAxisId="w" x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3"
                       label={{ value: '☀ Set', position: 'top', fontSize: 10, fill: '#d97706' }} />
                   )}
-                  <Area type="monotone" dataKey="load_max" name="Max Load"
+                  <Area yAxisId="w" type="monotone" dataKey="load_max" name="Max Load"
                     stroke="#4f46e5" fill="url(#gLoadMax)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="load_opt" name="Optimized"
+                  <Area yAxisId="w" type="monotone" dataKey="load_opt" name="Optimized"
                     stroke="#10b981" fill="url(#gLoadOpt)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                </AreaChart>
+                  <Line yAxisId="kvar" type="monotone" dataKey="kvar" name="Reactive (kVAR)"
+                    stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             )}
 
@@ -711,7 +846,7 @@ export default function LoadSchedulePage() {
           <h2 className="text-sm font-semibold text-gray-700">
             Daily Energy Breakdown
             <span className="ml-2 text-xs font-normal text-gray-400">
-              ({mode === 'optimized' ? 'Optimized' : 'Max'} load — typical {dayType === 'workday' ? 'workday' : dayType === 'weekend' ? 'weekend' : 'day'} in {MONTHS[month - 1]})
+              ({mode === 'optimized' ? 'Optimized' : 'Max'} load — {MONTHS[month - 1]} {day}, {dayType === 'workday' ? 'workday' : dayType === 'weekend' ? 'weekend' : 'all days'})
             </span>
           </h2>
 

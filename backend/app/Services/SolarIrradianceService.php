@@ -2,11 +2,21 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
 /**
- * Computes hourly solar generation profiles using astronomical calculations
- * combined with latitude/month-based peak sun hour (PSH) lookup tables.
+ * Computes hourly solar generation profiles.
  *
- * Algorithm:
+ * Primary data source: NASA POWER satellite-derived GHI (±3% accuracy).
+ * Fallback data source: static PSH lookup table (±10-15% accuracy).
+ *
+ * The NASA POWER API is free, requires no key, and covers all coordinates
+ * on Earth. Results are cached for 30 days since historical irradiance data
+ * never changes.
+ *
+ * Static fallback algorithm:
  * 1. Spencer's equation → solar declination for mid-month day-of-year
  * 2. Hour-angle formula → local sunrise / sunset times (solar noon = 12:00)
  * 3. PSH lookup table (derived from NASA POWER / NREL TMY data) provides the
@@ -14,12 +24,24 @@ namespace App\Services;
  *    Southern-hemisphere months are season-flipped automatically.
  * 4. A sinusoidal bell curve distributes the PSH between sunrise and sunset.
  *    Its peak is set so the area under the curve equals capacity × PSH × PR.
- *
- * Accuracy: ±10–15 % vs actual measured data for most mid-latitude locations.
- * No external API is required; the algorithm is fully offline.
  */
 class SolarIrradianceService
 {
+    // ── NASA POWER API constants ──────────────────────────────────────────────
+    private const NASA_API_BASE_URL  = 'https://power.larc.nasa.gov/api/temporal/hourly/point';
+    private const NASA_TIMEOUT_SEC   = 10;
+    private const NASA_NULL_VALUE    = -999;
+    private const CACHE_DAYS         = 30;
+    private const STC_IRRADIANCE     = 1000.0;  // W/m² at Standard Test Conditions
+    private const REPRESENTATIVE_DAY = 15;       // 15th of month as statistical midpoint
+
+    /** Tracks which data source was used in the last getHourlyOutputWatts() call. */
+    private string $dataSource = 'static_lookup';
+
+    public function getDataSource(): string
+    {
+        return $this->dataSource;
+    }
     // Monthly average Peak Sun Hours (kWh/m²/day) by absolute-latitude band and month.
     // Rows: 0°, 10°, 20°, 30°, 40°, 50°, 60°
     // Cols: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
@@ -143,5 +165,163 @@ class SolarIrradianceService
 
         $frac = ($absLat - $lower) / 10.0;
         return $pshL + $frac * ($pshU - $pshL);
+    }
+
+    // ── NASA POWER integration ────────────────────────────────────────────────
+
+    /**
+     * Returns 24-element float array (index = hour 0-23) of GHI in W/m²
+     * for the 15th of the given month at the given coordinates.
+     *
+     * Returns [] on any failure so the caller can fall back to the static table.
+     * Results are cached for 30 days — historical satellite data never changes.
+     */
+    private function fetchNasaHourlyGhi(?float $lat, ?float $lng, int $month, int $day = self::REPRESENTATIVE_DAY): array
+    {
+        // Cannot fetch without a valid location
+        if ($lat === null || $lng === null) {
+            return [];
+        }
+
+        // Round to 4 decimal places (~11 m precision) to keep cache keys stable
+        $latR = round($lat, 4);
+        $lngR = round($lng, 4);
+
+        // Cache key includes day so each calendar date has its own entry
+        $cacheKey = "nasa_ghi_{$latR}_{$lngR}_{$month}_{$day}";
+
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        // NASA POWER ALLSKY_SFC_SW_DWN is a historical dataset; use 2023 as the
+        // representative year (confirmed available). Using the current year
+        // returns -999 null values for future/recent dates.
+        $year = 2023;
+        $mon  = str_pad((string) $month, 2, '0', STR_PAD_LEFT);
+        $dayS = str_pad((string) $day,   2, '0', STR_PAD_LEFT);
+        $date = $year . $mon . $dayS;
+
+        try {
+            $response = Http::timeout(self::NASA_TIMEOUT_SEC)->get(self::NASA_API_BASE_URL, [
+                'parameters'    => 'ALLSKY_SFC_SW_DWN',
+                'community'     => 'RE',
+                'longitude'     => $lngR,
+                'latitude'      => $latR,
+                'start'         => $date,
+                'end'           => $date,
+                'format'        => 'JSON',
+                'time-standard' => 'LST',
+            ]);
+
+            if (! $response->successful()) {
+                Log::warning('NASA POWER API returned non-200, falling back to static PSH table', [
+                    'status' => $response->status(),
+                    'lat'    => $latR,
+                    'lng'    => $lngR,
+                    'month'  => $month,
+                ]);
+                return [];
+            }
+
+            $data = $response->json();
+            $raw  = $data['properties']['parameter']['ALLSKY_SFC_SW_DWN'] ?? [];
+
+            if (empty($raw)) {
+                Log::warning('NASA POWER API returned empty data, falling back to static PSH table', [
+                    'lat' => $latR, 'lng' => $lngR, 'month' => $month,
+                ]);
+                return [];
+            }
+
+            $hourly = array_fill(0, 24, 0.0);
+            foreach ($raw as $key => $value) {
+                // Keys are 'YYYYMMDDHH' — extract the last two digits as hour
+                $hour = (int) substr((string) $key, 8, 2);
+                if ($hour >= 0 && $hour <= 23) {
+                    // Replace NASA null indicator (-999) with 0
+                    $hourly[$hour] = max(0.0, (float) $value === (float) self::NASA_NULL_VALUE ? 0.0 : (float) $value);
+                }
+            }
+
+            // If all values are zero for a non-polar location it means NASA
+            // returned -999 nulls (future/unavailable date). Fall back to the
+            // static PSH table instead of caching bad zeros.
+            $isPolarNight = abs($latR) >= 60 && in_array($month, [11, 12, 1, 2]);
+            if (max($hourly) <= 0 && ! $isPolarNight) {
+                Log::warning('NASA POWER returned all-zero GHI for non-polar location, using static fallback', [
+                    'lat' => $latR, 'lng' => $lngR, 'month' => $month,
+                ]);
+                return [];
+            }
+
+            Cache::put($cacheKey, $hourly, now()->addDays(self::CACHE_DAYS));
+            return $hourly;
+
+        } catch (\Throwable $e) {
+            Log::warning('NASA POWER fallback triggered', [
+                'reason' => $e->getMessage(),
+                'lat'    => $latR,
+                'lng'    => $lngR,
+                'month'  => $month,
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Returns a 24-element array (index = hour 0-23) of hourly solar output in watts.
+     *
+     * Tries NASA POWER satellite data first; falls back to the static PSH table
+     * if the API is unavailable. Check getDataSource() after calling to know
+     * which path was taken.
+     *
+     * @param float|null $lat               Latitude (null → skip NASA, use static)
+     * @param float|null $lng               Longitude (null → skip NASA, use static)
+     * @param int        $month             Month number 1-12
+     * @param float      $panelCapacityKw   Nameplate system capacity in kW
+     * @param float      $performanceRatio  Accounts for inverter, wiring, and soiling losses
+     */
+    public function getHourlyOutputWatts(
+        ?float $lat,
+        ?float $lng,
+        int    $month,
+        float  $panelCapacityKw,
+        float  $performanceRatio = self::PERFORMANCE_RATIO,
+        int    $day              = self::REPRESENTATIVE_DAY
+    ): array {
+        if ($panelCapacityKw <= 0) {
+            $this->dataSource = 'static_lookup';
+            return array_fill(0, 24, 0.0);
+        }
+
+        $ghi = $this->fetchNasaHourlyGhi($lat, $lng, $month, $day);
+
+        // ── NASA path ───────────────────────────────────────────────────────
+        if (count($ghi) === 24) {
+            $this->dataSource = 'nasa_power';
+            $output = [];
+            for ($h = 0; $h < 24; $h++) {
+                // Linear scale: at STC (1000 W/m²) the panel runs at nameplate × PR
+                $output[$h] = round(
+                    ($ghi[$h] / self::STC_IRRADIANCE) * ($panelCapacityKw * 1000) * $performanceRatio,
+                    2
+                );
+            }
+            return $output;
+        }
+
+        // ── Static fallback ─────────────────────────────────────────────────
+        // hourlyProfile() uses the same PERFORMANCE_RATIO constant (0.80).
+        // If a custom ratio was passed we scale proportionally.
+        $this->dataSource = 'static_lookup';
+        $static = $this->hourlyProfile($lat ?? 0.0, $lng ?? 0.0, $month, $panelCapacityKw * 1000);
+
+        if ($performanceRatio !== self::PERFORMANCE_RATIO && self::PERFORMANCE_RATIO > 0) {
+            $scale = $performanceRatio / self::PERFORMANCE_RATIO;
+            $static = array_map(fn($w) => round($w * $scale, 2), $static);
+        }
+
+        return $static;
     }
 }
