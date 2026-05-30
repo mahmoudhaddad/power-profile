@@ -465,12 +465,73 @@ class ProjectBackupController extends Controller
 
         $this->importLines($project, $data);
         $this->importComponents($project, $data['components'] ?? []);
+        // Solar systems must be imported before batteries (batteries reference them by name)
+        $solarNameToId = $this->importSolarSystems($project, $data['solar_systems'] ?? []);
+        $this->importBatteries($project, $data['batteries'] ?? [], $solarNameToId);
 
         foreach ($data['buildings'] ?? [] as $buildingData) {
             $this->importBuilding($project, $buildingData);
         }
 
         return $project;
+    }
+
+    private function importSolarSystems(\App\Models\Project $project, array $systems): array
+    {
+        if (empty($systems)) return [];
+
+        $now   = now()->toDateTimeString();
+        $nameToId = [];
+        foreach ($systems as $s) {
+            $id = DB::table('solar_systems')->insertGetId([
+                'project_id'  => $project->id,
+                'name'        => $s['name'],
+                'capacity_kw' => $s['capacity_kw'],
+                'is_active'   => $s['is_active'] ?? true,
+                'notes'       => $s['notes'] ?? null,
+                'created_at'  => $now,
+                'updated_at'  => $now,
+            ]);
+            $nameToId[$s['name']] = $id;
+        }
+        return $nameToId;
+    }
+
+    private function importBatteries(\App\Models\Project $project, array $batteries, array $solarNameToId = []): void
+    {
+        if (empty($batteries)) return;
+
+        $now  = now()->toDateTimeString();
+        $rows = [];
+        foreach ($batteries as $b) {
+            $solarSystemId = null;
+            if (!empty($b['solar_system_name']) && isset($solarNameToId[$b['solar_system_name']])) {
+                $solarSystemId = $solarNameToId[$b['solar_system_name']];
+            }
+            $rows[] = [
+                'project_id'            => $project->id,
+                'name'                  => $b['name'],
+                'chemistry'             => $b['chemistry'],
+                'nominal_voltage_v'     => $b['nominal_voltage_v'],
+                'capacity_ah_per_unit'  => $b['capacity_ah_per_unit'],
+                'quantity'              => $b['quantity'],
+                'series_count'          => $b['series_count'],
+                'parallel_count'        => $b['parallel_count'],
+                'installation_date'     => $b['installation_date'],
+                'depth_of_discharge'    => $b['depth_of_discharge'],
+                'round_trip_efficiency' => $b['round_trip_efficiency'],
+                'c_rate_charge'         => $b['c_rate_charge'],
+                'c_rate_discharge'      => $b['c_rate_discharge'],
+                'rated_cycle_life'      => $b['rated_cycle_life'],
+                'current_soc'           => $b['current_soc'] ?? 0.50,
+                'is_active'             => $b['is_active'] ?? true,
+                'notes'                 => $b['notes'] ?? null,
+                'solar_system_id'       => $solarSystemId,
+                'created_at'            => $now,
+                'updated_at'            => $now,
+            ];
+        }
+        DB::table('batteries')->insert($rows);
     }
 
     private function importBuilding(Project $project, array $data): Building

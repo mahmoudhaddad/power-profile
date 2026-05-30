@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\BatteryController;
+use App\Http\Controllers\Api\SolarSystemController;
 use App\Http\Controllers\Api\PhaseBalanceController;
 use App\Http\Controllers\Api\ProjectBackupController;
 use App\Http\Controllers\Api\ServerBackupController;
@@ -179,7 +181,26 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
 
     Route::put('/sockets/{socket}',    [SocketController::class, 'update']);
     Route::delete('/sockets/{socket}', [SocketController::class, 'destroy']);
+
+    // Named solar systems (project-scoped)
+    Route::get(   '/projects/{project}/solar-systems',    [SolarSystemController::class, 'index']);
+    Route::post(  '/projects/{project}/solar-systems',    [SolarSystemController::class, 'store']);
+    Route::put(   '/solar-systems/{solarSystem}',         [SolarSystemController::class, 'update']);
+    Route::delete('/solar-systems/{solarSystem}',         [SolarSystemController::class, 'destroy']);
+
+    // Battery banks (project-scoped)
+    Route::get(   '/projects/{project}/batteries',        [BatteryController::class, 'index']);
+    Route::post(  '/projects/{project}/batteries',        [BatteryController::class, 'store']);
+    Route::get(   '/projects/{project}/battery-runtime',  [BatteryController::class, 'projectRuntime']);
+    Route::get(   '/batteries/{battery}',                 [BatteryController::class, 'show']);
+    Route::put(   '/batteries/{battery}',                 [BatteryController::class, 'update']);
+    Route::delete('/batteries/{battery}',                 [BatteryController::class, 'destroy']);
+    Route::post(  '/batteries/{battery}/reset-soc',       [BatteryController::class, 'resetSoc']);
+    Route::post(  '/batteries/{battery}/runtime-at-load', [BatteryController::class, 'runtimeAtLoad']);
 });
+
+// Public reference data
+Route::get('/battery-chemistry-defaults', [BatteryController::class, 'chemistryDefaults']);
 
 // Admin public route
 Route::post('/admin/login', [AdminController::class, 'login']);

@@ -40,6 +40,16 @@ class Project extends Model
         return $this->morphMany(GeneratorLine::class, 'generable');
     }
 
+    public function batteries()
+    {
+        return $this->hasMany(Battery::class);
+    }
+
+    public function solarSystems()
+    {
+        return $this->hasMany(SolarSystem::class);
+    }
+
     public function projectUsers()
     {
         return $this->hasMany(ProjectUser::class);

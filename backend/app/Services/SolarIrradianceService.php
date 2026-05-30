@@ -27,13 +27,27 @@ use Illuminate\Support\Facades\Log;
  */
 class SolarIrradianceService
 {
+    // ── Solar capacity estimation constants (shared with controllers) ────────
+    // 17% roof coverage × 1 000 W/m² STC × 0.75 PR (rough sizing, not hourly calc).
+    // The 0.75 PR here is intentionally lower than PERFORMANCE_RATIO (0.80) below,
+    // which is the real PR used inside hourly profile computations.
+    public const ROOF_COVERAGE_RATIO      = 0.17;    // usable roof fraction for PV panels
+    public const STC_IRRADIANCE_W         = 1000.0;  // W/m² at Standard Test Conditions
+    public const CAPACITY_ESTIMATE_PR     = 0.75;    // conservative PR for capacity sizing
+
     // ── NASA POWER API constants ──────────────────────────────────────────────
     private const NASA_API_BASE_URL  = 'https://power.larc.nasa.gov/api/temporal/hourly/point';
     private const NASA_TIMEOUT_SEC   = 10;
     private const NASA_NULL_VALUE    = -999;
     private const CACHE_DAYS         = 30;
-    private const STC_IRRADIANCE     = 1000.0;  // W/m² at Standard Test Conditions
+    private const STC_IRRADIANCE     = self::STC_IRRADIANCE_W; // internal alias
     private const REPRESENTATIVE_DAY = 15;       // 15th of month as statistical midpoint
+
+    /** Estimate installed PV capacity (W) from roof area using standard IEC sizing parameters. */
+    public static function estimateCapacityW(float $areaM2): float
+    {
+        return $areaM2 * self::ROOF_COVERAGE_RATIO * self::STC_IRRADIANCE_W * self::CAPACITY_ESTIMATE_PR;
+    }
 
     /** Tracks which data source was used in the last getHourlyOutputWatts() call. */
     private string $dataSource = 'static_lookup';

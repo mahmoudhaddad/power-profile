@@ -8,6 +8,7 @@ class UpdateRoomRequest extends ApiRequest
     {
         return [
             'name'                            => 'sometimes|string|max:255',
+            'type'                            => 'sometimes|nullable|string',
             'area'                            => 'sometimes|numeric|min:0.01',
             'power_consumption'               => 'sometimes|string|max:50',
             'solar_power'                     => 'sometimes|nullable|numeric|min:0',

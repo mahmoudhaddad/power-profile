@@ -10,16 +10,16 @@ use App\Models\FloorComponent;
 use App\Models\Project;
 use App\Models\Room;
 use App\Models\RoomComponent;
+use App\Services\DiversityFactorService;
+use App\Services\SolarIrradianceService;
 use App\Services\SocketDemandService;
 use Illuminate\Http\Request;
 
 class TotalPowerController extends Controller
 {
-    // IEC 60364-8-1 diversity factors applied when aggregating upward.
-    // Room level is 1.0 (leaf node — no constant needed).
-    private const DF_FLOOR    = 0.9;
-    private const DF_BUILDING = 0.8;
-    private const DF_PROJECT  = 0.7;
+    // IEC 60364-8-1 project-level diversity factor (building → project).
+    // Floor/room-level DFs are per-building-type via DiversityFactorService.
+    private const DF_PROJECT = 0.7;
 
     // System constants for reactive power and capacitor bank sizing.
     private const VOLTAGE_3PHASE_LL       = 400;   // V, 3-phase line-to-line (IEC)
@@ -114,7 +114,7 @@ class TotalPowerController extends Controller
     private function projectSources(Project $project): array
     {
         $buildingsArea = $project->buildings()->sum('area');
-        $solarComputed = $buildingsArea * 0.17 * 1000 * 0.75;
+        $solarComputed = SolarIrradianceService::estimateCapacityW((float) $buildingsArea);
 
         return [
             'solar_computed' => round($solarComputed, 2),
@@ -132,7 +132,27 @@ class TotalPowerController extends Controller
      *
      * withPriority=false → all components are treated as 'normal'.
      */
-    private function sumPowerWithGroups($query, string $entityKey, bool $withPriority = false, float $dfMultiplier = 1.0): array
+    /** Zero-filled power result for use as a merge accumulator. */
+    private function emptyPower(): array
+    {
+        $pKeys  = ['critical', 'essential', 'normal'];
+        $result = ['va' => 0.0, 'w' => 0.0, 'q' => 0.0, 'max_va' => 0.0, 'max_w' => 0.0, 'max_q' => 0.0];
+        foreach ($pKeys as $p) {
+            $result["{$p}_va"]     = 0.0;
+            $result["{$p}_w"]      = 0.0;
+            $result["{$p}_max_va"] = 0.0;
+            $result["{$p}_max_w"]  = 0.0;
+        }
+        return $result;
+    }
+
+    /**
+     * Sum power for a component query with group-max optimisation.
+     *
+     * $df may be a float (applied uniformly) or a callable(int $entityId): float
+     * (looked up per-component for per-entity diversity factors).
+     */
+    private function sumPowerWithGroups($query, string $entityKey, bool $withPriority = false, mixed $df = 1.0): array
     {
         $columns = ['power', 'power_factor', 'quantity', 'group_name', $entityKey];
         if ($withPriority) {
@@ -168,7 +188,8 @@ class TotalPowerController extends Controller
             $maxByP[$priority]['w']  += $w;
             $maxByP[$priority]['q']  += $q;
 
-            $effectiveDf = ($priority === 'critical') ? 1.0 : $dfMultiplier;
+            $resolvedDf  = is_callable($df) ? $df((int) $c->{$entityKey}) : (float) $df;
+            $effectiveDf = ($priority === 'critical') ? 1.0 : $resolvedDf;
             $wd = $w * $effectiveDf;
             $qd = $q * $effectiveDf;
 
@@ -238,113 +259,6 @@ class TotalPowerController extends Controller
         return $result;
     }
 
-    /**
-     * Returns [entity_id => ['w' => float, 'q' => float]] with group-max (by VA) applied per entity.
-     * Only orthogonal vectors P and Q are accumulated — VA is computed momentarily for comparison only.
-     */
-    private function vaPerEntity($query, string $entityKey): array
-    {
-        $rows = $query->get(['power', 'power_factor', 'quantity', 'group_name', $entityKey]);
-
-        $raw = [];
-        foreach ($rows as $c) {
-            $id = $c->{$entityKey};
-            $pf = max((float)($c->power_factor ?? 1), 0.01);
-            $va = (float)$c->power * (int)$c->quantity;   // S = VA_rated × qty (power stores VA)
-            $w  = $va * $pf;                               // P = S × PF
-            $q  = $pf < 1.0 ? $w * tan(acos(min(1.0, $pf))) : 0.0;
-
-            if (!isset($raw[$id])) {
-                $raw[$id] = ['ungrouped' => ['w' => 0.0, 'q' => 0.0], 'groups' => []];
-            }
-
-            if (!$c->group_name) {
-                $raw[$id]['ungrouped']['w'] += $w;
-                $raw[$id]['ungrouped']['q'] += $q;
-            } else {
-                $key = $id . '|' . $c->group_name;
-                if (!isset($raw[$id]['groups'][$key]) || $va > $raw[$id]['groups'][$key]['va']) {
-                    $raw[$id]['groups'][$key] = ['va' => $va, 'w' => $w, 'q' => $q];
-                }
-            }
-        }
-
-        $result = [];
-        foreach ($raw as $id => $data) {
-            $w = $data['ungrouped']['w'];
-            $q = $data['ungrouped']['q'];
-            foreach ($data['groups'] as $g) {
-                $w += $g['w'];
-                $q += $g['q'];
-            }
-            $result[$id] = ['w' => $w, 'q' => $q];
-        }
-        return $result;
-    }
-
-    /** Sums orthogonal P and Q vectors from a vaPerEntity result. */
-    private function sumEntityVa(array $perEntity): array
-    {
-        $w = 0.0;
-        $q = 0.0;
-        foreach ($perEntity as $e) {
-            $w += $e['w'];
-            $q += $e['q'] ?? 0.0;
-        }
-        return ['w' => $w, 'q' => $q];
-    }
-
-    /**
-     * Diversify floor P/Q vectors: floor_own + Σ(room P/Q) × DF_FLOOR.
-     * Only orthogonal vectors are tracked — VA is derived at the final stage.
-     */
-    private function computeFloorsDivVa(array $floorOwnVas, array $roomVas, array $roomToFloor): array
-    {
-        $floorIds = array_unique(array_merge(array_keys($floorOwnVas), array_values($roomToFloor)));
-
-        $result = [];
-        foreach ($floorIds as $fid) {
-            $roomW = 0.0;
-            $roomQ = 0.0;
-            foreach ($roomToFloor as $rid => $rfid) {
-                if ($rfid == $fid && isset($roomVas[$rid])) {
-                    $roomW += $roomVas[$rid]['w'];
-                    $roomQ += $roomVas[$rid]['q'] ?? 0.0;
-                }
-            }
-            $result[$fid] = [
-                'w' => ($floorOwnVas[$fid]['w'] ?? 0.0) + $roomW * self::DF_FLOOR,
-                'q' => ($floorOwnVas[$fid]['q'] ?? 0.0) + $roomQ * self::DF_FLOOR,
-            ];
-        }
-        return $result;
-    }
-
-    /**
-     * Diversify building P/Q vectors: building_own + Σ(floor P/Q) × DF_BUILDING.
-     * Only orthogonal vectors are tracked — VA is derived at the final stage.
-     */
-    private function computeBuildingsDivVa(array $buildingOwnVas, array $floorDivVas, array $floorToBuilding): array
-    {
-        $buildingIds = array_unique(array_merge(array_keys($buildingOwnVas), array_values($floorToBuilding)));
-
-        $result = [];
-        foreach ($buildingIds as $bid) {
-            $floorW = 0.0;
-            $floorQ = 0.0;
-            foreach ($floorToBuilding as $fid => $fbid) {
-                if ($fbid == $bid && isset($floorDivVas[$fid])) {
-                    $floorW += $floorDivVas[$fid]['w'];
-                    $floorQ += $floorDivVas[$fid]['q'] ?? 0.0;
-                }
-            }
-            $result[$bid] = [
-                'w' => ($buildingOwnVas[$bid]['w'] ?? 0.0) + $floorW * self::DF_BUILDING,
-                'q' => ($buildingOwnVas[$bid]['q'] ?? 0.0) + $floorQ * self::DF_BUILDING,
-            ];
-        }
-        return $result;
-    }
 
     /**
      * Reactive power / capacitor bank fields (IEC 60364-8-1 / PENRA).
@@ -459,6 +373,30 @@ class TotalPowerController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        // Build type maps for per-entity DF resolution (3 extra queries, no N+1).
+        $projectBuildings = $project->buildings()->select('id', 'type')->get();
+        $bTypeMap = $projectBuildings->pluck('type', 'id');
+
+        $allFloors = Floor::whereIn('building_id', $projectBuildings->pluck('id'))
+            ->select('id', 'building_id')->get();
+        $fToBMap = $allFloors->pluck('building_id', 'id');
+
+        $allRooms = Room::whereIn('floor_id', $allFloors->pluck('id'))
+            ->select('id', 'floor_id', 'type')->get();
+        $rToBMap  = $allRooms->mapWithKeys(fn($r) => [$r->id => $fToBMap->get($r->floor_id)]);
+        $rTypeMap = $allRooms->pluck('type', 'id');
+
+        $floorDfFn = function(int $fid) use ($fToBMap, $bTypeMap): float {
+            $bType = $bTypeMap->get($fToBMap->get($fid));
+            return DiversityFactorService::buildingDfs($bType)['floor_to_building'] * self::DF_PROJECT;
+        };
+        $roomDfFn = function(int $rid) use ($rToBMap, $bTypeMap, $rTypeMap): float {
+            $bType = $bTypeMap->get($rToBMap->get($rid));
+            $rType = $rTypeMap->get($rid);
+            $dfs   = DiversityFactorService::buildingDfs($bType);
+            return DiversityFactorService::roomDf($rType) * $dfs['room_to_floor'] * $dfs['floor_to_building'] * self::DF_PROJECT;
+        };
+
         $own      = $this->sumPowerWithGroups($project->components(), 'project_id', true);
         $building = $this->sumPowerWithGroups(
             BuildingComponent::whereHas('building', fn($q) => $q->where('project_id', $project->id)),
@@ -466,11 +404,11 @@ class TotalPowerController extends Controller
         );
         $floor    = $this->sumPowerWithGroups(
             FloorComponent::whereHas('floor.building', fn($q) => $q->where('project_id', $project->id)),
-            'floor_id', true, self::DF_BUILDING * self::DF_PROJECT
+            'floor_id', true, $floorDfFn
         );
         $room     = $this->sumPowerWithGroups(
             RoomComponent::whereHas('room.floor.building', fn($q) => $q->where('project_id', $project->id)),
-            'room_id', true, self::DF_FLOOR * self::DF_BUILDING * self::DF_PROJECT
+            'room_id', true, $roomDfFn
         );
 
         $comp = $this->mergePower($own, $building, $floor, $room);
@@ -501,6 +439,34 @@ class TotalPowerController extends Controller
         $utilLine = $project->utilityLines()->select('phases')->first();
         $is3Phase = ($utilLine?->phases ?? '3phase') !== '1phase';
 
+        // ── Battery storage summary ──────────────────────────────────────────
+        $batteries      = $project->batteries()->where('is_active', true)->get();
+        $batteryStorage = null;
+
+        if ($batteries->isNotEmpty()) {
+            $totalNominal   = $batteries->sum(fn($b) => $b->nominal_capacity_kwh);
+            $totalUsable    = $batteries->sum(fn($b) => $b->usable_capacity_kwh);
+            $totalAvailable = $batteries->sum(fn($b) => $b->current_available_kwh);
+            $criticalKw     = $comp['critical_w'] / 1000;
+            $optimizedKw    = $totalW             / 1000;
+
+            $bckpCritical  = $criticalKw  > 0 ? round($totalUsable    / $criticalKw,  2) : null;
+            $bckpOptimized = $optimizedKw > 0 ? round($totalAvailable / $optimizedKw, 2) : null;
+
+            $batteryStorage = [
+                'bank_count'          => $batteries->count(),
+                'total_nominal_kwh'   => round($totalNominal,   2),
+                'total_usable_kwh'    => round($totalUsable,    2),
+                'total_available_kwh' => round($totalAvailable, 2),
+                'chemistry_breakdown' => $batteries->groupBy('chemistry')->map(fn($g) => $g->count())->toArray(),
+                'needs_attention'     => $batteries->contains(fn($b) => $b->health_status === 'replace'),
+                'runtime_summary'     => [
+                    'backup_hours_at_critical_load_full'     => $bckpCritical,
+                    'backup_hours_at_optimized_load_current' => $bckpOptimized,
+                ],
+            ];
+        }
+
         return response()->json(array_merge([
             'total_va'         => $totalVa,
             'total'            => $totalW,
@@ -528,6 +494,8 @@ class TotalPowerController extends Controller
             'floor'       => $floor['w'],    'floor_va'    => $floor['va'],
             'room'        => $room['w'],     'room_va'     => $room['va'],
             'critical'    => $comp['critical_w'],
+
+            'battery_storage' => $batteryStorage,
         ], $inrush,
            $this->reactivePowerFields($totalVa, $totalW, $totalQ, $maxVa, $maxW, $maxQ, $is3Phase),
            $this->projectSources($project)));
@@ -539,14 +507,25 @@ class TotalPowerController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        $bDfs = DiversityFactorService::buildingDfs($building->type);
+
+        $buildingFloorIds = $building->floors()->pluck('id');
+        $buildingRooms    = Room::whereIn('floor_id', $buildingFloorIds)->select('id', 'type')->get();
+        $rTypeMap_b       = $buildingRooms->pluck('type', 'id');
+
+        $roomDfFn_b = function(int $rid) use ($bDfs, $rTypeMap_b): float {
+            return DiversityFactorService::roomDf($rTypeMap_b->get($rid))
+                * $bDfs['room_to_floor'] * $bDfs['floor_to_building'];
+        };
+
         $own   = $this->sumPowerWithGroups($building->components(), 'building_id', true);
         $floor = $this->sumPowerWithGroups(
             FloorComponent::whereHas('floor', fn($q) => $q->where('building_id', $building->id)),
-            'floor_id', true, self::DF_BUILDING
+            'floor_id', true, $bDfs['floor_to_building']
         );
         $room  = $this->sumPowerWithGroups(
             RoomComponent::whereHas('room.floor', fn($q) => $q->where('building_id', $building->id)),
-            'room_id', true, self::DF_FLOOR * self::DF_BUILDING
+            'room_id', true, $roomDfFn_b
         );
 
         $comp = $this->mergePower($own, $floor, $room);
@@ -614,10 +593,19 @@ class TotalPowerController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        $bDfs = DiversityFactorService::buildingDfs($floor->building->type ?? null);
+
+        $floorRooms = Room::where('floor_id', $floor->id)->select('id', 'type')->get();
+        $rTypeMap_f = $floorRooms->pluck('type', 'id');
+
+        $roomDfFn_f = function(int $rid) use ($bDfs, $rTypeMap_f): float {
+            return DiversityFactorService::roomDf($rTypeMap_f->get($rid)) * $bDfs['room_to_floor'];
+        };
+
         $own  = $this->sumPowerWithGroups($floor->components(), 'floor_id', true);
         $room = $this->sumPowerWithGroups(
             RoomComponent::whereHas('room', fn($q) => $q->where('floor_id', $floor->id)),
-            'room_id', true, self::DF_FLOOR
+            'room_id', true, $roomDfFn_f
         );
 
         $comp = $this->mergePower($own, $room);

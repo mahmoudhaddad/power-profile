@@ -22,11 +22,11 @@ export default function ProjectPage() {
   const [loading, setLoading]     = useState(true);
 
   const [showModal, setShowModal]     = useState(false);
-  const [newBuilding, setNewBuilding] = useState({ name: '', area: '' });
+  const [newBuilding, setNewBuilding] = useState({ name: '', type: '', area: '' });
   const [addFieldErrors, setAddFieldErrors] = useState({});
 
   const [editingBuilding, setEditingBuilding] = useState(null);
-  const [editForm, setEditForm]               = useState({ name: '', area: '' });
+  const [editForm, setEditForm]               = useState({ name: '', type: '', area: '' });
   const [editFieldErrors, setEditFieldErrors] = useState({});
 
   const [editingName, setEditingName] = useState(false);
@@ -78,6 +78,7 @@ export default function ProjectPage() {
     try {
       const { data } = await api.post(`/api/projects/${project.id}/buildings`, {
         name: newBuilding.name.trim(),
+        type: newBuilding.type || null,
         area: newBuilding.area || 0,
       });
       setShowModal(false);
@@ -89,7 +90,7 @@ export default function ProjectPage() {
 
   function openEdit(building) {
     setEditingBuilding(building);
-    setEditForm({ name: building.name, area: building.area });
+    setEditForm({ name: building.name, type: building.type ?? '', area: building.area });
   }
 
   async function handleEdit() {
@@ -97,7 +98,7 @@ export default function ProjectPage() {
     try {
       const { data } = await api.put(
         `/api/projects/${project.id}/buildings/${editingBuilding.id}`,
-        { name: editForm.name.trim(), area: editForm.area }
+        { name: editForm.name.trim(), type: editForm.type || null, area: editForm.area }
       );
       setBuildings(buildings.map(b => b.id === editingBuilding.id ? data.data : b));
       setEditingBuilding(null);
@@ -124,7 +125,7 @@ export default function ProjectPage() {
     );
     setBuildings(prev => [data.data, ...prev]);
     setShowModal(false);
-    setNewBuilding({ name: '', area: '' });
+    setNewBuilding({ name: '', type: '', area: '' });
   }
 
   async function handleBackupDownload(building) {
@@ -214,8 +215,10 @@ export default function ProjectPage() {
             onUpdate={updated => setProject(updated)}
             solarComputed={buildings.reduce((sum, b) => sum + Number(b.area), 0) * 0.17 * 1000 * 0.75}
             buildingsSolarSum={buildings.reduce((sum, b) => sum + Number(b.existing_solar_power ?? 0), 0)}
+            solarSystemsEndpoint={project ? `/api/projects/${project.id}/solar-systems` : null}
             generatorEndpoint={project ? `/api/projects/${project.id}/generator-lines` : null}
             utilityEndpoint={project ? `/api/projects/${project.id}/utility-lines` : null}
+            batteryEndpoint={project ? `/api/projects/${project.id}/batteries` : null}
             maxLoad={powerSources.max_va}
             optimizedLoad={powerSources.total_va}
           />
@@ -461,7 +464,7 @@ export default function ProjectPage() {
       {showModal && (
         <Modal title="New Building" form={newBuilding} onChange={setNewBuilding}
           onSubmit={handleAdd}
-          onClose={() => { setShowModal(false); setNewBuilding({ name: '', area: '' }); setAddFieldErrors({}); }}
+          onClose={() => { setShowModal(false); setNewBuilding({ name: '', type: '', area: '' }); setAddFieldErrors({}); }}
           submitLabel="Add Building"
           suggestions={buildings}
           nameLabel="Building Name"
@@ -545,7 +548,14 @@ function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, on
               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         </div>
-        <span className="font-medium text-gray-900 text-sm truncate">{building.name}</span>
+        <div className="min-w-0">
+          <span className="font-medium text-gray-900 text-sm truncate block">{building.name}</span>
+          {building.type && (
+            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+              {BUILDING_TYPES.find(t => t.value === building.type)?.label ?? building.type}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-1.5 w-28 text-sm text-gray-500">
         <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -849,6 +859,21 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
   );
 }
 
+const BUILDING_TYPES = [
+  { value: '',                      label: 'Generic (IEC default)' },
+  { value: 'residential_house',     label: 'Residential House' },
+  { value: 'residential_apartment', label: 'Residential Apartment' },
+  { value: 'hotel',                 label: 'Hotel' },
+  { value: 'office',                label: 'Office' },
+  { value: 'educational_school',    label: 'School' },
+  { value: 'educational_university',label: 'University' },
+  { value: 'retail',                label: 'Retail / Mall' },
+  { value: 'hospital',              label: 'Hospital' },
+  { value: 'industrial',            label: 'Industrial' },
+  { value: 'mosque_worship',        label: 'Mosque / Worship' },
+  { value: 'sports',                label: 'Sports Facility' },
+];
+
 function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggestions = [], nameLabel = 'Building Name', namePlaceholder = 'e.g. Block A', onDuplicateFrom, fieldErrors = {}, onClearError }) {
   const wrapperRef = useRef(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -901,6 +926,15 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
                 ))}
               </ul>
             )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Building Type</label>
+            <select value={form.type ?? ''} onChange={e => onChange({ ...form, type: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+              {BUILDING_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>

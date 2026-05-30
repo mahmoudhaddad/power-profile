@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Services\DiversityFactorService;
 use App\Services\SolarIrradianceService;
 use Illuminate\Http\Request;
 
@@ -11,10 +12,9 @@ class LoadProfileController extends Controller
 {
     private const DEFAULT_WORK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
-    // IEC 60364-8-1 diversity factors — must match TotalPowerController constants.
-    private const DF_FLOOR    = 0.9;
-    private const DF_BUILDING = 0.8;
-    private const DF_PROJECT  = 0.7;
+    // IEC 60364-8-1 project-level diversity factor (building → project).
+    // Floor/room-level DFs are now per-building-type via DiversityFactorService.
+    private const DF_PROJECT = 0.7;
 
     public function project(Request $request, Project $project, SolarIrradianceService $solarService)
     {
@@ -39,8 +39,8 @@ class LoadProfileController extends Controller
         foreach ($buildings as $building) {
             $bDays    = $building->work_days ?? $pDays;
             $bSeasons = $building->working_season_intervals ?? $pSeasons;
+            $bDfs     = DiversityFactorService::buildingDfs($building->type ?? null);
 
-            // Building-level: aggregated to project level, so reduced by DF_PROJECT.
             $this->addComponents($result, $building->components, 'building_id', $bDays, $bSeasons,
                 self::DF_PROJECT);
 
@@ -48,17 +48,16 @@ class LoadProfileController extends Controller
                 $fDays    = $floor->work_days ?? $bDays;
                 $fSeasons = $floor->working_season_intervals ?? $bSeasons;
 
-                // Floor-level: passes through building (×DF_BUILDING) then project (×DF_PROJECT).
                 $this->addComponents($result, $floor->components, 'floor_id', $fDays, $fSeasons,
-                    self::DF_BUILDING * self::DF_PROJECT);
+                    $bDfs['floor_to_building'] * self::DF_PROJECT);
 
                 foreach ($floor->rooms as $room) {
                     $rDays    = $room->work_days ?? $fDays;
                     $rSeasons = $room->working_season_intervals ?? $fSeasons;
+                    $roomDf   = DiversityFactorService::roomDf($room->type ?? null);
 
-                    // Room-level: passes through floor (×DF_FLOOR), building (×DF_BUILDING), project (×DF_PROJECT).
                     $this->addComponents($result, $room->components, 'room_id', $rDays, $rSeasons,
-                        self::DF_FLOOR * self::DF_BUILDING * self::DF_PROJECT);
+                        $roomDf * $bDfs['room_to_floor'] * $bDfs['floor_to_building'] * self::DF_PROJECT);
                 }
             }
         }

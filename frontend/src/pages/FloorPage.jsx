@@ -23,12 +23,12 @@ export default function FloorPage() {
   const [loading, setLoading]   = useState(true);
 
   const [showModal, setShowModal] = useState(false);
-  const [newRoom, setNewRoom]     = useState({ name: '', area: '' });
+  const [newRoom, setNewRoom]     = useState({ name: '', type: '', area: '' });
   const [allProjectRooms, setAllProjectRooms] = useState([]);
   const [addFieldErrors, setAddFieldErrors] = useState({});
 
   const [editingRoom, setEditingRoom] = useState(null);
-  const [editForm, setEditForm]       = useState({ name: '', area: '' });
+  const [editForm, setEditForm]       = useState({ name: '', type: '', area: '' });
   const [editFieldErrors, setEditFieldErrors] = useState({});
 
   const [editingName, setEditingName] = useState(false);
@@ -87,6 +87,7 @@ export default function FloorPage() {
     try {
       const { data } = await api.post(`/api/floors/${floor.id}/rooms`, {
         name: newRoom.name.trim(),
+        type: newRoom.type || null,
         area: newRoom.area || 0,
       });
       setShowModal(false);
@@ -98,7 +99,7 @@ export default function FloorPage() {
 
   function openEdit(room) {
     setEditingRoom(room);
-    setEditForm({ name: room.name, area: room.area });
+    setEditForm({ name: room.name, type: room.type ?? '', area: room.area });
   }
 
   async function handleEdit() {
@@ -106,7 +107,7 @@ export default function FloorPage() {
     try {
       const { data } = await api.put(
         `/api/floors/${floor.id}/rooms/${editingRoom.id}`,
-        { name: editForm.name.trim(), area: editForm.area }
+        { name: editForm.name.trim(), type: editForm.type || null, area: editForm.area }
       );
       setRooms(rooms.map(r => r.id === editingRoom.id ? data.data : r));
       setEditingRoom(null);
@@ -444,7 +445,7 @@ export default function FloorPage() {
       {showModal && (
         <Modal title="New Room" form={newRoom} onChange={setNewRoom}
           onSubmit={handleAdd}
-          onClose={() => { setShowModal(false); setNewRoom({ name: '', area: '' }); setAddFieldErrors({}); }}
+          onClose={() => { setShowModal(false); setNewRoom({ name: '', type: '', area: '' }); setAddFieldErrors({}); }}
           submitLabel="Add Room"
           suggestions={allProjectRooms}
           nameLabel="Room Name"
@@ -525,7 +526,14 @@ function RoomCard({ room, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplica
         </svg>
       </div>
       <p className="font-semibold text-gray-900 text-sm truncate mb-1">{room.name}</p>
-      <p className="text-xs text-gray-400 mb-auto">{Number(room.area).toLocaleString()} m²</p>
+      <p className="text-xs text-gray-400">{Number(room.area).toLocaleString()} m²</p>
+      <div className="mb-auto">
+        {room.type && (
+          <span className="text-xs text-indigo-600 font-medium truncate block mt-0.5">
+            {ROOM_TYPES.find(t => t.value === room.type)?.label ?? room.type}
+          </span>
+        )}
+      </div>
       {canEdit && (
         <div className="flex flex-col gap-1 mt-3">
           <div className="flex items-center gap-1.5">
@@ -549,6 +557,31 @@ function RoomCard({ room, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplica
     </div>
   );
 }
+
+const ROOM_TYPES = [
+  { value: '',                    label: 'Generic (IEC default)' },
+  { value: 'server_room',         label: 'Server Room' },
+  { value: 'operating_theater',   label: 'Operating Theater' },
+  { value: 'laboratory',          label: 'Laboratory' },
+  { value: 'classroom',           label: 'Classroom' },
+  { value: 'lecture_hall',        label: 'Lecture Hall' },
+  { value: 'workshop',            label: 'Workshop' },
+  { value: 'retail_floor',        label: 'Retail Floor' },
+  { value: 'office_open',         label: 'Open Office' },
+  { value: 'gym_sports',          label: 'Gym / Sports Hall' },
+  { value: 'kitchen_commercial',  label: 'Commercial Kitchen' },
+  { value: 'office_private',      label: 'Private Office' },
+  { value: 'prayer_hall',         label: 'Prayer Hall' },
+  { value: 'reception_lobby',     label: 'Reception / Lobby' },
+  { value: 'meeting_room',        label: 'Meeting Room' },
+  { value: 'corridor',            label: 'Corridor' },
+  { value: 'living_room',         label: 'Living Room' },
+  { value: 'kitchen_residential', label: 'Residential Kitchen' },
+  { value: 'hotel_room',          label: 'Hotel Room' },
+  { value: 'bedroom',             label: 'Bedroom' },
+  { value: 'warehouse_storage',   label: 'Warehouse / Storage' },
+  { value: 'bathroom',            label: 'Bathroom' },
+];
 
 function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggestions = [], nameLabel = 'Room Name', namePlaceholder = 'e.g. Living Room', onDuplicateFrom, fieldErrors = {}, onClearError }) {
   const wrapperRef = useRef(null);
@@ -602,6 +635,15 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
                 ))}
               </ul>
             )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+            <select value={form.type ?? ''} onChange={e => onChange({ ...form, type: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+              {ROOM_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>

@@ -8,6 +8,7 @@ class UpdateBuildingRequest extends ApiRequest
     {
         return [
             'name'                            => 'sometimes|string|max:255',
+            'type'                            => 'sometimes|nullable|string',
             'floors'                          => 'sometimes|integer|min:1',
             'area'                            => 'sometimes|numeric|min:0.01',
             'power_consumption'               => 'sometimes|string|max:50',

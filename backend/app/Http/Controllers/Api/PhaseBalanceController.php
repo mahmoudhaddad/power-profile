@@ -13,9 +13,15 @@ use Illuminate\Http\Request;
 
 class PhaseBalanceController extends Controller
 {
-    private const VOLT     = 230;
-    private const WARN_PCT = 10;
-    private const CRIT_PCT = 20;
+    private const VOLT             = 230;
+    private const WARN_PCT         = 10;
+    private const CRIT_PCT         = 20;
+    private const SOCKET_ASSUMED_PF = 0.95;
+
+    // IEC phase voltage angles in radians (positive-sequence ABC)
+    private const PHASE_ANGLE_A = 0.0;
+    private const PHASE_ANGLE_B = M_PI * 2 / 3;   // 120°
+    private const PHASE_ANGLE_C = M_PI * 4 / 3;   // 240°
 
     // ── Project: all buildings ────────────────────────────────────────────────
 
@@ -79,7 +85,8 @@ class PhaseBalanceController extends Controller
         $sockets = new SocketDemandService();
         $sd      = $sockets->floorResult($floor);
         if ($sd['demand_va'] > 0) {
-            $loads1ph[] = ['name' => 'Sockets', 'va' => (float) $sd['demand_va'], 'type' => 'socket'];
+            $loads1ph[] = ['name' => 'Sockets', 'va' => (float) $sd['demand_va'],
+                           'type' => 'socket', 'pf' => self::SOCKET_ASSUMED_PF];
         }
 
         return $this->simpleResponse('floor', $floor->id, $floor->name, $loads1ph, $va3ph, $count3ph);
@@ -151,15 +158,17 @@ class PhaseBalanceController extends Controller
 
     private function buildingReport(Building $building, SocketDemandService $sockets): array
     {
-        $blocks    = [];  // VA blocks used for greedy
-        $floorsOut = [];
+        $blocks     = [];   // VA blocks used for greedy (no individual load detail)
+        $blockLoads = [];   // parallel array: per-block individual loads ['va','pf']
+        $floorsOut  = [];
 
         // Building-level own 1ph components
         $bOwn = $this->extract1ph($building->components);
         $bVa  = array_sum(array_column($bOwn, 'va'));
         if ($bVa > 0) {
-            $blocks[] = ['type' => 'building', 'name' => 'Building components',
-                         'va' => $bVa, 'floor_id' => null, 'room_id' => null];
+            $blocks[]     = ['type' => 'building', 'name' => 'Building components',
+                             'va' => $bVa, 'floor_id' => null, 'room_id' => null];
+            $blockLoads[] = $bOwn;
         }
 
         foreach ($building->getRelation('floors') as $floor) {
@@ -167,15 +176,17 @@ class PhaseBalanceController extends Controller
             $fOwn = $this->extract1ph($floor->components);
             $fVa  = array_sum(array_column($fOwn, 'va'));
             if ($fVa > 0) {
-                $blocks[] = ['type' => 'floor_own', 'name' => 'Floor components – ' . $floor->name,
-                             'va' => $fVa, 'floor_id' => $floor->id, 'room_id' => null];
+                $blocks[]     = ['type' => 'floor_own', 'name' => 'Floor components – ' . $floor->name,
+                                 'va' => $fVa, 'floor_id' => $floor->id, 'room_id' => null];
+                $blockLoads[] = $fOwn;
             }
 
             // Socket demand for the floor panel
             $sd = $sockets->floorResult($floor);
             if ($sd['demand_va'] > 0) {
-                $blocks[] = ['type' => 'socket', 'name' => 'Sockets – ' . $floor->name,
-                             'va' => (float) $sd['demand_va'], 'floor_id' => $floor->id, 'room_id' => null];
+                $blocks[]     = ['type' => 'socket', 'name' => 'Sockets – ' . $floor->name,
+                                 'va' => (float) $sd['demand_va'], 'floor_id' => $floor->id, 'room_id' => null];
+                $blockLoads[] = [['va' => (float) $sd['demand_va'], 'pf' => self::SOCKET_ASSUMED_PF]];
             }
 
             // Rooms
@@ -193,8 +204,9 @@ class PhaseBalanceController extends Controller
                 ];
 
                 if ($rVa > 0) {
-                    $blocks[] = ['type' => 'room', 'name' => $room->name . ' (' . $floor->name . ')',
-                                 'va' => $rVa, 'floor_id' => $floor->id, 'room_id' => $room->id];
+                    $blocks[]     = ['type' => 'room', 'name' => $room->name . ' (' . $floor->name . ')',
+                                     'va' => $rVa, 'floor_id' => $floor->id, 'room_id' => $room->id];
+                    $blockLoads[] = $r1ph;
                 }
             }
 
@@ -202,12 +214,21 @@ class PhaseBalanceController extends Controller
         }
 
         // ── Greedy on blocks (largest first) ──────────────────────────────────
-        usort($blocks, fn($a, $b) => $b['va'] <=> $a['va']);
-        $optVa       = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+        // Sort blocks and keep blockLoads in sync.
+        $order = array_keys($blocks);
+        usort($order, fn($a, $b) => $blocks[$b]['va'] <=> $blocks[$a]['va']);
+
+        $optVa       = ['A' => 0.0,  'B' => 0.0,  'C' => 0.0];
+        $phaseLoads  = ['A' => [],   'B' => [],    'C' => []];
         $blockAssign = [];
-        foreach ($blocks as $blk) {
-            $ph = array_keys($optVa, min($optVa))[0];
+
+        foreach ($order as $idx) {
+            $blk = $blocks[$idx];
+            $ph  = array_keys($optVa, min($optVa))[0];
             $optVa[$ph] += $blk['va'];
+            foreach ($blockLoads[$idx] as $load) {
+                $phaseLoads[$ph][] = ['va' => (float) $load['va'], 'pf' => (float) ($load['pf'] ?? 1.0)];
+            }
             $blockAssign[] = $blk + ['optimal_phase' => $ph];
         }
 
@@ -225,20 +246,29 @@ class PhaseBalanceController extends Controller
         unset($floorOut, $roomOut);
 
         // ── Distributions ─────────────────────────────────────────────────────
-        $actual      = $this->actualDistribution($building);
-        $total1phVa  = array_sum(array_column($blocks, 'va'));
-        $optDist     = $this->phaseDistribution($optVa, $total1phVa);
-        [$optSt, $optImb, $optN] = $this->imbalanceStatus($optVa);
+        $actual     = $this->actualDistribution($building);
+        $total1phVa = array_sum(array_column($blocks, 'va'));
+
+        // Phasor currents per phase for the optimal assignment
+        $optPhasorCurrents = [
+            'A' => $this->computePhaseCurrent($phaseLoads['A'], self::PHASE_ANGLE_A)['magnitude'],
+            'B' => $this->computePhaseCurrent($phaseLoads['B'], self::PHASE_ANGLE_B)['magnitude'],
+            'C' => $this->computePhaseCurrent($phaseLoads['C'], self::PHASE_ANGLE_C)['magnitude'],
+        ];
+        $optDist           = $this->phaseDistribution($optVa, $total1phVa, $optPhasorCurrents);
+        [$optSt, $optImb]  = $this->imbalanceStatus($optVa);
+        $optN              = $this->computeNeutralCurrent($phaseLoads);
 
         return [
             'id'     => $building->id,
             'name'   => $building->name,
             'actual' => $actual,
             'optimal' => [
-                'distribution'         => $optDist,
-                'status'               => $optSt,
-                'imbalance_percentage' => $optImb,
-                'neutral_current_a'    => $optN,
+                'distribution'           => $optDist,
+                'status'                 => $optSt,
+                'imbalance_percentage'   => $optImb,
+                'neutral_current_a'      => round($optN, 2),
+                'neutral_current_method' => 'phasor_sum_with_pf',
             ],
             'block_assignments' => $blockAssign,
             'floors'            => $floorsOut,
@@ -247,7 +277,52 @@ class PhaseBalanceController extends Controller
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** 1-phase loads [{name, va, phase}] with group-max dedup. */
+    /**
+     * Compute the complex current phasor for one phase.
+     *
+     * Each load on the phase has a magnitude (|I| = VA/V) and an
+     * angle (θ = θ_V - arccos(PF)). The phase total is the complex
+     * sum of all load phasors.
+     *
+     * This replaces the previous PF=1 approximation:
+     *   I_N = sqrt(I_A² + I_B² + I_C² - I_A·I_B - I_B·I_C - I_C·I_A)
+     *
+     * which assumed θ_I = θ_V for every load (i.e. purely resistive).
+     * The new formulation correctly handles inductive loads where
+     * current lags voltage by arccos(PF).
+     */
+    private function computePhaseCurrent(array $loads, float $phaseAngle): array
+    {
+        $real = 0.0;
+        $imag = 0.0;
+        foreach ($loads as $load) {
+            $va        = (float) $load['va'];
+            $pf        = max(0.01, min(1.0, (float) $load['pf']));
+            $magnitude = $va / self::VOLT;       // |I| = S/V
+            $lag       = acos($pf);              // φ = arccos(PF)
+            $angle     = $phaseAngle - $lag;     // θ_I = θ_V - φ
+            $real     += $magnitude * cos($angle);
+            $imag     += $magnitude * sin($angle);
+        }
+        return [
+            'real'      => $real,
+            'imag'      => $imag,
+            'magnitude' => sqrt($real ** 2 + $imag ** 2),
+        ];
+    }
+
+    /** Phasor-sum neutral current for three phases given per-phase load lists. */
+    private function computeNeutralCurrent(array $phaseLoads): float
+    {
+        $iA   = $this->computePhaseCurrent($phaseLoads['A'] ?? [], self::PHASE_ANGLE_A);
+        $iB   = $this->computePhaseCurrent($phaseLoads['B'] ?? [], self::PHASE_ANGLE_B);
+        $iC   = $this->computePhaseCurrent($phaseLoads['C'] ?? [], self::PHASE_ANGLE_C);
+        $real = $iA['real'] + $iB['real'] + $iC['real'];
+        $imag = $iA['imag'] + $iB['imag'] + $iC['imag'];
+        return sqrt($real ** 2 + $imag ** 2);
+    }
+
+    /** 1-phase loads [{name, va, pf, phase}] with group-max dedup. */
     private function extract1ph($components): array
     {
         $groups    = [];
@@ -256,7 +331,9 @@ class PhaseBalanceController extends Controller
         foreach ($components as $c) {
             if ($c->phases === '3phase') continue;
             $va   = (float) $c->power * (int) $c->quantity;
-            $item = ['name' => $c->componentType->name ?? 'Component', 'va' => $va, 'phase' => $c->phase];
+            $pf   = max(0.01, min(1.0, (float) ($c->power_factor ?? 1.0)));
+            $item = ['name' => $c->componentType->name ?? 'Component',
+                     'va' => $va, 'pf' => $pf, 'phase' => $c->phase];
 
             if (! $c->group_name) {
                 $ungrouped[] = $item;
@@ -288,12 +365,15 @@ class PhaseBalanceController extends Controller
     private function actualDistribution(Building $building): array
     {
         $va         = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+        $phaseLoads = ['A' => [],  'B' => [],   'C' => []];
         $unassigned = 0.0;
 
-        $tally = function ($components) use (&$va, &$unassigned) {
+        $tally = function ($components) use (&$va, &$phaseLoads, &$unassigned) {
             foreach ($this->extract1ph($components) as $item) {
                 if ($item['phase'] && isset($va[$item['phase']])) {
-                    $va[$item['phase']] += $item['va'];
+                    $ph = $item['phase'];
+                    $va[$ph] += $item['va'];
+                    $phaseLoads[$ph][] = ['va' => $item['va'], 'pf' => $item['pf']];
                 } else {
                     $unassigned += $item['va'];
                 }
@@ -309,49 +389,67 @@ class PhaseBalanceController extends Controller
         }
 
         $total = array_sum($va) + $unassigned;
-        $dist  = [];
-        foreach (['A', 'B', 'C'] as $ph) {
-            $pct = $total > 0 ? ($va[$ph] / $total) * 100 : 0.0;
-            $dist[$ph] = [
-                'va'                  => round($va[$ph], 2),
-                'current_a'           => round($va[$ph] / self::VOLT, 2),
-                'percentage_of_total' => round($pct, 1),
-            ];
-        }
 
-        [$status, $imbalance, $neutral] = $this->imbalanceStatus($va);
-        if ($unassigned > 0) $status = 'unassigned';
-
-        return [
-            'distribution'         => $dist,
-            'unassigned_va'        => round($unassigned, 2),
-            'status'               => $status,
-            'imbalance_percentage' => $imbalance,
-            'neutral_current_a'    => $neutral,
+        $phasorCurrents = [
+            'A' => $this->computePhaseCurrent($phaseLoads['A'], self::PHASE_ANGLE_A)['magnitude'],
+            'B' => $this->computePhaseCurrent($phaseLoads['B'], self::PHASE_ANGLE_B)['magnitude'],
+            'C' => $this->computePhaseCurrent($phaseLoads['C'], self::PHASE_ANGLE_C)['magnitude'],
         ];
-    }
 
-    private function phaseDistribution(array $va, float $total): array
-    {
         $dist = [];
         foreach (['A', 'B', 'C'] as $ph) {
             $pct = $total > 0 ? ($va[$ph] / $total) * 100 : 0.0;
             $dist[$ph] = [
                 'va'                  => round($va[$ph], 2),
-                'current_a'           => round($va[$ph] / self::VOLT, 2),
+                'current_a'           => round($phasorCurrents[$ph], 2),
+                'percentage_of_total' => round($pct, 1),
+            ];
+        }
+
+        [$status, $imbalance] = $this->imbalanceStatus($va);
+        $neutral = $this->computeNeutralCurrent($phaseLoads);
+        if ($unassigned > 0) $status = 'unassigned';
+
+        return [
+            'distribution'           => $dist,
+            'unassigned_va'          => round($unassigned, 2),
+            'status'                 => $status,
+            'imbalance_percentage'   => $imbalance,
+            'neutral_current_a'      => round($neutral, 2),
+            'neutral_current_method' => 'phasor_sum_with_pf',
+        ];
+    }
+
+    /**
+     * Per-phase VA distribution table.
+     * $phasorCurrents: optional pre-computed |I_phase| magnitudes from computePhaseCurrent().
+     * When omitted, falls back to VA/VOLT (PF=1 approximation).
+     */
+    private function phaseDistribution(array $va, float $total, array $phasorCurrents = []): array
+    {
+        $dist = [];
+        foreach (['A', 'B', 'C'] as $ph) {
+            $pct      = $total > 0 ? ($va[$ph] / $total) * 100 : 0.0;
+            $currentA = isset($phasorCurrents[$ph]) ? $phasorCurrents[$ph] : $va[$ph] / self::VOLT;
+            $dist[$ph] = [
+                'va'                  => round($va[$ph], 2),
+                'current_a'           => round($currentA, 2),
                 'percentage_of_total' => round($pct, 1),
             ];
         }
         return $dist;
     }
 
+    /**
+     * Returns [status, imbalance_pct].
+     * Neutral current is computed separately via computeNeutralCurrent() using full phasor math.
+     * The imbalance percentage formula is unchanged (max-min)/avg — uses VA/VOLT magnitudes.
+     */
     private function imbalanceStatus(array $va): array
     {
-        $iA = $va['A'] / self::VOLT;
-        $iB = $va['B'] / self::VOLT;
-        $iC = $va['C'] / self::VOLT;
-
-        $iN  = sqrt(max(0.0, $iA ** 2 + $iB ** 2 + $iC ** 2 - $iA * $iB - $iB * $iC - $iC * $iA));
+        $iA  = $va['A'] / self::VOLT;
+        $iB  = $va['B'] / self::VOLT;
+        $iC  = $va['C'] / self::VOLT;
         $avg = ($iA + $iB + $iC) / 3;
         $imb = $avg > 0 ? ((max($iA, $iB, $iC) - min($iA, $iB, $iC)) / $avg) * 100 : 0.0;
 
@@ -361,7 +459,7 @@ class PhaseBalanceController extends Controller
             default                => 'critical',
         };
 
-        return [$status, round($imb, 1), round($iN, 2)];
+        return [$status, round($imb, 1)];
     }
 
     // ── Simple floor-level greedy (used by floor() endpoint) ─────────────────
@@ -373,14 +471,15 @@ class PhaseBalanceController extends Controller
 
         foreach ($components as $c) {
             $va   = (float) $c->power * (int) $c->quantity;
+            $pf   = max(0.01, min(1.0, (float) ($c->power_factor ?? 1.0)));
             $name = $c->componentType->name ?? 'Component';
 
             if (! $c->group_name) {
-                $ungrouped[] = ['va' => $va, 'phases' => $c->phases, 'name' => $name];
+                $ungrouped[] = ['va' => $va, 'pf' => $pf, 'phases' => $c->phases, 'name' => $name];
             } else {
                 $key = $c->group_name;
                 if (! isset($groups[$key]) || $va > $groups[$key]['va']) {
-                    $groups[$key] = ['va' => $va, 'phases' => $c->phases, 'name' => $name];
+                    $groups[$key] = ['va' => $va, 'pf' => $pf, 'phases' => $c->phases, 'name' => $name];
                 }
             }
         }
@@ -390,7 +489,8 @@ class PhaseBalanceController extends Controller
                 $va3ph    += $item['va'];
                 $count3ph++;
             } else {
-                $loads1ph[] = ['name' => $item['name'], 'va' => $item['va'], 'type' => 'component'];
+                $loads1ph[] = ['name' => $item['name'], 'va' => $item['va'],
+                               'pf' => $item['pf'], 'type' => 'component'];
             }
         }
     }
@@ -416,6 +516,7 @@ class PhaseBalanceController extends Controller
                                            'total_single_phase_va' => 0.0, 'total_three_phase_va' => round($va3ph, 2)],
                 'phase_distribution'   => $emptyDist,
                 'neutral_current_a'    => 0.0,
+                'neutral_current_method' => 'phasor_sum_with_pf',
                 'imbalance_percentage' => 0.0,
                 'status'               => 'balanced',
                 'recommendation'       => 'No single-phase loads found at this level.',
@@ -424,30 +525,40 @@ class PhaseBalanceController extends Controller
         }
 
         usort($loads1ph, fn($a, $b) => $b['va'] <=> $a['va']);
-        $phases       = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+
+        $phases      = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+        $phaseLoads  = ['A' => [],  'B' => [],   'C' => []];
         $largestPhase = null;
 
         foreach ($loads1ph as $i => $load) {
-            $minPhase          = array_keys($phases, min($phases))[0];
+            $minPhase           = array_keys($phases, min($phases))[0];
             $phases[$minPhase] += $load['va'];
+            $phaseLoads[$minPhase][] = ['va' => $load['va'], 'pf' => $load['pf'] ?? 1.0];
             if ($i === 0) $largestPhase = $minPhase;
         }
 
-        [$status, $imbalance, $iN] = $this->imbalanceStatus($phases);
+        [$status, $imbalance] = $this->imbalanceStatus($phases);
+        $iN = $this->computeNeutralCurrent($phaseLoads);
+
+        $phasorCurrents = [
+            'A' => $this->computePhaseCurrent($phaseLoads['A'], self::PHASE_ANGLE_A)['magnitude'],
+            'B' => $this->computePhaseCurrent($phaseLoads['B'], self::PHASE_ANGLE_B)['magnitude'],
+            'C' => $this->computePhaseCurrent($phaseLoads['C'], self::PHASE_ANGLE_C)['magnitude'],
+        ];
+        $phaseDist = $this->phaseDistribution($phases, $total1phVa, $phasorCurrents);
 
         $heavy = array_keys($phases, max($phases))[0];
         $light = array_keys($phases, min($phases))[0];
+        $iNRounded = round($iN, 2);
         $recommendation = match ($status) {
             'balanced' => "Phase distribution is within acceptable limits (imbalance: {$imbalance}%). No rebalancing required.",
             'warning'  => "Phase imbalance is {$imbalance}%. Phase {$heavy} carries " . round($phases[$heavy], 2)
                           . " VA while Phase {$light} carries " . round($phases[$light], 2)
-                          . " VA. Redistribute loads to reduce neutral current of {$iN} A.",
+                          . " VA. Redistribute loads to reduce neutral current of {$iNRounded} A.",
             default    => "Critical phase imbalance of {$imbalance}%. Phase {$heavy} carries " . round($phases[$heavy], 2)
                           . " VA versus " . round($phases[$light], 2) . " VA on Phase {$light}. "
-                          . "Immediate rebalancing required — neutral current of {$iN} A exceeds safe limits.",
+                          . "Immediate rebalancing required — neutral current of {$iNRounded} A exceeds safe limits.",
         };
-
-        $phaseDist = $this->phaseDistribution($phases, $total1phVa);
 
         return response()->json([
             'entity_type'  => $entityType,
@@ -459,11 +570,12 @@ class PhaseBalanceController extends Controller
                 'total_single_phase_va' => round($total1phVa, 2),
                 'total_three_phase_va'  => round($va3ph, 2),
             ],
-            'phase_distribution'    => $phaseDist,
-            'neutral_current_a'     => $iN,
-            'imbalance_percentage'  => $imbalance,
-            'status'                => $status,
-            'status_thresholds'     => ['balanced' => 'imbalance < 10%', 'warning' => '10% to 20%', 'critical' => '> 20%'],
+            'phase_distribution'     => $phaseDist,
+            'neutral_current_a'      => $iNRounded,
+            'neutral_current_method' => 'phasor_sum_with_pf',
+            'imbalance_percentage'   => $imbalance,
+            'status'                 => $status,
+            'status_thresholds'      => ['balanced' => 'imbalance < 10%', 'warning' => '10% to 20%', 'critical' => '> 20%'],
             'largest_single_phase_load' => [
                 'name'           => $loads1ph[0]['name'],
                 'va'             => round($loads1ph[0]['va'], 2),
