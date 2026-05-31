@@ -109,16 +109,34 @@ class SourceDispatchService
         float $solarCapacityW,
         ?Collection $solarSystems
     ): array {
+        // ── Solar system inverter capacities (W) ─────────────────────────────
+        // The solar system's capacity_kw = the inverter's rated output power.
+        // A battery paired to a solar system shares that inverter, so its
+        // maximum discharge rate is capped by the inverter's rated power.
+        // At night solar = 0 but the inverter is still the bottleneck.
+        $sysInvCapW = [];
+        if ($solarSystems && $solarSystems->isNotEmpty()) {
+            foreach ($solarSystems as $sys) {
+                $sysInvCapW[$sys->id] = $sys->capacity_kw * 1000.0;
+            }
+        }
+
         // ── Build per-battery mutable state ──────────────────────────────────
         $bst = [];
         foreach ($batteries as $b) {
+            $sysId   = $b->solar_system_id;
+            // inv_cap_w: the hard discharge ceiling imposed by the shared inverter.
+            // Unpaired batteries have no inverter constraint beyond their own C-rate.
+            $invCapW = isset($sysInvCapW[$sysId]) ? $sysInvCapW[$sysId] : PHP_FLOAT_MAX;
+
             $bst[$b->id] = [
                 'usable'     => (float) $b->usable_capacity_kwh,
                 'current'    => (float) $b->usable_capacity_kwh * max(0.0, min(1.0, (float) $b->current_soc)),
                 'charge_kw'  => (float) $b->max_charge_power_kw,
                 'disch_kw'   => (float) $b->max_discharge_power_kw,
                 'eff'        => sqrt(max(0.5, (float) $b->round_trip_efficiency)),
-                'sys_id'     => $b->solar_system_id, // null = shared pool
+                'sys_id'     => $sysId,
+                'inv_cap_w'  => $invCapW,
             ];
         }
 
@@ -222,8 +240,9 @@ class SourceDispatchService
             if ($remaining > 0) {
                 $totalCurrent = array_sum(array_column($bst, 'current'));
                 if ($totalCurrent > 0) {
-                    $maxDischW  = min(
-                        array_sum(array_column($bst, 'disch_kw')) * 1000.0,
+                    // Aggregate discharge ceiling: each bank is also limited by its inverter rating
+                    $maxDischW = min(
+                        array_sum(array_map(fn($b) => min($b['disch_kw'] * 1000.0, $b['inv_cap_w']), $bst)),
                         $totalCurrent * 1000.0
                     );
                     $dischargeW = min($remaining, $maxDischW);
@@ -231,7 +250,8 @@ class SourceDispatchService
                     foreach ($bst as $bid => &$b) {
                         if ($b['current'] <= 0 || $totalCurrent <= 0) continue;
                         $share  = $dischargeW * ($b['current'] / $totalCurrent);
-                        $maxD   = min($b['disch_kw'] * 1000.0, $b['current'] * 1000.0);
+                        // inv_cap_w: inverter rating caps discharge (shared with solar)
+                        $maxD   = min($b['disch_kw'] * 1000.0, $b['inv_cap_w'], $b['current'] * 1000.0);
                         $actual = min($share, $maxD);
                         $b['current'] -= ($actual / 1000.0) / max(0.5, $b['eff']);
                         $b['current']  = max(0.0, $b['current']);
