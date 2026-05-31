@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateGeneratorLineRequest;
 use App\Models\Building;
 use App\Models\Floor;
 use App\Models\GeneratorLine;
@@ -49,17 +50,17 @@ class GeneratorLineController extends Controller
 
     public function store(Request $request, string $type, int $id)
     {
-        [$parent, $project] = $this->resolveParent($type, $id);
-
-        if (! in_array($project->userRole($request->user()->id), ['admin', 'main'])) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
         $request->validate([
             'name'   => 'required|string|max:255',
             'power'  => 'required|numeric|min:0',
             'phases' => 'required|in:1phase,3phase',
         ]);
+
+        [$parent, $project] = $this->resolveParent($type, $id);
+
+        if (! in_array($project->userRole($request->user()->id), ['admin', 'main'])) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
 
         $line = $parent->generatorLines()->create([
             'name'   => $request->name,
@@ -70,18 +71,12 @@ class GeneratorLineController extends Controller
         return response()->json(['data' => $line], 201);
     }
 
-    public function update(Request $request, GeneratorLine $line)
+    public function update(UpdateGeneratorLineRequest $request, GeneratorLine $line)
     {
         $project = $this->lineProject($line);
         if (! $project || ! in_array($project->userRole($request->user()->id), ['admin', 'main'])) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
-
-        $request->validate([
-            'name'   => 'sometimes|string|max:255',
-            'power'  => 'sometimes|numeric|min:0',
-            'phases' => 'sometimes|in:1phase,3phase',
-        ]);
 
         $line->fill($request->only('name', 'power', 'phases'));
         $line->save();

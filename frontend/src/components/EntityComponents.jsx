@@ -11,8 +11,19 @@ export default function EntityComponents({ endpoint, componentTypes, onTypesUpda
   const [components, setComponents] = useState([]);
   const [showModal, setShowModal]   = useState(false);
   const [editingComp, setEditingComp] = useState(null);
-  const emptyForm = { name: '', power: '', quantity: '1', priority: 'normal', phases: '1phase', power_factor: '1', group_name: '', needs_socket: false, usage_season: 'all', usage_day_type: 'all', usage_time_intervals: [{ start: '08:00', end: '18:00' }] };
+  const emptyForm = { name: '', power: '', quantity: '1', priority: 'normal', phases: '1phase', phase: null, power_factor: '1', group_name: '', needs_socket: false, is_motor: false, usage_season: 'all', usage_day_type: 'all', usage_time_intervals: [{ start: '08:00', end: '18:00' }] };
   const [form, setForm] = useState(emptyForm);
+
+  // Always keep a ref pointing to the latest form — read this in async handlers
+  // to avoid stale closure issues with React's batched state updates.
+  const formRef = useRef(form);
+  formRef.current = form;
+
+  const editingCompRef = useRef(editingComp);
+  editingCompRef.current = editingComp;
+
+  const componentsRef = useRef(components);
+  componentsRef.current = components;
 
   useEffect(() => {
     if (!endpoint) return;
@@ -20,30 +31,34 @@ export default function EntityComponents({ endpoint, componentTypes, onTypesUpda
   }, [endpoint]);
 
   async function handleSubmit() {
+    const f    = formRef.current;
+    const comp = editingCompRef.current;
     const payload = {
-      component_name: form.name.trim(),
-      power:         form.power,
-      phases:        form.phases,
-      power_factor:  form.power_factor,
-      quantity:      form.quantity,
-      priority:      form.priority,
-      group_name:           form.group_name || null,
-      needs_socket:         form.needs_socket,
-      usage_season:         form.usage_season,
-      usage_day_type:       form.usage_day_type,
-      usage_time_intervals: form.usage_time_intervals,
+      component_name: f.name.trim(),
+      power:         f.power,
+      phases:        f.phases,
+      phase:         f.phases === '1phase' ? (f.phase || null) : null,
+      power_factor:  f.power_factor,
+      quantity:      f.quantity,
+      priority:      f.priority,
+      group_name:           f.group_name || null,
+      needs_socket:         f.needs_socket,
+      is_motor:             f.is_motor,
+      usage_season:         f.usage_season,
+      usage_day_type:       f.usage_day_type,
+      usage_time_intervals: f.usage_time_intervals,
     };
 
     setSubmitError('');
     try {
-      if (editingComp) {
-        const { data } = await api.put(`${endpoint}/${editingComp.id}`, payload);
-        setComponents(components.map(c => c.id === editingComp.id ? data.data : c));
+      if (comp) {
+        const { data } = await api.put(`${endpoint}/${comp.id}`, payload);
+        setComponents(componentsRef.current.map(c => c.id === comp.id ? data.data : c));
         setEditingComp(null);
       } else {
         const { data } = await api.post(endpoint, payload);
-        setComponents([data.data, ...components]);
-        if (onTypesUpdated && !componentTypes.find(t => t.name === form.name.trim())) {
+        setComponents([data.data, ...componentsRef.current]);
+        if (onTypesUpdated && !componentTypes.find(t => t.name === f.name.trim())) {
           onTypesUpdated(data.data.component_type);
         }
       }
@@ -66,11 +81,13 @@ export default function EntityComponents({ endpoint, componentTypes, onTypesUpda
       component_name: comp.component_type.name,
       power:         comp.power,
       phases:        comp.phases,
+      phase:         comp.phases === '1phase' ? (comp.phase ?? null) : null,
       power_factor:  comp.power_factor,
       quantity:      comp.quantity,
       priority:      comp.priority,
       group_name:           comp.group_name           ?? null,
       needs_socket:         comp.needs_socket,
+      is_motor:             comp.component_type?.is_motor ?? false,
       usage_season:         comp.usage_season         ?? 'all',
       usage_day_type:       comp.usage_day_type       ?? 'all',
       usage_time_intervals: (() => { const r = comp.usage_time_intervals; return r ? (typeof r === 'string' ? JSON.parse(r) : r) : [{ start: '08:00', end: '18:00' }]; })(),
@@ -85,11 +102,13 @@ export default function EntityComponents({ endpoint, componentTypes, onTypesUpda
       name:         comp.component_type.name,
       power:        comp.power,
       phases:       comp.phases ?? '1phase',
+      phase:        comp.phase ?? null,
       power_factor: comp.power_factor ?? '1',
       quantity:     comp.quantity,
       priority:             comp.priority,
       group_name:           comp.group_name           ?? '',
       needs_socket:         comp.needs_socket         ?? false,
+      is_motor:             comp.component_type?.is_motor ?? false,
       usage_season:         comp.usage_season         ?? 'all',
       usage_day_type:       comp.usage_day_type       ?? 'all',
       usage_time_intervals: (() => { const r = comp.usage_time_intervals; return r ? (typeof r === 'string' ? JSON.parse(r) : r) : [{ start: '08:00', end: '18:00' }]; })(),
@@ -214,6 +233,13 @@ function ComponentCard({ comp, canEdit, onEdit, onDelete, onDuplicate }) {
           <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
             comp.phases === '3phase' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'
           }`}>{phases}</span>
+          {comp.phases !== '3phase' && comp.phase && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+              comp.phase === 'A' ? 'bg-indigo-100 text-indigo-700' :
+              comp.phase === 'B' ? 'bg-emerald-100 text-emerald-700' :
+                                   'bg-amber-100 text-amber-700'
+            }`}>Ph {comp.phase}</span>
+          )}
           {comp.needs_socket && (
             <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-orange-100 text-orange-600 flex items-center gap-0.5">
               <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,6 +247,16 @@ function ComponentCard({ comp, canEdit, onEdit, onDelete, onDuplicate }) {
                   d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
               </svg>
               Socket
+            </span>
+          )}
+          {comp.component_type?.is_motor && (
+            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-rose-100 text-rose-700 flex items-center gap-0.5">
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Motor
             </span>
           )}
           {comp.group_name && (
@@ -351,6 +387,7 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
                       if (t.default_phases)       next.phases       = t.default_phases;
                       if (t.default_power_factor) next.power_factor = String(t.default_power_factor);
                       if (t.default_needs_socket    != null) next.needs_socket      = t.default_needs_socket;
+                      if (t.is_motor                != null) next.is_motor          = t.is_motor;
                       if (t.default_usage_season)          next.usage_season      = t.default_usage_season;
                       if (t.default_usage_day_type)        next.usage_day_type    = t.default_usage_day_type;
                       if (t.default_usage_time_intervals) {
@@ -418,6 +455,34 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             </div>
           </div>
+
+          {/* Phase (1-phase only) */}
+          {form.phases === '1phase' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phase <span className="text-gray-400 font-normal text-xs">(optional)</span>
+              </label>
+              <div className="flex gap-1.5">
+                {[['A', 'bg-indigo-500 border-indigo-500'], ['B', 'bg-emerald-500 border-emerald-500'], ['C', 'bg-amber-500 border-amber-500']].map(([ph, active]) => (
+                  <button key={ph} type="button"
+                    onClick={() => onChange({ ...form, phase: form.phase === ph ? null : ph })}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg border-2 transition-colors ${
+                      form.phase === ph
+                        ? `${active} text-white`
+                        : 'border-gray-200 text-gray-400 hover:border-gray-400 bg-white'
+                    }`}>
+                    {ph}
+                  </button>
+                ))}
+                {form.phase && (
+                  <button type="button" onClick={() => onChange({ ...form, phase: null })}
+                    className="px-3 py-2 text-sm font-medium rounded-lg border-2 border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 bg-white transition-colors">
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Quantity */}
           <div>
@@ -524,6 +589,32 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
             </div>
           </button>
 
+          {/* Is Motor */}
+          <button type="button"
+            onClick={() => onChange({ ...form, is_motor: !form.is_motor })}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all duration-150 ${
+              form.is_motor
+                ? 'border-rose-400 bg-rose-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}>
+            <div className="flex items-center gap-2.5">
+              <svg className={`w-4 h-4 ${form.is_motor ? 'text-rose-500' : 'text-gray-400'}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className={`text-sm font-medium ${form.is_motor ? 'text-rose-700' : 'text-gray-600'}`}>
+                Motor load (inrush sizing)
+              </span>
+            </div>
+            <div className={`w-10 h-5 rounded-full transition-colors duration-200 flex items-center px-0.5 ${
+              form.is_motor ? 'bg-rose-400 justify-end' : 'bg-gray-200 justify-start'
+            }`}>
+              <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+            </div>
+          </button>
+
           {/* Usage Schedule */}
           <div className="space-y-2 border border-gray-200 rounded-xl p-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Usage Schedule</p>
@@ -591,7 +682,7 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
         <div className="flex gap-3 px-6 py-5 flex-shrink-0 border-t border-gray-100">
           <button onClick={onClose}
             className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onClick={onSubmit} disabled={!isValid}
+          <button type="button" onClick={onSubmit} disabled={!isValid}
             className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             {submitLabel}
           </button>

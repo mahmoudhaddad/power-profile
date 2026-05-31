@@ -41,6 +41,8 @@ class ProjectComponentController extends Controller
             'usage_time_intervals.*.start' => 'required_with:usage_time_intervals|string|regex:/^\d{2}:\d{2}$/',
             'usage_time_intervals.*.end'   => 'required_with:usage_time_intervals|string|regex:/^\d{2}:\d{2}$/',
             'group_name'                   => 'sometimes|nullable|string|max:255',
+            'phase'                        => 'sometimes|nullable|in:A,B,C',
+            'is_motor'                     => 'sometimes|boolean',
         ]);
 
         $componentType = ComponentType::firstOrCreate(
@@ -48,17 +50,19 @@ class ProjectComponentController extends Controller
             ['is_preset' => false]
         );
 
-        $needsSocket = $request->boolean('needs_socket', false);
-        $season      = $request->input('usage_season', 'all');
-        $dayType     = $request->input('usage_day_type', 'all');
+        $needsSocket  = $request->boolean('needs_socket', false);
+        $isMotor      = $request->boolean('is_motor', false);
+        $season       = $request->input('usage_season', 'all');
+        $dayType      = $request->input('usage_day_type', 'all');
         $timeIntervals = $request->input('usage_time_intervals', [['start' => '08:00', 'end' => '18:00']]);
 
-        $this->saveDefaults($componentType, $request->power, $request->input('phases', '1phase'), $request->input('power_factor', 1.00), $needsSocket, $season, $dayType, $timeIntervals);
+        $this->saveDefaults($componentType, $request->power, $request->input('phases', '1phase'), $request->input('power_factor', 1.00), $needsSocket, $season, $dayType, $timeIntervals, $isMotor);
 
         $component = $project->components()->create([
             'component_type_id' => $componentType->id,
             'power'             => $request->power,
             'phases'            => $request->input('phases', '1phase'),
+            'phase'             => $request->input('phase'),
             'power_factor'      => $request->input('power_factor', 1.00),
             'quantity'          => $request->quantity,
             'group_name'        => $request->input('group_name'),
@@ -93,6 +97,8 @@ class ProjectComponentController extends Controller
             'usage_time_intervals.*.start' => 'required_with:usage_time_intervals|string|regex:/^\d{2}:\d{2}$/',
             'usage_time_intervals.*.end'   => 'required_with:usage_time_intervals|string|regex:/^\d{2}:\d{2}$/',
             'group_name'                   => 'sometimes|nullable|string|max:255',
+            'phase'                        => 'sometimes|nullable|in:A,B,C',
+            'is_motor'                     => 'sometimes|boolean',
         ]);
 
         if ($request->has('component_name')) {
@@ -106,6 +112,7 @@ class ProjectComponentController extends Controller
         }
 
         $needsSocket = $request->boolean('needs_socket', $component->needs_socket);
+        $isMotor     = $request->boolean('is_motor', $componentType->is_motor ?? false);
         $season      = $request->input('usage_season',      $component->usage_season);
         $dayType     = $request->input('usage_day_type',    $component->usage_day_type);
         $timeIntervals = $request->input('usage_time_intervals', $component->usage_time_intervals ?? [['start' => '08:00', 'end' => '18:00']]);
@@ -115,14 +122,14 @@ class ProjectComponentController extends Controller
             $request->input('power', $component->power),
             $request->input('phases', $component->phases),
             $request->input('power_factor', $component->power_factor),
-            $needsSocket, $season, $dayType, $timeIntervals
+            $needsSocket, $season, $dayType, $timeIntervals, $isMotor
         );
 
-        $component->fill($request->only('power', 'phases', 'power_factor', 'quantity', 'priority'));
-        $component->group_name        = $request->input('group_name', $component->group_name);
-        $component->needs_socket      = $needsSocket;
-        $component->usage_season      = $season;
-        $component->usage_day_type    = $dayType;
+        $component->fill($request->only('power', 'phases', 'phase', 'power_factor', 'quantity', 'priority'));
+        $component->group_name           = $request->input('group_name', $component->group_name);
+        $component->needs_socket         = $needsSocket;
+        $component->usage_season         = $season;
+        $component->usage_day_type       = $dayType;
         $component->usage_time_intervals = $timeIntervals;
         $component->save();
 
@@ -141,8 +148,12 @@ class ProjectComponentController extends Controller
         return response()->json(['message' => 'Component deleted.']);
     }
 
-    private function saveDefaults(ComponentType $ct, $power, $phases, $pf, bool $needsSocket = false, string $season = 'all', string $dayType = 'all', array $timeIntervals = []): void
+    private function saveDefaults(ComponentType $ct, $power, $phases, $pf, bool $needsSocket = false, string $season = 'all', string $dayType = 'all', array $timeIntervals = [], bool $isMotor = false): void
     {
+        if ((bool) $ct->is_motor !== $isMotor) {
+            $ct->update(['is_motor' => $isMotor]);
+        }
+
         if (! $ct->is_preset) {
             $ct->update([
                 'default_power'                => $power,

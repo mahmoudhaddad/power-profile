@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Room extends Model
 {
-    protected $fillable = ['floor_id', 'name', 'area', 'power_consumption', 'solar_power', 'existing_solar_power', 'solar_source', 'generator_power', 'work_days', 'work_time_intervals', 'working_season_intervals'];
+    protected $fillable = ['floor_id', 'name', 'type', 'area', 'power_consumption', 'solar_power', 'existing_solar_power', 'solar_source', 'generator_power', 'work_days', 'work_time_intervals', 'working_season_intervals'];
 
     protected $casts = [
         'work_days'                 => 'array',

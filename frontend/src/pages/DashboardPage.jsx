@@ -4,7 +4,6 @@ import Navbar from '../components/Navbar';
 import UserCard from '../components/UserCard';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
-import { setNav } from '../utils/navContext';
 import { downloadJson } from '../utils/downloadJson';
 import BackupChoiceModal from '../components/BackupChoiceModal';
 import ServerBackupsList from '../components/ServerBackupsList';
@@ -16,9 +15,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState('');
+  const [addErrors, setAddErrors] = useState({});
   const [editingProject, setEditingProject] = useState(null);
   const [editName, setEditName] = useState('');
   const [editInterval, setEditInterval] = useState('never');
+  const [editErrors, setEditErrors] = useState({});
 
   // Backup state
   const [backupTarget, setBackupTarget] = useState(null); // project to backup
@@ -41,11 +42,14 @@ export default function DashboardPage() {
 
   async function handleAddProject() {
     if (!newName.trim()) return;
-    const { data } = await api.post('/api/projects', { name: newName.trim() });
-    setNewName('');
-    setShowModal(false);
-    setNav({ projectId: data.data.id });
-    navigate('/project');
+    try {
+      const { data } = await api.post('/api/projects', { name: newName.trim() });
+      setNewName('');
+      setShowModal(false);
+      navigate(`/projects/${data.data.id}`);
+    } catch (err) {
+      if (err.response?.status === 422) setAddErrors(err.response.data.errors ?? {});
+    }
   }
 
   function openEdit(project) {
@@ -56,12 +60,16 @@ export default function DashboardPage() {
 
   async function handleEditProject() {
     if (!editName.trim()) return;
-    const { data } = await api.put(`/api/projects/${editingProject.id}`, {
-      name: editName.trim(),
-      auto_backup_interval: editInterval,
-    });
-    setProjects(projects.map(p => p.id === editingProject.id ? data.data : p));
-    setEditingProject(null);
+    try {
+      const { data } = await api.put(`/api/projects/${editingProject.id}`, {
+        name: editName.trim(),
+        auto_backup_interval: editInterval,
+      });
+      setProjects(projects.map(p => p.id === editingProject.id ? data.data : p));
+      setEditingProject(null);
+    } catch (err) {
+      if (err.response?.status === 422) setEditErrors(err.response.data.errors ?? {});
+    }
   }
 
   async function handleDeleteProject(id) {
@@ -327,7 +335,7 @@ export default function DashboardPage() {
                     <ProjectRow
                       key={project.id}
                       project={project}
-                      onOpen={() => { setNav({ projectId: project.id }); navigate('/project'); }}
+                      onOpen={() => navigate(`/projects/${project.id}`)}
                       onEdit={() => openEdit(project)}
                       onDelete={() => handleDeleteProject(project.id)}
                       onBackup={() => setBackupTarget(project)}
@@ -360,11 +368,11 @@ export default function DashboardPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
                 <input type="text" autoFocus value={editName}
-                  onChange={e => setEditName(e.target.value)}
+                  onChange={e => { setEditName(e.target.value); setEditErrors(p => ({ ...p, name: null })); }}
                   onKeyDown={e => e.key === 'Enter' && handleEditProject()}
                   placeholder="Project name"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editErrors.name ? 'border-red-400' : 'border-gray-300'}`} />
+                {editErrors.name?.[0] && <p className="text-red-500 text-xs mt-1">{editErrors.name[0]}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Auto Backup</label>
@@ -394,7 +402,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setEditingProject(null)}
+              <button onClick={() => { setEditingProject(null); setEditErrors({}); }}
                 className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
@@ -414,13 +422,13 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">New Project</h3>
             <input type="text" autoFocus value={newName}
-              onChange={e => setNewName(e.target.value)}
+              onChange={e => { setNewName(e.target.value); setAddErrors(p => ({ ...p, name: null })); }}
               onKeyDown={e => e.key === 'Enter' && handleAddProject()}
               placeholder="Project name"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4" />
-            <div className="flex gap-3">
-              <button onClick={() => { setShowModal(false); setNewName(''); }}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${addErrors.name ? 'border-red-400' : 'border-gray-300'}`} />
+            {addErrors.name?.[0] && <p className="text-red-500 text-xs mt-1">{addErrors.name[0]}</p>}
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => { setShowModal(false); setNewName(''); setAddErrors({}); }}
                 className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
                 Cancel
               </button>

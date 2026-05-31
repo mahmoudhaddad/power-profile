@@ -22,6 +22,32 @@ class BackupExporter
             'sockets'         => $project->sockets()->get(['phase_type', 'power', 'quantity'])->toArray(),
             'buildings'       => $project->buildings()->get()
                 ->map(fn($b) => $this->exportBuilding($b))->toArray(),
+            'solar_systems'   => $project->solarSystems()->get()->map(fn($s) => [
+                'name'        => $s->name,
+                'capacity_kw' => $s->capacity_kw,
+                'is_active'   => $s->is_active,
+                'notes'       => $s->notes,
+            ])->toArray(),
+            'batteries'       => $project->batteries()->get()->map(fn($b) => [
+                'name'                  => $b->name,
+                'chemistry'             => $b->chemistry,
+                'nominal_voltage_v'     => $b->nominal_voltage_v,
+                'capacity_ah_per_unit'  => $b->capacity_ah_per_unit,
+                'quantity'              => $b->quantity,
+                'series_count'          => $b->series_count,
+                'parallel_count'        => $b->parallel_count,
+                'installation_date'     => $b->getRawOriginal('installation_date'),
+                'depth_of_discharge'    => $b->depth_of_discharge,
+                'round_trip_efficiency' => $b->round_trip_efficiency,
+                'c_rate_charge'         => $b->c_rate_charge,
+                'c_rate_discharge'      => $b->c_rate_discharge,
+                'rated_cycle_life'      => $b->rated_cycle_life,
+                'current_soc'           => $b->current_soc,
+                'is_active'             => $b->is_active,
+                'notes'                 => $b->notes,
+                // Store the solar system name so restore can re-link by name match
+                'solar_system_name'     => $b->solarSystem?->name,
+            ])->toArray(),
         ];
     }
 

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BuildingComponent extends Model
 {
-    protected $fillable = ['building_id', 'component_type_id', 'power', 'phases', 'power_factor', 'quantity', 'group_name', 'priority', 'needs_socket', 'usage_season', 'usage_day_type', 'usage_time_intervals'];
+    protected $fillable = ['building_id', 'component_type_id', 'power', 'phases', 'phase', 'power_factor', 'quantity', 'group_name', 'priority', 'needs_socket', 'usage_season', 'usage_day_type', 'usage_time_intervals'];
 
     protected $casts = ['needs_socket' => 'boolean', 'usage_time_intervals' => 'array'];
 

@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProjectRequest;
+use App\Http\Requests\UpdateProjectRequest;
 use App\Models\BuildingComponent;
 use App\Models\FloorComponent;
 use App\Models\Project;
 use App\Models\RoomComponent;
+use App\Services\SocketDemandService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
+    public function __construct(private SocketDemandService $socketService) {}
+
     public function index(Request $request)
     {
         $userId = $request->user()->id;
@@ -32,35 +36,21 @@ class ProjectController extends Controller
         $projects = $ownProjects->merge($sharedProjects)->sortByDesc('updated_at')->values();
 
         foreach ($projects as $project) {
-            $own = $project->components()->sum(DB::raw('power * power_factor * quantity'));
+            $own      = $this->optimizedVA($project->components()->select('project_id', 'power', 'power_factor', 'quantity', 'group_name')->get(), 'project_id');
+            $building = $this->optimizedVA(BuildingComponent::whereHas('building', fn($q) => $q->where('project_id', $project->id))->select('building_id', 'power', 'power_factor', 'quantity', 'group_name')->get(), 'building_id');
+            $floor    = $this->optimizedVA(FloorComponent::whereHas('floor.building', fn($q) => $q->where('project_id', $project->id))->select('floor_id', 'power', 'power_factor', 'quantity', 'group_name')->get(), 'floor_id');
+            $room     = $this->optimizedVA(RoomComponent::whereHas('room.floor.building', fn($q) => $q->where('project_id', $project->id))->select('room_id', 'power', 'power_factor', 'quantity', 'group_name')->get(), 'room_id');
+            $sd       = $this->socketService->projectResult($project);
 
-            $building = BuildingComponent::whereHas('building', fn($q) =>
-                $q->where('project_id', $project->id)
-            )->sum(DB::raw('power * power_factor * quantity'));
-
-            $floor = FloorComponent::whereHas('floor.building', fn($q) =>
-                $q->where('project_id', $project->id)
-            )->sum(DB::raw('power * power_factor * quantity'));
-
-            $room = RoomComponent::whereHas('room.floor.building', fn($q) =>
-                $q->where('project_id', $project->id)
-            )->sum(DB::raw('power * power_factor * quantity'));
-
-            $project->total_power = round($own + $building + $floor + $room, 2);
+            $project->total_power = round($own + $building + $floor + $room + $sd['demand_va'], 2);
         }
 
         return response()->json(['data' => $projects]);
     }
 
-    public function store(Request $request)
+    public function store(StoreProjectRequest $request)
     {
-        $data = $request->validate([
-            'name'            => 'required|string|max:255',
-            'buildings_count' => 'sometimes|integer|min:0',
-            'total_power'     => 'sometimes|string|max:50',
-        ]);
-
-        $project = $request->user()->projects()->create($data);
+        $project = $request->user()->projects()->create($request->validated());
         $project->user_role = 'admin';
 
         return response()->json(['data' => $project], 201);
@@ -77,38 +67,14 @@ class ProjectController extends Controller
         return response()->json(['data' => $project]);
     }
 
-    public function update(Request $request, Project $project)
+    public function update(UpdateProjectRequest $request, Project $project)
     {
         $role = $project->userRole($request->user()->id);
         if (! in_array($role, ['admin', 'main'])) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $data = $request->validate([
-            'name'                  => 'sometimes|string|max:255',
-            'building_type'         => 'sometimes|nullable|string|max:50',
-            'current_step'          => 'sometimes|integer|min:1',
-            'buildings_count'       => 'sometimes|integer|min:0',
-            'total_power'           => 'sometimes|string|max:50',
-            'solar_power'           => 'sometimes|nullable|numeric|min:0',
-            'existing_solar_power'  => 'sometimes|nullable|numeric|min:0',
-            'solar_source'          => 'sometimes|in:max,existing',
-            'generator_power'       => 'sometimes|nullable|numeric|min:0',
-            'location_lat'          => 'sometimes|nullable|numeric|between:-90,90',
-            'location_lng'          => 'sometimes|nullable|numeric|between:-180,180',
-            'location_name'         => 'sometimes|nullable|string|max:255',
-            'auto_backup_interval'  => 'sometimes|in:never,daily,weekly,monthly',
-            'work_days'             => 'sometimes|nullable|array',
-            'work_days.*'           => 'string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
-            'work_time_intervals'                   => 'sometimes|nullable|array',
-            'work_time_intervals.*.start'           => 'required_with:work_time_intervals|string|regex:/^\d{2}:\d{2}$/',
-            'work_time_intervals.*.end'             => 'required_with:work_time_intervals|string|regex:/^\d{2}:\d{2}$/',
-            'working_season_intervals'              => 'sometimes|nullable|array',
-            'working_season_intervals.*.from'       => 'required_with:working_season_intervals|string|regex:/^\d{2}-\d{2}$/',
-            'working_season_intervals.*.to'         => 'required_with:working_season_intervals|string|regex:/^\d{2}-\d{2}$/',
-        ]);
-
-        $project->update($data);
+        $project->update($request->validated());
         $project->user_role = $role;
 
         return response()->json(['data' => $project]);
@@ -153,5 +119,24 @@ class ProjectController extends Controller
             ->get();
 
         return response()->json(['data' => $rooms]);
+    }
+
+    private function optimizedVA($components, string $entityKey): float
+    {
+        $ungrouped = 0.0;
+        $groups    = [];
+        foreach ($components as $c) {
+            $pf = max((float) ($c->power_factor ?? 1), 0.01);
+            $va = (float) $c->power * (int) $c->quantity / $pf;
+            if (!$c->group_name) {
+                $ungrouped += $va;
+            } else {
+                $key = $c->{$entityKey} . '|' . $c->group_name;
+                if (!isset($groups[$key]) || $va > $groups[$key]) {
+                    $groups[$key] = $va;
+                }
+            }
+        }
+        return $ungrouped + array_sum($groups);
     }
 }

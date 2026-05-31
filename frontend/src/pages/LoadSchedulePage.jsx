@@ -1,13 +1,12 @@
 /* eslint-disable react/prop-types */
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ResponsiveContainer, ComposedChart, AreaChart,
   Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ReferenceLine,
 } from 'recharts';
 import api from '../api/axios';
-import { getNav } from '../utils/navContext';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 function fmtW(w) {
@@ -27,6 +26,7 @@ const MONTHS = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ];
+const JS_DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 
 // ── Custom Tooltip ─────────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label, tab, mode }) {
@@ -51,6 +51,15 @@ function CustomTooltip({ active, payload, label, tab, mode }) {
         <>
           {row('#4f46e5', 'Max Load',   byKey.load_max)}
           {row('#10b981', 'Optimized', byKey.load_opt)}
+          {(byKey.kvar ?? 0) > 0 && (
+            <div className="flex items-center justify-between gap-6 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#f59e0b' }} />
+                <span className="text-gray-600">Reactive (kVAR)</span>
+              </div>
+              <span className="font-semibold text-gray-800">{Number(byKey.kvar).toFixed(2)} kVAR</span>
+            </div>
+          )}
         </>
       )}
       {tab === 'sources' && (
@@ -62,11 +71,20 @@ function CustomTooltip({ active, payload, label, tab, mode }) {
       )}
       {tab === 'combined' && (
         <>
-          {row('#6b7280', 'Total Demand',    byKey.demand)}
-          {row('#f59e0b', 'Solar Used',      byKey.solar_used)}
-          {row('#3b82f6', 'Utility Used',    byKey.utility_used)}
-          {row('#f97316', 'Generator Used',  byKey.gen_used)}
+          {row('#6b7280', 'Total Demand',       byKey.demand)}
+          {row('#f59e0b', 'Solar Used',          byKey.solar_used)}
+          {(byKey.battery_disc ?? 0) > 0 && row('#8b5cf6', 'Battery ↓ Discharge', byKey.battery_disc)}
+          {(byKey.battery_chrg_sol ?? 0) > 0 && row('#fbbf24', 'Battery ↑ Solar',    byKey.battery_chrg_sol)}
+          {(byKey.battery_chrg_gen ?? 0) > 0 && row('#fb923c', 'Battery ↑ Generator', byKey.battery_chrg_gen)}
+          {row('#3b82f6', 'Utility Used',        byKey.utility_used)}
+          {row('#f97316', 'Generator Used',      byKey.gen_used)}
           {byKey.unmet > 0 && row('#ef4444', 'Unmet', byKey.unmet)}
+          {byKey.battery_soc != null && (
+            <div className="flex items-center justify-between gap-6 text-xs border-t border-gray-100 mt-1 pt-1">
+              <span className="text-gray-500">Battery SOC</span>
+              <span className="font-semibold text-violet-600">{Number(byKey.battery_soc).toFixed(1)}%</span>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -346,20 +364,159 @@ function LocationCard({ projectId, location, onSaved }) {
   );
 }
 
+// ── Mini Calendar Date Picker ─────────────────────────────────────────────────
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function MiniCalendar({ month, day, year, workDays, onDayChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Build calendar grid using the actual year so day-of-week columns are correct
+  const firstDow  = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const daysInMon = new Date(year, month, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMon; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const todayObj = new Date();
+  const isToday = (d) =>
+    d === todayObj.getDate() &&
+    month === todayObj.getMonth() + 1 &&
+    year  === todayObj.getFullYear();
+
+  // Non-working days: any day not in the project's work_days (falls back to Sat/Sun)
+  const projectWorkDays = workDays?.length > 0
+    ? workDays
+    : ['monday','tuesday','wednesday','thursday','friday'];
+  const nonWorkingDays = new Set();
+  for (let d = 1; d <= daysInMon; d++) {
+    const dow     = new Date(year, month - 1, d).getDay();
+    const dayName = JS_DAY_NAMES[dow];
+    if (!projectWorkDays.includes(dayName)) nonWorkingDays.add(d);
+  }
+
+  const dateLabel = `${MONTHS[month - 1].slice(0, 3)} ${day}`;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
+          open
+            ? 'bg-indigo-600 text-white border-indigo-600'
+            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        {dateLabel}
+        <svg className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 w-64">
+          <p className="text-[11px] font-semibold text-gray-500 text-center mb-2 uppercase tracking-wide">
+            {MONTHS[month - 1]} — pick a day
+          </p>
+
+          {/* Day-of-week headers — non-working days highlighted */}
+          <div className="grid grid-cols-7 mb-1">
+            {DAY_NAMES.map((d, i) => {
+              const dayName = JS_DAY_NAMES[i];
+              const isOff   = !projectWorkDays.includes(dayName);
+              return (
+                <div key={d} className={`text-center text-[10px] font-semibold py-0.5 ${
+                  isOff ? 'text-indigo-400' : 'text-gray-400'
+                }`}>{d}</div>
+              );
+            })}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-0.5">
+            {cells.map((d, i) => {
+              if (!d) return <div key={`e${i}`} />;
+              const selected    = d === day;
+              const isNonWorking = nonWorkingDays.has(d);
+              const isTodayD    = isToday(d);
+              return (
+                <button key={d}
+                  onClick={() => { onDayChange(d); setOpen(false); }}
+                  className={`
+                    h-8 w-full rounded-lg text-xs font-semibold transition-all
+                    ${selected
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : isTodayD
+                        ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-300'
+                        : isNonWorking
+                          ? 'text-indigo-500 hover:bg-indigo-50'
+                          : 'text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-[10px] text-gray-400 text-center mt-2">
+            Solar curve uses actual 2023 irradiance for this date
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function LoadSchedulePage() {
   const navigate = useNavigate();
-  const { projectId } = getNav();
+  const { projectId } = useParams();
 
   const [project, setProject] = useState(null);
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
 
-  const [month,   setMonth]   = useState(new Date().getMonth() + 1);
-  const [dayType, setDayType] = useState('workday');
-  const [tab,     setTab]     = useState('load');    // load | sources | combined
-  const [mode,    setMode]    = useState('optimized'); // optimized | max
+  const [year,  setYear]  = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [day,   setDay]   = useState(new Date().getDate());
+  const [tab,   setTab]   = useState('load');       // load | sources | combined
+  const [mode,  setMode]  = useState('optimized');  // optimized | max
+
+  // Derive the day-of-week name from the selected date so we pick the right profile.
+  const dayName = JS_DAY_NAMES[new Date(year, month - 1, day).getDay()];
+
+  function handleDayChange(newDay) { setDay(newDay); }
+
+  function handleMonthChange(newMonth) {
+    const maxDay = new Date(year, newMonth, 0).getDate();
+    setMonth(newMonth);
+    setDay(d => Math.min(d, maxDay));
+  }
+
+  function handleYearChange(delta) {
+    const newYear = year + delta;
+    const maxDay  = new Date(newYear, month, 0).getDate();
+    setYear(newYear);
+    setDay(d => Math.min(d, maxDay));
+  }
 
   useEffect(() => {
     if (!projectId) { navigate('/dashboard'); return; }
@@ -371,38 +528,48 @@ export default function LoadSchedulePage() {
   const fetchSchedule = useCallback(() => {
     if (!projectId) return;
     setLoading(true); setError('');
-    api.get(`/api/projects/${projectId}/schedule`, { params: { month, day_type: dayType } })
+    api.get(`/api/projects/${projectId}/schedule`, { params: { month, day } })
       .then(r => setData(r.data))
       .catch(() => setError('Failed to load schedule.'))
       .finally(() => setLoading(false));
-  }, [projectId, month, dayType]);
+  }, [projectId, month, day]);
 
   useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
 
-  // ── Build chart data ────────────────────────────────────────────────────────
-  const chartData = data
+  // ── Build chart data for the selected day-of-week ──────────────────────────
+  const dayData  = data?.days?.[dayName];                          // e.g. data.days.saturday
+  const dispatch = mode === 'optimized' ? dayData?.dispatch_optimized : dayData?.dispatch_max;
+
+  const hasBattery = dispatch?.has_battery_storage === true;
+
+  const chartData = dayData
     ? Array.from({ length: 24 }, (_, h) => {
-        const dispatch = mode === 'optimized' ? data.dispatch_optimized : data.dispatch_max;
-        const demand   = mode === 'optimized' ? data.load_optimized[h] : data.load_max[h];
+        const demand = mode === 'optimized' ? dayData.load_optimized[h] : dayData.load_max[h];
         return {
           hour:         h,
-          load_max:     data.load_max[h],
-          load_opt:     data.load_optimized[h],
+          load_max:     dayData.load_max[h],
+          load_opt:     dayData.load_optimized[h],
+          kvar:         dayData.hourly_kvar?.[h] ?? 0,
           solar:        data.solar[h],
           solar_cap:    data.solar_capacity_w,
           utility_cap:  data.utility_capacity_va || 0,
           gen_cap:      data.generator_capacity_va || 0,
-          solar_used:   dispatch.solar_used[h],
-          utility_used: dispatch.utility_used[h],
-          gen_used:     dispatch.generator_used[h],
-          unmet:        dispatch.unmet[h],
+          solar_used:   dispatch?.solar_used[h]         ?? 0,
+          battery_disc:      dispatch?.battery_discharged?.[h]      ?? 0,
+          battery_chrg_sol:  dispatch?.battery_charged_solar?.[h]   ?? 0,
+          battery_chrg_gen:  dispatch?.battery_charged_gen?.[h]     ?? 0,
+          battery_soc:       dispatch?.battery_soc_trace?.[h] != null
+                               ? dispatch.battery_soc_trace[h] * 100
+                               : null,
+          utility_used: dispatch?.utility_used[h]       ?? 0,
+          gen_used:     dispatch?.generator_used[h]     ?? 0,
+          unmet:        dispatch?.unmet[h]               ?? 0,
           demand,
         };
       })
     : [];
 
-  const dispatch    = mode === 'optimized' ? data?.dispatch_optimized : data?.dispatch_max;
-  const stats       = dispatch?.stats;
+  const stats        = dispatch?.stats;
   const totalLoadKwh = stats?.total_load_kwh ?? 0;
 
   const pct = (kwh) => totalLoadKwh > 0 ? Math.round(kwh / totalLoadKwh * 100) : 0;
@@ -452,6 +619,18 @@ export default function LoadSchedulePage() {
         <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.85} />
         <stop offset="95%" stopColor="#ef4444" stopOpacity={0.60} />
       </linearGradient>
+      <linearGradient id="gBattDisc" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.85} />
+        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.60} />
+      </linearGradient>
+      <linearGradient id="gBattChrgSol" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.70} />
+        <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.40} />
+      </linearGradient>
+      <linearGradient id="gBattChrgGen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%"  stopColor="#fb923c" stopOpacity={0.70} />
+        <stop offset="95%" stopColor="#fb923c" stopOpacity={0.40} />
+      </linearGradient>
     </defs>
   );
 
@@ -478,7 +657,7 @@ export default function LoadSchedulePage() {
         <div className="flex-1" />
 
         {/* Month selector */}
-        <select value={month} onChange={e => setMonth(Number(e.target.value))}
+        <select value={month} onChange={e => handleMonthChange(Number(e.target.value))}
           className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700
             focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm">
           {MONTHS.map((m, i) => (
@@ -486,17 +665,27 @@ export default function LoadSchedulePage() {
           ))}
         </select>
 
-        {/* Day type */}
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-xs font-semibold">
-          {['workday', 'weekend', 'all'].map(dt => (
-            <button key={dt} onClick={() => setDayType(dt)}
-              className={`px-3 py-1.5 capitalize transition-colors border-l first:border-l-0 border-gray-200 ${
-                dayType === dt ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}>
-              {dt === 'all' ? 'All Days' : dt === 'workday' ? 'Workday' : 'Weekend'}
-            </button>
-          ))}
+        {/* Day picker calendar */}
+        <MiniCalendar
+          month={month} day={day} year={year}
+          workDays={project?.work_days}
+          onDayChange={handleDayChange}
+        />
+
+        {/* Year navigator */}
+        <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+          <button onClick={() => handleYearChange(-1)}
+            className="px-2 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-bold">‹</button>
+          <span className="px-2 text-sm font-semibold text-gray-700">{year}</span>
+          <button onClick={() => handleYearChange(1)}
+            className="px-2 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-bold">›</button>
         </div>
+
+        {/* Selected day badge — auto-derived from the picked date */}
+        <span className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50
+          border border-indigo-200 rounded-lg capitalize shadow-sm">
+          {dayName}
+        </span>
       </div>
 
       {/* ── Location ── */}
@@ -572,7 +761,9 @@ export default function LoadSchedulePage() {
               </p>
             )}
             <div className="flex-1" />
-            <span className="text-xs text-gray-400 capitalize">{MONTHS[month - 1]} — {dayType === 'workday' ? 'Typical workday' : dayType === 'weekend' ? 'Weekend day' : 'All days'}</span>
+            <span className="text-xs text-gray-400 capitalize">
+              {MONTHS[month - 1]} {day}, {year} — {dayName}
+            </span>
           </div>
         )}
 
@@ -589,26 +780,30 @@ export default function LoadSchedulePage() {
             {/* ── Load Schedule Tab ── */}
             {tab === 'load' && (
               <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 5, right: 55, left: 10, bottom: 0 }}>
                   <Defs />
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                   <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                  <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                  <YAxis yAxisId="w" tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                  <YAxis yAxisId="kvar" orientation="right"
+                    tickFormatter={v => `${v} kVAR`} tick={{ fontSize: 10, fill: '#f59e0b' }} width={55} />
                   <Tooltip content={<CustomTooltip tab="load" />} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                   {data?.sunrise_hour != null && (
-                    <ReferenceLine x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3"
+                    <ReferenceLine yAxisId="w" x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3"
                       label={{ value: '☀ Rise', position: 'top', fontSize: 10, fill: '#d97706' }} />
                   )}
                   {data?.sunset_hour != null && (
-                    <ReferenceLine x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3"
+                    <ReferenceLine yAxisId="w" x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3"
                       label={{ value: '☀ Set', position: 'top', fontSize: 10, fill: '#d97706' }} />
                   )}
-                  <Area type="monotone" dataKey="load_max" name="Max Load"
+                  <Area yAxisId="w" type="monotone" dataKey="load_max" name="Max Load"
                     stroke="#4f46e5" fill="url(#gLoadMax)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="load_opt" name="Optimized"
+                  <Area yAxisId="w" type="monotone" dataKey="load_opt" name="Optimized"
                     stroke="#10b981" fill="url(#gLoadOpt)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                </AreaChart>
+                  <Line yAxisId="kvar" type="monotone" dataKey="kvar" name="Reactive (kVAR)"
+                    stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             )}
 
@@ -661,6 +856,10 @@ export default function LoadSchedulePage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                     <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: '#9ca3af' }} />
                     <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                    {hasBattery && (
+                      <YAxis yAxisId="soc" orientation="right" domain={[0, 100]}
+                        tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#8b5cf6' }} width={35} />
+                    )}
                     <Tooltip content={<CustomTooltip tab="combined" />} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                     {data?.sunrise_hour != null && (
@@ -669,27 +868,50 @@ export default function LoadSchedulePage() {
                     {data?.sunset_hour != null && (
                       <ReferenceLine x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3" />
                     )}
-                    {/* Stacked areas — bottom: solar, then utility, then generator, then unmet */}
+                    {/* Stacked areas — solar, battery, utility, generator, unmet */}
                     <Area type="monotone" dataKey="solar_used"   name="Solar"     stackId="s"
                       stroke="#f59e0b" fill="url(#gSolarUsed)" strokeWidth={1.5} dot={false} />
+                    {hasBattery && (
+                      <Area type="monotone" dataKey="battery_disc" name="Battery" stackId="s"
+                        stroke="#8b5cf6" fill="url(#gBattDisc)" strokeWidth={1.5} dot={false} />
+                    )}
                     <Area type="monotone" dataKey="utility_used" name="Utility"    stackId="s"
                       stroke="#3b82f6" fill="url(#gUtil)"      strokeWidth={1.5} dot={false} />
                     <Area type="monotone" dataKey="gen_used"     name="Generator"  stackId="s"
                       stroke="#f97316" fill="url(#gGen)"       strokeWidth={1.5} dot={false} />
                     <Area type="monotone" dataKey="unmet"        name="Unmet"      stackId="s"
                       stroke="#ef4444" fill="url(#gUnmet)"     strokeWidth={1.5} dot={false} />
-                    {/* Demand line — sits on top of the stack when load is fully covered */}
+                    {/* Demand line */}
                     <Line type="monotone" dataKey="demand" name="Demand"
                       stroke="#1f2937" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                    {/* Battery SOC % — right axis */}
+                    {hasBattery && (
+                      <Line yAxisId="soc" type="monotone" dataKey="battery_soc" name="Battery SOC %"
+                        stroke="#8b5cf6" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
+                    )}
                   </ComposedChart>
                 </ResponsiveContainer>
 
                 {/* Per-source sub-charts */}
-                <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+                <div className={`grid gap-4 mt-4 pt-4 border-t border-gray-100 ${
+                  hasBattery ? 'grid-cols-3 lg:grid-cols-5' : 'grid-cols-3'
+                }`}>
                   <SourceSubChart
                     data={chartData} dataKey="solar_used" demandKey="demand"
-                    name="Solar" stroke="#f59e0b" xTick={xTick}
+                    name="Solar → Load" stroke="#f59e0b" xTick={xTick}
                   />
+                  {hasBattery && (
+                    <SourceSubChart
+                      data={chartData} dataKey="battery_chrg_sol" demandKey="demand"
+                      name="Solar → Battery" stroke="#fbbf24" xTick={xTick}
+                    />
+                  )}
+                  {hasBattery && (
+                    <SourceSubChart
+                      data={chartData} dataKey="battery_disc" demandKey="demand"
+                      name="Battery → Load" stroke="#8b5cf6" xTick={xTick}
+                    />
+                  )}
                   <SourceSubChart
                     data={chartData} dataKey="utility_used" demandKey="demand"
                     name="Utility Grid" stroke="#3b82f6" xTick={xTick}
@@ -699,6 +921,18 @@ export default function LoadSchedulePage() {
                     name="Generator" stroke="#f97316" xTick={xTick}
                   />
                 </div>
+                {/* Battery charging from generator — shown only when it occurs */}
+                {hasBattery && chartData.some(d => d.battery_chrg_gen > 0) && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-orange-600 mb-2">
+                      Generator → Battery Charging (spare capacity)
+                    </p>
+                    <SourceSubChart
+                      data={chartData} dataKey="battery_chrg_gen" demandKey="demand"
+                      name="Gen spare → Battery" stroke="#fb923c" xTick={xTick}
+                    />
+                  </div>
+                )}
               </>
             )}
           </>
@@ -711,11 +945,11 @@ export default function LoadSchedulePage() {
           <h2 className="text-sm font-semibold text-gray-700">
             Daily Energy Breakdown
             <span className="ml-2 text-xs font-normal text-gray-400">
-              ({mode === 'optimized' ? 'Optimized' : 'Max'} load — typical {dayType === 'workday' ? 'workday' : dayType === 'weekend' ? 'weekend' : 'day'} in {MONTHS[month - 1]})
+              ({mode === 'optimized' ? 'Optimized' : 'Max'} load — {MONTHS[month - 1]} {day}, {year} — {dayName})
             </span>
           </h2>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`grid gap-3 ${hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
             <StatCard
               color="#f59e0b" dot="bg-amber-400"
               label="Solar"
@@ -723,6 +957,15 @@ export default function LoadSchedulePage() {
               kwh={stats.solar_kwh}
               pct={pct(stats.solar_kwh)}
             />
+            {hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 && (
+              <StatCard
+                color="#8b5cf6" dot="bg-violet-400"
+                label={`Battery${(stats.battery_charged_gen_kwh ?? 0) > 0 ? ' ⚡' : ''}`}
+                hours={chartData.filter(d => d.battery_disc > 0).length}
+                kwh={stats.battery_discharged_kwh}
+                pct={pct(stats.battery_discharged_kwh)}
+              />
+            )}
             <StatCard
               color="#3b82f6" dot="bg-blue-400"
               label="Utility Grid"
