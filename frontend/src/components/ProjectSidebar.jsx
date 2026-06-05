@@ -201,7 +201,9 @@ export default function ProjectSidebar() {
   // ── active checks ──
   const isOnSchedule     = location.pathname.endsWith('/schedule');
   const isOnPhaseBalance = location.pathname.endsWith('/phase-balance');
-  const isOnProject      = !activeBuildingId && !isOnSchedule && !isOnPhaseBalance;
+  const isOnFinancial    = location.pathname.endsWith('/financial');
+  const isOnSLD          = location.pathname.endsWith('/single-line');
+  const isOnProject      = !activeBuildingId && !isOnSchedule && !isOnPhaseBalance && !isOnFinancial && !isOnSLD;
   const isOnBuilding = bId => Number(activeBuildingId) === Number(bId) && !activeFloorId;
   const isOnFloor    = fId => Number(activeFloorId)    === Number(fId) && !activeRoomId;
   const isOnRoom     = rId => Number(activeRoomId)     === Number(rId);
@@ -250,6 +252,40 @@ export default function ProjectSidebar() {
         >
           <IconSchedule />
           <span>Load Schedule</span>
+        </button>
+      </div>
+
+      {/* Financial Analysis link */}
+      <div className="px-3 pt-1 flex-shrink-0">
+        <button
+          onClick={() => navigate(`/projects/${projectId}/financial`)}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
+            ${isOnFinancial
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span>Financial Analysis</span>
+        </button>
+      </div>
+
+      {/* Single-line diagram link */}
+      <div className="px-3 pt-1 flex-shrink-0">
+        <button
+          onClick={() => navigate(`/projects/${projectId}/single-line`)}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
+            ${isOnSLD
+              ? 'bg-cyan-50 text-cyan-700'
+              : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+          </svg>
+          <span>Single-Line Diagram</span>
         </button>
       </div>
 

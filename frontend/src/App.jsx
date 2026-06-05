@@ -16,6 +16,10 @@ const FloorPage          = lazy(() => import('./pages/FloorPage'));
 const NewRoomPage        = lazy(() => import('./pages/NewRoomPage'));
 const LoadSchedulePage   = lazy(() => import('./pages/LoadSchedulePage'));
 const PhaseBalancePage   = lazy(() => import('./pages/PhaseBalancePage'));
+const FinancialPage           = lazy(() => import('./pages/FinancialPage'));
+const ValidationPage          = lazy(() => import('./pages/ValidationPage'));
+const SingleLineDiagramPage   = lazy(() => import('./pages/SingleLineDiagramPage'));
+const DefensePrepPage    = lazy(() => import('./pages/DefensePrepPage'));
 
 function ProtectedRoute({ children }) {
   const { user, isLoading } = useAuth();
@@ -45,6 +49,8 @@ export default function App() {
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/dashboard" element={<ProtectedRoute><ErrorBoundary label="dashboard"><DashboardPage /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/validation" element={<ProtectedRoute><ErrorBoundary label="validation"><ValidationPage /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/defense-prep" element={<ProtectedRoute><ErrorBoundary label="defense prep"><DefensePrepPage /></ErrorBoundary></ProtectedRoute>} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
 
@@ -55,6 +61,8 @@ export default function App() {
               <Route path="/projects/:projectId/buildings/:buildingId/floors/:floorId/rooms/:roomId" element={<ErrorBoundary label="room page"><NewRoomPage /></ErrorBoundary>} />
               <Route path="/projects/:projectId/schedule" element={<ErrorBoundary label="load schedule"><LoadSchedulePage /></ErrorBoundary>} />
               <Route path="/projects/:projectId/phase-balance" element={<ErrorBoundary label="phase balance"><PhaseBalancePage /></ErrorBoundary>} />
+              <Route path="/projects/:projectId/financial" element={<ErrorBoundary label="financial analysis"><FinancialPage /></ErrorBoundary>} />
+              <Route path="/projects/:projectId/single-line" element={<ErrorBoundary label="single-line diagram"><SingleLineDiagramPage /></ErrorBoundary>} />
             </Route>
           </Routes>
         </Suspense>

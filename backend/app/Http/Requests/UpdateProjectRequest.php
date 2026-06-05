@@ -8,6 +8,7 @@ class UpdateProjectRequest extends ApiRequest
     {
         return [
             'name'                            => 'sometimes|string|max:255',
+            'currency_symbol'                 => 'sometimes|string|max:5',
             'building_type'                   => 'sometimes|nullable|string|max:50',
             'current_step'                    => 'sometimes|integer|min:1',
             'buildings_count'                 => 'sometimes|integer|min:0',

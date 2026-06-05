@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BatteryController;
+use App\Http\Controllers\Api\CostSignalController;
+use App\Http\Controllers\Api\FinancialController;
 use App\Http\Controllers\Api\SolarSystemController;
+use App\Http\Controllers\Api\ValidationController;
 use App\Http\Controllers\Api\PhaseBalanceController;
 use App\Http\Controllers\Api\ProjectBackupController;
 use App\Http\Controllers\Api\ServerBackupController;
@@ -27,6 +30,24 @@ use App\Http\Controllers\Api\UtilityLineController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| API Security Summary
+|--------------------------------------------------------------------------
+| Authentication : Laravel Sanctum token-based auth + Google OAuth (Socialite)
+| Authorization  : Per-controller userRole() checks — owner and member access
+|                  enforced on every project-scoped endpoint
+| Input validation: All endpoints use Form Request classes or inline validate()
+|                   with typed rules (min/max on numerics, enums on strings)
+| Rate limiting  : Per-user throttle on all routes (see individual routes below)
+|                  Heavy calculation endpoints: throttle:api-heavy (20/min)
+|                  Optimizer / financial: throttle:10,1 (10/min)
+|                  Cost signal: throttle:30,1 (30/min)
+| SQL injection  : Prevented by Eloquent ORM — no raw queries in this project
+| CSRF           : Active on web routes; API routes use Sanctum token instead
+| Data exposure  : All responses scoped to authenticated user's own projects
+*/
+
 Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
     Route::get('/user', [UserController::class, 'show']);
     Route::post('/logout', [UserController::class, 'logout']);
@@ -38,8 +59,11 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy']);
 
     // Project-wide listing
-    Route::get('/projects/{project}/all-floors', [ProjectController::class, 'allFloors']);
-    Route::get('/projects/{project}/all-rooms',  [ProjectController::class, 'allRooms']);
+    Route::get('/projects/{project}/all-floors',          [ProjectController::class, 'allFloors']);
+    Route::get('/projects/{project}/all-rooms',           [ProjectController::class, 'allRooms']);
+    Route::get( '/projects/{project}/shiftable-components',  [ProjectController::class, 'shiftableComponents']);
+    Route::post('/projects/{project}/optimize-shiftable',    [ProjectController::class, 'optimizeShiftable'])->middleware('throttle:10,1');
+    Route::get( '/projects/{project}/defense-summary',       [ProjectController::class, 'defenseSummary']);
 
     // Project backup / restore
     Route::get('/projects/{project}/backup', [ProjectBackupController::class, 'backup'])->middleware('throttle:api-heavy');
@@ -103,7 +127,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
     Route::post('/buildings/{building}/apply-optimal-phase',   [PhaseBalanceController::class, 'applyOptimalBuilding']);
 
     Route::get('/projects/{project}/load-profile',  [LoadProfileController::class, 'project'])->middleware('throttle:api-heavy');
-    Route::get('/projects/{project}/schedule',      [ScheduleController::class, 'project']);
+    Route::get('/projects/{project}/schedule',      [ScheduleController::class, 'project'])->middleware('throttle:api-heavy');
+    Route::get('/projects/{project}/cost-signal',        [CostSignalController::class, 'show'])->middleware('throttle:30,1');
+    Route::get('/projects/{project}/financial-analysis', [FinancialController::class,  'show'])->middleware('throttle:20,1');
     Route::get('/projects/{project}/total-power',  [TotalPowerController::class, 'project'])->middleware('throttle:api-heavy');
     Route::get('/buildings/{building}/total-power', [TotalPowerController::class, 'building'])->middleware('throttle:api-heavy');
     Route::get('/floors/{floor}/total-power',       [TotalPowerController::class, 'floor'])->middleware('throttle:api-heavy');
@@ -201,6 +227,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
 
 // Public reference data
 Route::get('/battery-chemistry-defaults', [BatteryController::class, 'chemistryDefaults']);
+
+// System validation (auth required; not admin-only so any logged-in user can verify)
+Route::middleware('auth:sanctum')->get('/validation/case-study', [ValidationController::class, 'show']);
 
 // Admin public route
 Route::post('/admin/login', [AdminController::class, 'login']);

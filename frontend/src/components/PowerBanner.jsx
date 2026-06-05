@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import ReactivePowerPanel from './ReactivePowerPanel';
 import { printPowerReport } from '../utils/printPowerReport';
+import { exportProjectExcel } from '../utils/exportToExcel';
+import { useAuth } from '../contexts/AuthContext';
 
 function fmt(v, unit = 'va') {
   const n = Number(v) || 0;
@@ -23,13 +25,15 @@ const PRIORITIES = [
   { key: 'normal',    label: 'Normal',    dot: 'bg-emerald-400', opt: 'text-emerald-300' },
 ];
 
-export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle }) {
+export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle, projectId }) {
+  const { user }                = useAuth();
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
   const [open, setOpen]         = useState(false);
   const [qOpen, setQOpen]       = useState(false);
   const [capApplied, setCapApplied] = useState(false);
   const [unit, setUnit]         = useState('va');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -132,15 +136,38 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle 
         {/* PDF export */}
         {!loading && data && (
           <button
-            onClick={() => printPowerReport(data, reportTitle ?? 'Power Analysis Report', { capApplied })}
-            title="Download PDF report"
+            onClick={() => printPowerReport(data, reportTitle ?? 'Power Analysis Report', { capApplied, engineerName: user?.name ?? '' })}
+            title="Export PDF report"
             className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
               hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
+          </button>
+        )}
+
+        {/* Excel export */}
+        {!loading && data && projectId && (
+          <button
+            onClick={async () => {
+              setExporting(true);
+              await exportProjectExcel(projectId, reportTitle ?? 'Project', data, user?.name ?? '');
+              setExporting(false);
+            }}
+            disabled={exporting}
+            title="Export to Excel"
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
+              hover:bg-white/10 hover:text-white transition-colors flex-shrink-0 disabled:opacity-50"
+          >
+            {exporting
+              ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 10h18M3 14h18M10 3v18M14 3v18M3 3h18v18H3z" />
+                </svg>
+            }
           </button>
         )}
 

@@ -48,7 +48,7 @@ class SocketController extends Controller
     {
         $request->validate([
             'phase_type' => 'required|in:1phase,3phase',
-            'power'      => 'required|numeric|min:0.01',
+            'power'      => 'required|numeric|min:0.01|max:10000000',
             'quantity'   => 'required|integer|min:1',
         ]);
 

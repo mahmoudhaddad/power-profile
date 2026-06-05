@@ -28,6 +28,8 @@ class UpdateBatteryRequest extends FormRequest
             'is_active'             => 'sometimes|nullable|boolean',
             'notes'                 => 'sometimes|nullable|string|max:2000',
             'solar_system_id'       => 'sometimes|nullable|integer|exists:solar_systems,id',
+            'purchase_cost'         => 'sometimes|nullable|numeric|min:0',
+            'replacement_cost'      => 'sometimes|nullable|numeric|min:0',
         ];
     }
 }

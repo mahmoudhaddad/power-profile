@@ -92,7 +92,8 @@ function CustomTooltip({ active, payload, label, tab, mode }) {
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
-function StatCard({ color, dot, label, hours, kwh, pct }) {
+function StatCard({ color, dot, label, hours, kwh, pct, cost, costLabel, currency = '$' }) {
+  const hasCost = cost !== null && cost !== undefined;
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -113,6 +114,14 @@ function StatCard({ color, dot, label, hours, kwh, pct }) {
           <p className="text-[10px] text-gray-400 uppercase tracking-wide">Share</p>
         </div>
       </div>
+      {hasCost && (
+        <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wide">{costLabel ?? 'Daily Cost'}</p>
+          <p className={`text-sm font-bold ${cost === 0 ? 'text-emerald-600' : 'text-gray-800'}`}>
+            {cost === 0 ? `Free` : `${currency}${cost.toFixed(2)}`}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -497,7 +506,7 @@ export default function LoadSchedulePage() {
   const [year,  setYear]  = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [day,   setDay]   = useState(new Date().getDate());
-  const [tab,   setTab]   = useState('load');       // load | sources | combined
+  const [tab,   setTab]   = useState('load');       // load | sources | combined | shiftable
   const [mode,  setMode]  = useState('optimized');  // optimized | max
 
   // Derive the day-of-week name from the selected date so we pick the right profile.
@@ -530,7 +539,14 @@ export default function LoadSchedulePage() {
     setLoading(true); setError('');
     api.get(`/api/projects/${projectId}/schedule`, { params: { month, day } })
       .then(r => setData(r.data))
-      .catch(() => setError('Failed to load schedule.'))
+      .catch(e => {
+        const body = e.response?.data;
+        if (body?.error === 'no_sources') {
+          setError('no_sources');
+        } else {
+          setError('Failed to load schedule.');
+        }
+      })
       .finally(() => setLoading(false));
   }, [projectId, month, day]);
 
@@ -637,6 +653,36 @@ export default function LoadSchedulePage() {
   return (
     <div className="p-6 space-y-4">
 
+      {/* ── Capacity shortfall warning banner ── */}
+      {(() => {
+        const unmetKwhDay   = dispatch?.stats?.unmet_kwh ?? 0;
+        const unmetHoursDay = dispatch?.unmet_hours ?? [];
+        const maxUnmetKwDay = dispatch?.max_unmet_kw ?? 0;
+        const worstHour     = unmetHoursDay.length > 0 ? unmetHoursDay.reduce((worst, h) =>
+          (dispatch?.unmet?.[h] ?? 0) > (dispatch?.unmet?.[worst] ?? 0) ? h : worst
+        , unmetHoursDay[0]) : null;
+        if (loading || unmetKwhDay <= 0) return null;
+        return (
+          <div className="flex items-start gap-3 bg-red-50 border border-red-300 rounded-xl px-4 py-3">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-red-700">
+                ⚠ Capacity Shortfall: {fmtKwh(unmetKwhDay)} of demand could not be served.
+              </p>
+              {worstHour !== null && (
+                <p className="text-xs text-red-600 mt-0.5">
+                  Worst hour: {hourLabel(worstHour)} ({maxUnmetKwDay.toFixed(1)} kW unmet).
+                  Consider adding utility capacity or a generator.
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Page header ── */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
@@ -701,9 +747,10 @@ export default function LoadSchedulePage() {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-sm font-semibold">
           {[
-            { key: 'load',     label: 'Load Schedule' },
-            { key: 'sources',  label: 'Sources' },
-            { key: 'combined', label: 'Combined Dispatch' },
+            { key: 'load',      label: 'Load Schedule' },
+            { key: 'sources',   label: 'Sources' },
+            { key: 'combined',  label: 'Combined Dispatch' },
+            { key: 'shiftable', label: '⚡ Shiftable Loads' },
           ].map(({ key, label }) => (
             <button key={key} onClick={() => setTab(key)}
               className={`px-4 py-2 transition-colors border-l first:border-l-0 border-gray-200 ${
@@ -770,6 +817,24 @@ export default function LoadSchedulePage() {
         {loading ? (
           <div className="h-72 flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          </div>
+        ) : error === 'no_sources' ? (
+          <div className="h-72 flex flex-col items-center justify-center gap-4 text-center px-8">
+            <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">No power sources configured</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Add a utility line, generator, or solar system to generate a load schedule.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate(`/projects/${projectId}`)}
+              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors">
+              Go to Sources
+            </button>
           </div>
         ) : error ? (
           <div className="h-72 flex items-center justify-center">
@@ -949,79 +1014,133 @@ export default function LoadSchedulePage() {
             </span>
           </h2>
 
-          <div className={`grid gap-3 ${hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
-            <StatCard
-              color="#f59e0b" dot="bg-amber-400"
-              label="Solar"
-              hours={stats.solar_hours}
-              kwh={stats.solar_kwh}
-              pct={pct(stats.solar_kwh)}
-            />
-            {hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 && (
-              <StatCard
-                color="#8b5cf6" dot="bg-violet-400"
-                label={`Battery${(stats.battery_charged_gen_kwh ?? 0) > 0 ? ' ⚡' : ''}`}
-                hours={chartData.filter(d => d.battery_disc > 0).length}
-                kwh={stats.battery_discharged_kwh}
-                pct={pct(stats.battery_discharged_kwh)}
-              />
-            )}
-            <StatCard
-              color="#3b82f6" dot="bg-blue-400"
-              label="Utility Grid"
-              hours={stats.utility_hours}
-              kwh={stats.utility_kwh}
-              pct={pct(stats.utility_kwh)}
-            />
-            <StatCard
-              color="#f97316" dot="bg-orange-400"
-              label="Generator"
-              hours={stats.generator_hours}
-              kwh={stats.generator_kwh}
-              pct={pct(stats.generator_kwh)}
-            />
-            {stats.unmet_kwh > 0 ? (
-              <StatCard
-                color="#ef4444" dot="bg-red-400"
-                label="Unmet Load"
-                hours={0}
-                kwh={stats.unmet_kwh}
-                pct={pct(stats.unmet_kwh)}
-              />
-            ) : (
-              <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 flex flex-col items-center justify-center gap-1">
-                <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-xs font-semibold text-emerald-700">All Load Covered</p>
-                <p className="text-[10px] text-emerald-500">0 kWh unmet</p>
-              </div>
-            )}
-          </div>
+          {(() => {
+            // ── Daily cost calculations ───────────────────────────────────────
+            const rates    = data?.cost_rates;
+            const sym      = rates?.currency_symbol ?? '$';
+            const hasCosts = rates && (rates.tariff_per_kwh != null || rates.generator_cost_per_kwh != null);
 
-          {/* Summary row */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex flex-wrap gap-6 text-sm">
-            <div>
-              <span className="text-gray-400 text-xs uppercase tracking-wide">Total Load</span>
-              <p className="font-bold text-gray-800">{fmtKwh(stats.total_load_kwh)}</p>
-            </div>
-            {hasSolar && stats.solar_generated_kwh > 0 && (
-              <div>
-                <span className="text-gray-400 text-xs uppercase tracking-wide">Solar Generated</span>
-                <p className="font-bold text-amber-600">{fmtKwh(stats.solar_generated_kwh)}</p>
-              </div>
-            )}
-            {hasSolar && stats.solar_generated_kwh > 0 && (
-              <div>
-                <span className="text-gray-400 text-xs uppercase tracking-wide">Solar Self-consumption</span>
-                <p className="font-bold text-emerald-600">{stats.solar_self_consumption}%</p>
-              </div>
-            )}
-            <div className="ml-auto text-right">
-              <span className="text-gray-400 text-xs uppercase tracking-wide">Utility + Generator</span>
-              <p className="font-bold text-gray-800">{fmtKwh((stats.utility_kwh || 0) + (stats.generator_kwh || 0))}</p>
-            </div>
-          </div>
+            // Grid cost: hour-by-hour to handle peak vs off-peak correctly
+            let gridCost = null;
+            if (hasCosts && rates.tariff_per_kwh != null) {
+              gridCost = chartData.reduce((sum, d) => {
+                const kWh   = (d.utility_used ?? 0) / 1000;
+                const inPeak = rates.peak_tariff_per_kwh != null
+                  && rates.peak_hours_end > rates.peak_hours_start
+                  && d.hour >= rates.peak_hours_start
+                  && d.hour <  rates.peak_hours_end;
+                return sum + kWh * (inPeak ? rates.peak_tariff_per_kwh : rates.tariff_per_kwh);
+              }, 0);
+            }
+
+            // Generator cost: actual kWh dispatched × rated cost/kWh.
+            // Using the simple flat rate keeps the number consistent — when
+            // optimization shifts loads to solar hours, generator_kwh drops and
+            // this cost drops proportionally. The affine model is reserved for
+            // long-term financial analysis where part-load efficiency matters.
+            const genCost = (hasCosts && rates.generator_cost_per_kwh != null)
+              ? Math.round((stats.generator_kwh ?? 0) * rates.generator_cost_per_kwh * 100) / 100
+              : null;
+
+            const totalDailyCost = (gridCost ?? 0) + (genCost ?? 0);
+            const showCosts = hasCosts;
+
+            return (
+              <>
+                <div className={`grid gap-3 ${hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
+                  <StatCard
+                    color="#f59e0b" dot="bg-amber-400"
+                    label="Solar"
+                    hours={stats.solar_hours}
+                    kwh={stats.solar_kwh}
+                    pct={pct(stats.solar_kwh)}
+                    cost={showCosts ? 0 : null}
+                    costLabel="Daily Cost"
+                    currency={sym}
+                  />
+                  {hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 && (
+                    <StatCard
+                      color="#8b5cf6" dot="bg-violet-400"
+                      label={`Battery${(stats.battery_charged_gen_kwh ?? 0) > 0 ? ' ⚡' : ''}`}
+                      hours={chartData.filter(d => d.battery_disc > 0).length}
+                      kwh={stats.battery_discharged_kwh}
+                      pct={pct(stats.battery_discharged_kwh)}
+                      cost={showCosts ? 0 : null}
+                      costLabel="Daily Cost"
+                      currency={sym}
+                    />
+                  )}
+                  <StatCard
+                    color="#3b82f6" dot="bg-blue-400"
+                    label="Utility Grid"
+                    hours={stats.utility_hours}
+                    kwh={stats.utility_kwh}
+                    pct={pct(stats.utility_kwh)}
+                    cost={gridCost !== null ? Math.round(gridCost * 100) / 100 : null}
+                    costLabel={rates?.peak_tariff_per_kwh ? `Cost (peak ${rates.peak_hours_start}:00–${rates.peak_hours_end}:00)` : 'Daily Cost'}
+                    currency={sym}
+                  />
+                  <StatCard
+                    color="#f97316" dot="bg-orange-400"
+                    label="Generator"
+                    hours={stats.generator_hours}
+                    kwh={stats.generator_kwh}
+                    pct={pct(stats.generator_kwh)}
+                    cost={genCost !== null ? Math.round(genCost * 100) / 100 : null}
+                    costLabel="Fuel Cost"
+                    currency={sym}
+                  />
+                  {stats.unmet_kwh > 0 ? (
+                    <StatCard
+                      color="#ef4444" dot="bg-red-400"
+                      label="Unmet Load"
+                      hours={0}
+                      kwh={stats.unmet_kwh}
+                      pct={pct(stats.unmet_kwh)}
+                    />
+                  ) : (
+                    <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 flex flex-col items-center justify-center gap-1">
+                      <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs font-semibold text-emerald-700">All Load Covered</p>
+                      <p className="text-[10px] text-emerald-500">0 kWh unmet</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Summary row */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex flex-wrap gap-6 text-sm">
+                  <div>
+                    <span className="text-gray-400 text-xs uppercase tracking-wide">Total Load</span>
+                    <p className="font-bold text-gray-800">{fmtKwh(stats.total_load_kwh)}</p>
+                  </div>
+                  {hasSolar && stats.solar_generated_kwh > 0 && (
+                    <div>
+                      <span className="text-gray-400 text-xs uppercase tracking-wide">Solar Generated</span>
+                      <p className="font-bold text-amber-600">{fmtKwh(stats.solar_generated_kwh)}</p>
+                    </div>
+                  )}
+                  {hasSolar && stats.solar_generated_kwh > 0 && (
+                    <div>
+                      <span className="text-gray-400 text-xs uppercase tracking-wide">Solar Self-consumption</span>
+                      <p className="font-bold text-emerald-600">{stats.solar_self_consumption}%</p>
+                    </div>
+                  )}
+                  {showCosts && (
+                    <div>
+                      <span className="text-gray-400 text-xs uppercase tracking-wide">Total Daily Cost</span>
+                      <p className="font-bold text-gray-900">{sym}{totalDailyCost.toFixed(2)}</p>
+                    </div>
+                  )}
+                  <div className="ml-auto text-right">
+                    <span className="text-gray-400 text-xs uppercase tracking-wide">Utility + Generator</span>
+                    <p className="font-bold text-gray-800">{fmtKwh((stats.utility_kwh || 0) + (stats.generator_kwh || 0))}</p>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Dispatch priority note */}
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
@@ -1037,6 +1156,234 @@ export default function LoadSchedulePage() {
         </div>
       )}
 
+      {/* ── Shiftable Loads Tab (Part D) ── */}
+      {tab === 'shiftable' && (
+        <ShiftableLoadsPanel
+          projectId={projectId}
+          month={month}
+          onOptimized={fetchSchedule}
+          onSuccess={() => { setTab('combined'); setMode('optimized'); }}
+        />
+      )}
+
+    </div>
+  );
+}
+
+// ── Part D: Shiftable Loads Panel ─────────────────────────────────────────────
+function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
+  const [comps, setComps]         = useState(null);
+  const [error, setError]         = useState(null);
+  const [selected, setSelected]   = useState(new Set());
+  const [optimizing, setOptimizing]     = useState(false);
+  const [optimizeError, setOptimizeError] = useState(null);
+  const [lastOptCount, setLastOptCount] = useState(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+    api.get(`/api/projects/${projectId}/shiftable-components`)
+      .then(({ data }) => setComps(data.data ?? []))
+      .catch(() => setError('Failed to load shiftable components.'));
+  }, [projectId]);
+
+  function fmtHour(h) {
+    if (h == null) return '—';
+    if (h === 24)  return '24:00';
+    return `${String(h).padStart(2, '0')}:00`;
+  }
+
+  function toggleAll(e) {
+    if (e.target.checked) setSelected(new Set(comps.map(c => c.id)));
+    else                  setSelected(new Set());
+  }
+  function toggle(id) {
+    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+
+  async function handleOptimize() {
+    if (!comps || selected.size === 0) return;
+    setOptimizing(true);
+    setOptimizeError(null);
+    try {
+      const components = comps
+        .filter(c => selected.has(c.id))
+        .map(c => ({ id: c.id, model_type: c.model_type }));
+
+      const { data } = await api.post(`/api/projects/${projectId}/optimize-shiftable`, {
+        month,
+        components,
+      });
+
+      // Merge the updated intervals back into comps
+      const updatedMap = {};
+      (data.data ?? []).forEach(u => { updatedMap[`${u.model_type}:${u.id}`] = u.usage_time_intervals; });
+
+      setComps(prev => prev.map(c => {
+        const key = `${c.model_type}:${c.id}`;
+        return key in updatedMap ? { ...c, usage_time_intervals: updatedMap[key], assigned: true } : c;
+      }));
+
+      setSelected(new Set());
+      const count = data.optimized_count ?? (data.data?.length ?? 0);
+      setLastOptCount(count);
+      // Re-fetch schedule so Combined Dispatch reflects the new intervals,
+      // then switch to Combined Dispatch tab so the user sees the change immediately.
+      onOptimized?.();
+      setTimeout(() => onSuccess?.(), 600); // slight delay so loading spinner is visible
+    } catch {
+      setOptimizeError('Optimization failed. Make sure each selected load has required run hours set.');
+    } finally {
+      setOptimizing(false);
+    }
+  }
+
+  if (error) return (
+    <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-sm text-red-700">{error}</div>
+  );
+
+  if (comps === null) return (
+    <div className="flex items-center justify-center py-16">
+      <div className="w-8 h-8 border-4 border-yellow-200 border-t-yellow-500 rounded-full animate-spin" />
+    </div>
+  );
+
+  if (comps.length === 0) return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 text-center">
+      <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      <p className="text-base font-semibold text-gray-600 mb-1">No shiftable loads found</p>
+      <p className="text-sm text-gray-400 max-w-sm mx-auto">
+        Edit any component and set its scheduling type to{' '}
+        <span className="font-semibold text-yellow-700">Shiftable</span> to enable optimization.
+      </p>
+    </div>
+  );
+
+  const allChecked = comps.length > 0 && selected.size === comps.length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">
+            Shiftable Loads
+            <span className="ml-2 text-xs font-normal text-gray-400">({comps.length} component{comps.length !== 1 ? 's' : ''})</span>
+          </h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            These loads have flexible scheduling — the optimizer assigns them to the cheapest available hours.
+          </p>
+        </div>
+        {selected.size > 0 && (
+          <button
+            onClick={handleOptimize}
+            disabled={optimizing}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-yellow-500
+              hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors">
+            {optimizing ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            )}
+            {optimizing ? 'Optimizing…' : `Optimize ${selected.size} Load${selected.size !== 1 ? 's' : ''}`}
+          </button>
+        )}
+      </div>
+
+      {optimizeError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700">
+          {optimizeError}
+        </div>
+      )}
+      {lastOptCount !== null && !optimizing && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-xs text-emerald-700 flex items-center gap-2">
+          <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {lastOptCount > 0
+            ? `${lastOptCount} load${lastOptCount !== 1 ? 's' : ''} optimized — switching to Combined Dispatch to show the impact…`
+            : 'Schedule already optimal — no changes made.'}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-3 w-10">
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll}
+                    className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-400" />
+                </th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Component</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Location</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Run Hours</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Allowed Window</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Assigned Window</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comps.map((c, i) => {
+                const ivs = c.usage_time_intervals ?? [];
+                const assignedStr = ivs.length > 0
+                  ? ivs.map(iv => `${iv.start}–${iv.end}`).join(', ')
+                  : null;
+                return (
+                  <tr key={`${c.model_type}:${c.id}`}
+                    className={`border-b border-gray-100 transition-colors ${
+                      selected.has(c.id) ? 'bg-yellow-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                    }`}>
+                    <td className="px-4 py-3">
+                      <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)}
+                        className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-400" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-800">{c.name}</span>
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-0.5">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Shiftable
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{c.location}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-gray-700">
+                      {c.required_run_hours != null
+                        ? `${c.required_run_hours}h/day`
+                        : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {c.earliest_start_hour != null && c.latest_end_hour != null
+                        ? `${fmtHour(c.earliest_start_hour)} – ${fmtHour(c.latest_end_hour)}`
+                        : <span className="text-gray-400">Any time</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {assignedStr
+                        ? <span className="font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{assignedStr}</span>
+                        : <span className="text-gray-400 italic">Not yet optimized</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">
+        <svg className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <p className="text-xs text-yellow-800">
+          <strong>How it works:</strong> Select loads to include, then run the optimizer.
+          It reads the cost signal for this month, finds the cheapest hours within each
+          load&apos;s allowed window, and updates the component&apos;s time intervals automatically.
+        </p>
+      </div>
     </div>
   );
 }

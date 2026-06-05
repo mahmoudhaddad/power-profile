@@ -205,6 +205,7 @@ export default function ProjectPage() {
             endpoint={project ? `/api/projects/${project.id}/total-power` : null}
             refreshKey={powerKey}
             reportTitle={project ? `${project.name} — Power Analysis` : undefined}
+            projectId={project?.id}
             onData={d => setPowerSources({ solar_computed: d.solar_computed, generator_computed: d.generator_computed, max_va: d.max_va ?? 0, total_va: d.total_va ?? 0 })}
           />
         </ErrorBoundary>
@@ -662,10 +663,11 @@ function fmtSeasonInterval(iv) {
 }
 
 function ProjectScheduleModal({ project, onSave, onClose }) {
-  const [workDays,  setWorkDays]  = useState(project.work_days            ?? DEFAULT_WORK_DAYS);
-  const [timeIvs,   setTimeIvs]   = useState(project.work_time_intervals  ?? DEFAULT_TIME_INTERVALS);
-  const [seasonIvs, setSeasonIvs] = useState(project.working_season_intervals ?? []);
-  const [saving,    setSaving]    = useState(false);
+  const [workDays,      setWorkDays]      = useState(project.work_days            ?? DEFAULT_WORK_DAYS);
+  const [timeIvs,       setTimeIvs]       = useState(project.work_time_intervals  ?? DEFAULT_TIME_INTERVALS);
+  const [seasonIvs,     setSeasonIvs]     = useState(project.working_season_intervals ?? []);
+  const [currencyInput, setCurrencyInput] = useState(project.currency_symbol ?? '$');
+  const [saving,        setSaving]        = useState(false);
 
   function toggleDay(day) {
     setWorkDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
@@ -701,6 +703,7 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
         work_days:                 workDays,
         work_time_intervals:       timeIvs,
         working_season_intervals:  seasonIvs,
+        currency_symbol:           currencyInput.trim() || '$',
       });
       onSave(data.data);
     } finally {
@@ -719,6 +722,23 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6" style={{ minHeight: 0 }}>
+
+          {/* Currency symbol */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1.5">Currency Symbol</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                maxLength={5}
+                value={currencyInput}
+                onChange={e => setCurrencyInput(e.target.value)}
+                placeholder="e.g. $ € £ EGP"
+                className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-800
+                  focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
+              />
+              <p className="text-xs text-gray-400">Used in cost calculations across all sources</p>
+            </div>
+          </div>
 
           {/* Day picker */}
           <div>

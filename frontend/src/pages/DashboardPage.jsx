@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import UserCard from '../components/UserCard';
 import { useAuth } from '../contexts/AuthContext';
@@ -173,6 +173,32 @@ export default function DashboardPage() {
 
           {/* Right Column — Projects */}
           <div className="flex-1 flex flex-col gap-6 min-w-0">
+
+            {/* System Validation — visible to admins */}
+            {user?.is_admin && (
+              <section className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-indigo-900">System Validation</p>
+                    <p className="text-xs text-indigo-600">Verify calculation accuracy against hand-computed reference values</p>
+                  </div>
+                </div>
+                <Link to="/validation"
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
+                    bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors">
+                  Open
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </section>
+            )}
 
             {/* New Project Section */}
             <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -482,12 +508,17 @@ export default function DashboardPage() {
   );
 }
 
-function fmtPower(w) {
-  if (!w || Number(w) === 0) return '0 VA';
-  const v = Number(w);
-  if (v >= 1000000) return `${(v / 1000000).toLocaleString(undefined, { maximumFractionDigits: 2 })} MVA`;
-  if (v >= 1000)    return `${(v / 1000).toLocaleString(undefined,    { maximumFractionDigits: 2 })} kVA`;
-  return `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })} VA`;
+function fmtVA(va) {
+  const v = Number(va) || 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 })} MVA`;
+  if (v >= 1_000)     return `${(v / 1_000).toLocaleString(undefined,     { maximumFractionDigits: 2 })} kVA`;
+  return `${v.toLocaleString(undefined, { maximumFractionDigits: 0 })} VA`;
+}
+
+function fmtKW(kw) {
+  const v = Number(kw) || 0;
+  if (v >= 1_000) return `${(v / 1_000).toLocaleString(undefined, { maximumFractionDigits: 2 })} MW`;
+  return `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })} kW`;
 }
 
 const ROLE_ROW = {
@@ -553,11 +584,14 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
       </div>
 
       {/* Total Power */}
-      <div className="flex items-center gap-1.5 w-36 text-sm text-gray-500">
+      <div className="flex items-center gap-1.5 w-40 text-sm text-gray-500">
         <svg className="w-4 h-4 text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
-        <span>{fmtPower(project.total_power)}</span>
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium text-gray-700">{fmtKW(project.total_kw)}</span>
+          <span className="text-xs text-gray-400">{fmtVA(project.total_power)}</span>
+        </div>
       </div>
 
       {/* Last Modified */}
