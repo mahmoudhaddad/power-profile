@@ -113,6 +113,7 @@ export default function FinancialPage() {
   const proj        = data?.projection_25yr;
   const costs       = data?.annual_costs;
   const energy      = data?.annual_energy;
+  const genInfo     = data?.generator_info;
 
   // Build chart data for 25-year projection
   const projData = (proj?.cumulative_net_by_year ?? []).map((val, i) => ({
@@ -125,12 +126,13 @@ export default function FinancialPage() {
     ? projData.find(d => d.year === proj.payback_year)
     : null;
 
-  // Energy mix pie data
+  // Energy mix pie data (includes BESS when present)
   const pieData = energy ? [
     { name: 'Solar',     value: energy.solar_percent,     color: '#f59e0b' },
     { name: 'Grid',      value: energy.grid_percent,      color: '#3b82f6' },
     { name: 'Generator', value: energy.generator_percent, color: '#ef4444' },
-  ].filter(d => d.value > 0) : [];
+    { name: 'BESS',      value: energy.battery_percent,   color: '#8b5cf6' },
+  ].filter(d => (d.value ?? 0) > 0) : [];
 
   // Y-axis formatter for projection chart
   const yFmt = v => {
@@ -240,6 +242,43 @@ export default function FinancialPage() {
                 }
               />
             </div>
+
+            {/* ── Generator sizing warning ── */}
+            {genInfo?.is_oversized && (
+              <div className="flex items-start gap-4 bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4">
+                <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-orange-800">Generator is oversized for the actual load</p>
+                  <p className="text-xs text-orange-700 mt-1 leading-relaxed">
+                    The generator is running at an average of <strong>{genInfo.efficiency_avg_pct}%</strong> of its rated capacity
+                    ({genInfo.current_rated_kw} kW rated). ISO 8528 recommends 70–85% average loading for optimal fuel efficiency.
+                    At low load fractions the no-load fuel burn dominates, inflating the effective cost per kWh
+                    and making the baseline cost — and therefore the apparent savings — look larger than they really are.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-4">
+                    <div className="bg-white border border-orange-200 rounded-xl px-4 py-2 text-center">
+                      <p className="text-xs text-orange-500 font-medium uppercase tracking-wide">Current</p>
+                      <p className="text-lg font-bold text-orange-700">{genInfo.current_rated_kw} kW</p>
+                      <p className="text-xs text-orange-400">avg load {genInfo.efficiency_avg_pct}%</p>
+                    </div>
+                    <div className="flex items-center text-orange-300">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </div>
+                    <div className="bg-white border border-emerald-200 rounded-xl px-4 py-2 text-center">
+                      <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide">Recommended</p>
+                      <p className="text-lg font-bold text-emerald-700">{genInfo.recommended_kw} kW</p>
+                      <p className="text-xs text-emerald-400">peak {genInfo.peak_load_kw} kW ÷ 0.75</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── 2. Cost Comparison Table ── */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -488,14 +527,15 @@ export default function FinancialPage() {
                   <h2 className="text-sm font-semibold text-gray-900">Annual Energy Detail</h2>
                   <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{MONTHS[month - 1]} × 365 days</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
                   {[
-                    { label: 'Solar Used',      value: fmtKwh(energy.solar_kwh),        dot: 'bg-yellow-400' },
-                    { label: 'Grid Used',        value: fmtKwh(energy.grid_kwh),         dot: 'bg-blue-400'   },
-                    { label: 'Generator',        value: fmtKwh(energy.generator_kwh),    dot: 'bg-red-400'    },
-                    { label: 'Battery Losses',   value: fmtKwh(energy.battery_loss_kwh), dot: 'bg-violet-300' },
-                    { label: 'Total Load',       value: fmtKwh(energy.total_load_kwh),   dot: 'bg-gray-400'   },
-                  ].map(({ label, value, dot }) => (
+                    { label: 'Solar Used',      value: fmtKwh(energy.solar_kwh),              dot: 'bg-yellow-400' },
+                    { label: 'BESS Discharge',  value: fmtKwh(energy.battery_discharge_kwh),  dot: 'bg-violet-500' },
+                    { label: 'Grid Used',       value: fmtKwh(energy.grid_kwh),               dot: 'bg-blue-400'   },
+                    { label: 'Generator',       value: fmtKwh(energy.generator_kwh),          dot: 'bg-red-400'    },
+                    { label: 'Battery Losses',  value: fmtKwh(energy.battery_loss_kwh),       dot: 'bg-violet-300' },
+                    { label: 'Total Load',      value: fmtKwh(energy.total_load_kwh),         dot: 'bg-gray-400'   },
+                  ].filter(({ value }) => value !== '0 kWh').map(({ label, value, dot }) => (
                     <div key={label}>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />

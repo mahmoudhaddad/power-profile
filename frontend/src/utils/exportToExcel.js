@@ -128,7 +128,117 @@ function buildComponentsSheet(components) {
   return ws;
 }
 
-// ── Sheet 3: Financial Analysis ───────────────────────────────────────────────
+// ── Sheet 3: Energy Analysis ──────────────────────────────────────────────────
+function buildEnergySheet(fin) {
+  if (!fin) return null;
+
+  const ae  = fin.annual_energy  ?? {};
+  const ac  = fin.annual_costs   ?? {};
+  const sv  = fin.savings        ?? {};
+  const inv = fin.investment     ?? {};
+  const pb  = fin.payback        ?? {};
+  const cur = fin.currency_symbol ?? '$';
+  const e   = (v, dp = 0) => `${Number(v ?? 0).toFixed(dp)} kWh`;
+  const c   = (v) => `${cur}${Number(v ?? 0).toFixed(2)}`;
+
+  const totalAnn  = Number(ae.total_load_kwh      ?? 0);
+  const solarAnn  = Number(ae.solar_kwh           ?? 0);
+  const gridAnn   = Number(ae.grid_kwh            ?? 0);
+  const genAnn    = Number(ae.generator_kwh       ?? 0); // load-serving portion only
+  const battAnn   = Number(ae.battery_discharge_kwh ?? 0);
+  const battLoss  = Number(ae.battery_loss_kwh    ?? 0);
+  const hasBatt   = battAnn > 0;
+
+  const gridCostAnn  = Number(ac.grid_cost      ?? 0);
+  const genCostAnn   = Number(ac.generator_cost ?? 0);
+  const mntCostAnn   = Number(ac.maintenance_cost ?? 0);
+  const totalWithSol = Number(ac.total_with_solar ?? 0);
+  const totalNoSol   = Number(ac.total_without_solar ?? 0);
+  const annSav       = Number(sv.annual_savings ?? 0);
+  const savPct       = Number(sv.savings_percent ?? 0);
+
+  const periods = [
+    { label: 'Daily (avg)',          f: 1/365  },
+    { label: 'Weekly (avg)',         f: 7/365  },
+    { label: 'Monthly (avg)',        f: 1/12   },
+    { label: 'Winter (3 mo avg)',    f: 1/4    },
+    { label: 'Spring (3 mo avg)',    f: 1/4    },
+    { label: 'Summer (3 mo avg)',    f: 1/4    },
+    { label: 'Autumn (3 mo avg)',    f: 1/4    },
+    { label: 'Annual',               f: 1      },
+  ];
+
+  const sourceMixRows = [
+    ['Solar',    e(solarAnn), `${ae.solar_percent     ?? 0}%`],
+    ['Grid',     e(gridAnn),  `${ae.grid_percent      ?? 0}%`],
+    ['Generator',e(genAnn),   `${ae.generator_percent ?? 0}%`],
+    ...(hasBatt ? [['BESS (battery discharge)', e(battAnn), `${ae.battery_percent ?? 0}%`]] : []),
+    ['Total Load', e(totalAnn), '100%'],
+    ...(battLoss > 0 ? [['Battery Round-trip Loss', e(battLoss), '—']] : []),
+  ];
+
+  const periodHeaders = hasBatt
+    ? ['Period', 'Total Load', 'Solar', 'Grid', 'Generator', 'BESS Discharge']
+    : ['Period', 'Total Load', 'Solar', 'Grid', 'Generator'];
+
+  const rows = [
+    ['ENERGY CONSUMPTION & SOURCE MIX — LOAD COVERAGE', '', '', '', ''],
+    ['Note: Percentages show each source\'s share of total load served.'],
+    [''],
+    ['SOURCE MIX (ANNUAL)', ''],
+    ['Source', 'Energy (kWh/yr)', '% of Load', '', ''],
+    ...sourceMixRows,
+    [''],
+    ['ENERGY BY PERIOD', '', '', '', '', ''],
+    periodHeaders,
+    ...periods.map(({ label, f }) => [
+      label,
+      e(totalAnn * f, 1),
+      e(solarAnn * f, 1),
+      e(gridAnn  * f, 1),
+      e(genAnn   * f, 1),
+      ...(hasBatt ? [e(battAnn * f, 1)] : []),
+    ]),
+    [''],
+    ['COST ANALYSIS BY PERIOD', '', '', '', '', ''],
+    ['Period', `Baseline / No Solar (${cur})`, `Grid Cost (${cur})`, `Generator Cost (${cur})`, `Maintenance (${cur})`, `Total w/ Solar (${cur})`, `Savings (${cur})`],
+    ...([
+      { label: 'Daily (avg)',  f: 1/365 },
+      { label: 'Weekly (avg)', f: 7/365 },
+      { label: 'Monthly (avg)',f: 1/12  },
+      { label: 'Annual',       f: 1     },
+    ].map(({ label, f }) => [
+      label,
+      c(totalNoSol  * f),
+      c(gridCostAnn * f),
+      c(genCostAnn  * f),
+      c(mntCostAnn  * f),
+      c(totalWithSol* f),
+      c(annSav      * f),
+    ])),
+    [''],
+    ['SAVINGS SUMMARY', ''],
+    ['Annual Baseline Cost (no solar)',  c(totalNoSol)],
+    ['Annual Cost with Solar/BESS',      c(totalWithSol)],
+    ['Annual Savings',                   c(annSav)],
+    ['Savings %',                        `${savPct}%`],
+    ['Grid Tariff (weighted avg)',        `${cur}${Number(ac.weighted_tariff ?? 0).toFixed(4)}/kWh`],
+    ['Generator Cost per kWh',           `${cur}${Number(ac.generator_cost_per_kwh ?? 0).toFixed(4)}/kWh`],
+    [''],
+    ['INVESTMENT & PAYBACK', ''],
+    ['Solar Installation Cost',          c(inv.solar_installation ?? 0)],
+    ['Battery Purchase Cost',            c(inv.battery_purchase   ?? 0)],
+    ['Total Investment',                 c(inv.total_investment   ?? 0)],
+    ['Simple Payback Period',            pb.simple_payback_years != null ? `${pb.simple_payback_years} years` : 'N/A'],
+    ['LCOE (Solar, 25-year)',            pb.lcoe_solar_per_kwh != null   ? `${cur}${Number(pb.lcoe_solar_per_kwh).toFixed(4)}/kWh` : 'N/A'],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
+  return ws;
+}
+
+// ── Sheet 4: Financial Analysis (25-year projection) ─────────────────────────
 function buildFinancialSheet(fin) {
   if (!fin) return null;
 
@@ -229,6 +339,93 @@ async function collectComponents(projectId) {
   return components;
 }
 
+// ── Collect components scoped to a building ───────────────────────────────────
+async function collectBuildingComponents(buildingId) {
+  const components = [];
+  let buildingName = `Building #${buildingId}`;
+
+  try {
+    const { data } = await api.get(`/api/buildings/${buildingId}/components`);
+    buildingName = data.building?.name ?? buildingName;
+    for (const c of (data.data ?? [])) {
+      components.push({ ...c, level: 'Building', location: buildingName, name: c.component_name ?? c.componentType?.name ?? '' });
+    }
+  } catch { /* ignore */ }
+
+  let floors = [];
+  try {
+    const { data } = await api.get(`/api/buildings/${buildingId}/floors`);
+    floors = data.data ?? [];
+  } catch { /* ignore */ }
+
+  for (const f of floors) {
+    try {
+      const { data } = await api.get(`/api/floors/${f.id}/components`);
+      for (const c of (data.data ?? [])) {
+        components.push({ ...c, level: 'Floor', location: f.name, name: c.component_name ?? c.componentType?.name ?? '' });
+      }
+    } catch { /* ignore */ }
+
+    let rooms = [];
+    try {
+      const { data } = await api.get(`/api/floors/${f.id}/rooms`);
+      rooms = data.data ?? [];
+    } catch { /* ignore */ }
+
+    for (const r of rooms) {
+      try {
+        const { data } = await api.get(`/api/rooms/${r.id}/components`);
+        for (const c of (data.data ?? [])) {
+          components.push({ ...c, level: 'Room', location: `${f.name} › ${r.name}`, name: c.component_name ?? c.componentType?.name ?? '' });
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return components;
+}
+
+// ── Collect components scoped to a floor ─────────────────────────────────────
+async function collectFloorComponents(floorId) {
+  const components = [];
+
+  try {
+    const { data } = await api.get(`/api/floors/${floorId}/components`);
+    for (const c of (data.data ?? [])) {
+      components.push({ ...c, level: 'Floor', location: 'Floor', name: c.component_name ?? c.componentType?.name ?? '' });
+    }
+  } catch { /* ignore */ }
+
+  let rooms = [];
+  try {
+    const { data } = await api.get(`/api/floors/${floorId}/rooms`);
+    rooms = data.data ?? [];
+  } catch { /* ignore */ }
+
+  for (const r of rooms) {
+    try {
+      const { data } = await api.get(`/api/rooms/${r.id}/components`);
+      for (const c of (data.data ?? [])) {
+        components.push({ ...c, level: 'Room', location: r.name, name: c.component_name ?? c.componentType?.name ?? '' });
+      }
+    } catch { /* ignore */ }
+  }
+
+  return components;
+}
+
+// ── Collect components scoped to a room ──────────────────────────────────────
+async function collectRoomComponents(roomId) {
+  const components = [];
+  try {
+    const { data } = await api.get(`/api/rooms/${roomId}/components`);
+    for (const c of (data.data ?? [])) {
+      components.push({ ...c, level: 'Room', location: 'Room', name: c.component_name ?? c.componentType?.name ?? '' });
+    }
+  } catch { /* ignore */ }
+  return components;
+}
+
 // ── Main export function ──────────────────────────────────────────────────────
 export async function exportProjectExcel(projectId, projectName, powerData, engineerName = '') {
   const wb = XLSX.utils.book_new();
@@ -246,13 +443,58 @@ export async function exportProjectExcel(projectId, projectName, powerData, engi
     }
   } catch { /* skip sheet if fetch fails */ }
 
-  // Sheet 3: Financial (fetch live)
+  // Sheets 3 & 4: Energy Analysis + Financial Projection
   try {
     const { data: fin } = await api.get(`/api/projects/${projectId}/financial-analysis`);
+    const energyWs = buildEnergySheet(fin);
+    if (energyWs) XLSX.utils.book_append_sheet(wb, energyWs, 'Energy Analysis');
     const finWs = buildFinancialSheet(fin);
-    if (finWs) XLSX.utils.book_append_sheet(wb, finWs, 'Financial');
-  } catch { /* skip sheet if no financial data */ }
+    if (finWs) XLSX.utils.book_append_sheet(wb, finWs, 'Financial Projection');
+  } catch { /* skip sheets if no financial data */ }
 
   const filename = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_PowerProfile.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
+// ── Scoped export (project / building / floor / room) ────────────────────────
+export async function exportScopedExcel({ projectId, projectName, title, powerData, financialData = null, engineerName = '', scope = 'project', entityId }) {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Summary
+  const summaryWs = buildSummarySheet(title, powerData, engineerName);
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+  // Sheet 2: Components — scoped collection
+  try {
+    let components = [];
+    if (scope === 'project')  components = await collectComponents(projectId);
+    if (scope === 'building') components = await collectBuildingComponents(entityId);
+    if (scope === 'floor')    components = await collectFloorComponents(entityId);
+    if (scope === 'room')     components = await collectRoomComponents(entityId);
+
+    if (components.length > 0) {
+      const compWs = buildComponentsSheet(components);
+      XLSX.utils.book_append_sheet(wb, compWs, 'Components');
+    }
+  } catch { /* skip sheet if fetch fails */ }
+
+  // Sheets 3 & 4: Energy + Financial — only for project scope
+  if (scope === 'project') {
+    // Use pre-fetched financial data if provided, otherwise fetch
+    let fin = financialData;
+    if (!fin) {
+      try { fin = (await api.get(`/api/projects/${projectId}/financial-analysis`)).data; } catch { /* ignore */ }
+    }
+    if (fin) {
+      const energyWs = buildEnergySheet(fin);
+      if (energyWs) XLSX.utils.book_append_sheet(wb, energyWs, 'Energy Analysis');
+
+      const finWs = buildFinancialSheet(fin);
+      if (finWs) XLSX.utils.book_append_sheet(wb, finWs, 'Financial Projection');
+    }
+  }
+
+  const scopeLabel = scope !== 'project' ? `_${scope}` : '';
+  const filename   = `${title.replace(/[^a-zA-Z0-9]/g, '_')}${scopeLabel}_PowerProfile.xlsx`;
   XLSX.writeFile(wb, filename);
 }

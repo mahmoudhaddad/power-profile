@@ -75,6 +75,8 @@ class FinancialAnalysisService
         $solarKwhAnnual   = round(($stats['solar_kwh']                   ?? 0) * 365, 2);
         $gridKwhAnnual    = round(($stats['utility_kwh']                  ?? 0) * 365, 2);
         $genKwhAnnual     = round(($stats['generator_kwh']                ?? 0) * 365, 2);
+        $battDischAnnual  = round(($stats['battery_discharged_kwh']       ?? 0) * 365, 2);
+        $battChrgAnnual   = round(($stats['battery_charged_kwh']          ?? 0) * 365, 2);
         $battLossAnnual   = round(($stats['battery_efficiency_loss_kwh']  ?? 0) * 365, 2);
         $totalLoadAnnual  = round(($stats['total_load_kwh']               ?? 0) * 365, 2);
 
@@ -210,20 +212,49 @@ class FinancialAnalysisService
         }
 
         // ── Energy mix percentages ────────────────────────────────────────────
-        $solarPct = $totalLoadAnnual > 0 ? round($solarKwhAnnual / $totalLoadAnnual * 100, 1) : 0.0;
-        $gridPct  = $totalLoadAnnual > 0 ? round($gridKwhAnnual  / $totalLoadAnnual * 100, 1) : 0.0;
-        $genPct   = $totalLoadAnnual > 0 ? round($genKwhAnnual   / $totalLoadAnnual * 100, 1) : 0.0;
+        // generator_kwh includes AC drawn for opportunistic battery charging;
+        // subtract battery_charged_gen to get the fraction that served loads.
+        $genChargedAnnual = round(($stats['battery_charged_gen_kwh'] ?? 0) * 365, 2);
+        $genForLoadAnnual = max(0.0, $genKwhAnnual - $genChargedAnnual);
+
+        $solarPct = $totalLoadAnnual > 0 ? round($solarKwhAnnual   / $totalLoadAnnual * 100, 1) : 0.0;
+        $gridPct  = $totalLoadAnnual > 0 ? round($gridKwhAnnual    / $totalLoadAnnual * 100, 1) : 0.0;
+        $genPct   = $totalLoadAnnual > 0 ? round($genForLoadAnnual  / $totalLoadAnnual * 100, 1) : 0.0;
+        $battPct  = $totalLoadAnnual > 0 ? round($battDischAnnual   / $totalLoadAnnual * 100, 1) : 0.0;
+
+        // ── Generator sizing analysis ─────────────────────────────────────────
+        // Average loading % across hours the generator ran (with-solar scenario).
+        // ISO 8528 optimal band: 70–85%. Below 30% → oversized for the actual load.
+        $genEffAvg    = $stats['generator_efficiency_avg'] ?? 0.0;
+        $peakLoadKw   = $loadW ? round(max($loadW) / 1000.0, 2) : 0.0;
+        $currentGenKw = round($genCapW / 1000.0, 1);
+        // Size recommendation: peak load ÷ 0.75 puts peak at 75% loading (ISO 8528 midpoint)
+        $recommendedGenKw = $peakLoadKw > 0 ? round($peakLoadKw / 0.75, 1) : null;
+
+        // Compute gen efficiency from dispatch data when basicStats path was used
+        // (basicStats omits generator_efficiency_avg; recompute from dispatch array)
+        if ($genEffAvg === 0.0 && $genCapW > 0) {
+            $genLoadingSum = 0.0; $genRunHours = 0;
+            foreach ($dispatch['generator_used'] as $gW) {
+                if ($gW > 0) { $genLoadingSum += ($gW / $genCapW) * 100.0; $genRunHours++; }
+            }
+            $genEffAvg = $genRunHours > 0 ? round($genLoadingSum / $genRunHours, 1) : 0.0;
+        }
 
         return [
             'annual_energy' => [
-                'solar_kwh'         => $solarKwhAnnual,
-                'grid_kwh'          => $gridKwhAnnual,
-                'generator_kwh'     => $genKwhAnnual,
-                'battery_loss_kwh'  => $battLossAnnual,
-                'total_load_kwh'    => $totalLoadAnnual,
-                'solar_percent'     => $solarPct,
-                'grid_percent'      => $gridPct,
-                'generator_percent' => $genPct,
+                'solar_kwh'              => $solarKwhAnnual,
+                'grid_kwh'               => $gridKwhAnnual,
+                'generator_kwh'          => $genForLoadAnnual,   // load-serving portion only
+                'generator_total_kwh'    => $genKwhAnnual,       // includes battery charging overhead
+                'battery_discharge_kwh'  => $battDischAnnual,
+                'battery_charged_kwh'    => $battChrgAnnual,
+                'battery_loss_kwh'       => $battLossAnnual,
+                'total_load_kwh'         => $totalLoadAnnual,
+                'solar_percent'          => $solarPct,
+                'grid_percent'           => $gridPct,
+                'generator_percent'      => $genPct,
+                'battery_percent'        => $battPct,
             ],
             'annual_costs' => [
                 'grid_cost'          => $gridCostAnnual,
@@ -232,7 +263,9 @@ class FinancialAnalysisService
                 'total_with_solar'   => $totalWithSolar,
                 'total_without_solar'=> $totalWithout,
                 'weighted_tariff'    => round($weightedTariff, 4),
-                'generator_cost_per_kwh' => round($genCostPerKwh, 4),
+                'generator_cost_per_kwh' => $genForLoadAnnual > 0
+                    ? round($genCostAnnual / $genForLoadAnnual, 4)
+                    : round($genCostPerKwh, 4),
             ],
             'savings' => [
                 'annual_savings'  => $annualSavings,
@@ -251,6 +284,13 @@ class FinancialAnalysisService
                 'cumulative_net_by_year' => $cumulative,
                 'payback_year'           => $paybackYear,
                 'total_25yr_benefit'     => round($runningNet, 2),
+            ],
+            'generator_info' => [
+                'efficiency_avg_pct' => $genEffAvg,
+                'current_rated_kw'   => $currentGenKw,
+                'peak_load_kw'       => $peakLoadKw,
+                'recommended_kw'     => $recommendedGenKw,
+                'is_oversized'       => $genCapW > 0 && $genEffAvg > 0 && $genEffAvg < 30.0,
             ],
             'currency_symbol' => $project->currency_symbol ?? '$',
         ];

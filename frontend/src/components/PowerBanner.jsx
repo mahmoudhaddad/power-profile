@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import ReactivePowerPanel from './ReactivePowerPanel';
-import { printPowerReport } from '../utils/printPowerReport';
-import { exportProjectExcel } from '../utils/exportToExcel';
+import ReportScopeModal from './ReportScopeModal';
 import { useAuth } from '../contexts/AuthContext';
 
 function fmt(v, unit = 'va') {
@@ -29,11 +28,11 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
   const { user }                = useAuth();
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
-  const [open, setOpen]         = useState(false);
-  const [qOpen, setQOpen]       = useState(false);
+  const [open, setOpen]           = useState(false);
+  const [qOpen, setQOpen]         = useState(false);
   const [capApplied, setCapApplied] = useState(false);
-  const [unit, setUnit]         = useState('va');
-  const [exporting, setExporting] = useState(false);
+  const [unit, setUnit]           = useState('va');
+  const [reportModal, setReportModal] = useState(false);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -133,41 +132,18 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
           </button>
         )}
 
-        {/* PDF export */}
-        {!loading && data && (
+        {/* Report button — opens scope selector modal */}
+        {!loading && data && projectId && (
           <button
-            onClick={() => printPowerReport(data, reportTitle ?? 'Power Analysis Report', { capApplied, engineerName: user?.name ?? '' })}
-            title="Export PDF report"
+            onClick={() => setReportModal(true)}
+            title="Generate report"
             className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
               hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0121 9.414V19a2 2 0 01-2 2z" />
             </svg>
-          </button>
-        )}
-
-        {/* Excel export */}
-        {!loading && data && projectId && (
-          <button
-            onClick={async () => {
-              setExporting(true);
-              await exportProjectExcel(projectId, reportTitle ?? 'Project', data, user?.name ?? '');
-              setExporting(false);
-            }}
-            disabled={exporting}
-            title="Export to Excel"
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
-              hover:bg-white/10 hover:text-white transition-colors flex-shrink-0 disabled:opacity-50"
-          >
-            {exporting
-              ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M3 10h18M3 14h18M10 3v18M14 3v18M3 3h18v18H3z" />
-                </svg>
-            }
           </button>
         )}
 
@@ -188,6 +164,17 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
           data={data}
           capApplied={capApplied}
           onToggleCap={() => setCapApplied(v => !v)}
+        />
+      )}
+
+      {/* ── Report scope modal ── */}
+      {reportModal && projectId && (
+        <ReportScopeModal
+          projectId={projectId}
+          projectName={reportTitle ?? 'Project'}
+          capApplied={capApplied}
+          engineerName={user?.name ?? ''}
+          onClose={() => setReportModal(false)}
         />
       )}
 

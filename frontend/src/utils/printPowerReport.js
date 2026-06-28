@@ -9,7 +9,7 @@
 export function printPowerReport(data, title = 'Power Analysis Report', options = {}) {
   if (!data) return;
 
-  const { capApplied = false, engineerName = '' } = options;
+  const { capApplied = false, engineerName = '', financialData = null } = options;
 
   const date = new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -62,6 +62,193 @@ export function printPowerReport(data, title = 'Power Analysis Report', options 
       <td>${va(data[`${p}_max_va`])}</td><td>${w(data[`${p}_max_w`])}</td>
       <td>${va(data[`${p}_va`])}</td><td>${w(data[`${p}_w`])}</td>
     </tr>`).join('');
+
+  // Battery storage section
+  const bs = data.battery_storage;
+  const batterySection = bs ? `
+    <div class="section">
+      <h2>Battery Energy Storage (BESS)</h2>
+      <table>
+        <tr><td>Active Banks</td><td><strong>${bs.bank_count}</strong></td>
+            <td>Nominal Capacity</td><td><strong>${Number(bs.total_nominal_kwh).toFixed(2)} kWh</strong></td></tr>
+        <tr><td>Usable Capacity</td><td>${Number(bs.total_usable_kwh).toFixed(2)} kWh</td>
+            <td>Available Now</td><td>${Number(bs.total_available_kwh).toFixed(2)} kWh</td></tr>
+        ${bs.runtime_summary?.backup_hours_at_critical_load_full != null
+          ? `<tr><td>Backup at Critical Load</td><td>${Number(bs.runtime_summary.backup_hours_at_critical_load_full).toFixed(1)} h</td>
+                 <td>Backup at Optimized Load</td><td>${bs.runtime_summary.backup_hours_at_optimized_load_current != null ? Number(bs.runtime_summary.backup_hours_at_optimized_load_current).toFixed(1) + ' h' : 'N/A'}</td></tr>` : ''}
+        ${bs.needs_attention ? '<tr><td colspan="4" style="color:#991b1b;font-weight:600">⚠ One or more batteries require replacement — check battery health.</td></tr>' : ''}
+      </table>
+    </div>` : '';
+
+  // Energy consumption & cost section (from financial analysis data)
+  const energySection = (() => {
+    if (!financialData) return '';
+    const ae   = financialData.annual_energy  ?? {};
+    const ac   = financialData.annual_costs   ?? {};
+    const sv   = financialData.savings        ?? {};
+    const inv  = financialData.investment     ?? {};
+    const pb   = financialData.payback        ?? {};
+    const cur  = financialData.currency_symbol ?? '$';
+    const fmtE = v => `${Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} kWh`;
+    const fmtC = v => `${cur}${Number(v ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    const pctBar = (pct, color) =>
+      `<div style="height:6px;background:#e5e7eb;border-radius:4px;margin:3px 0 1px;">
+         <div style="height:100%;width:${Math.min(100,pct)}%;background:${color};border-radius:4px;"></div>
+       </div>`;
+
+    const totalAnn  = Number(ae.total_load_kwh      ?? 0);
+    const solarAnn  = Number(ae.solar_kwh           ?? 0);
+    const gridAnn   = Number(ae.grid_kwh            ?? 0);
+    const genAnn    = Number(ae.generator_kwh       ?? 0); // load-serving only
+    const battAnn   = Number(ae.battery_discharge_kwh ?? 0);
+    const battLoss  = Number(ae.battery_loss_kwh    ?? 0);
+    const hasBatt   = battAnn > 0;
+
+    const periods = [
+      { label: 'Daily (avg)',           factor: 1/365 },
+      { label: 'Weekly (avg)',          factor: 7/365 },
+      { label: 'Monthly (avg)',         factor: 1/12  },
+      { label: 'Seasonal (avg, 3 mo)',  factor: 1/4   },
+      { label: 'Annual',                factor: 1     },
+    ];
+
+    const energyRows = periods.map(({ label, factor }) => `
+      <tr>
+        <td style="font-weight:600">${label}</td>
+        <td>${fmtE(totalAnn * factor)}</td>
+        <td>${fmtE(solarAnn * factor)}</td>
+        <td>${fmtE(gridAnn  * factor)}</td>
+        <td>${fmtE(genAnn   * factor)}</td>
+        ${hasBatt ? `<td>${fmtE(battAnn * factor)}</td>` : ''}
+      </tr>`).join('');
+
+    const gridCostAnn  = Number(ac.grid_cost         ?? 0);
+    const genCostAnn   = Number(ac.generator_cost    ?? 0);
+    const mntCostAnn   = Number(ac.maintenance_cost  ?? 0);
+    const totalAnnCost = Number(ac.total_with_solar  ?? 0);
+    const totalNoCost  = Number(ac.total_without_solar ?? 0);
+    const annSav       = Number(sv.annual_savings    ?? 0);
+    const savPct       = Number(sv.savings_percent   ?? 0);
+    const tariff       = Number(ac.weighted_tariff   ?? 0);
+    const genPerKwh    = Number(ac.generator_cost_per_kwh ?? 0);
+
+    const costPeriods = [
+      { label: 'Daily (avg)',  factor: 1/365 },
+      { label: 'Weekly (avg)', factor: 7/365 },
+      { label: 'Monthly (avg)',factor: 1/12  },
+      { label: 'Annual',       factor: 1     },
+    ];
+
+    const costRows = costPeriods.map(({ label, factor }) => `
+      <tr>
+        <td style="font-weight:600">${label}</td>
+        <td style="color:#991b1b">${fmtC(totalNoCost * factor)}</td>
+        <td>${fmtC(gridCostAnn * factor)}</td>
+        <td>${fmtC(genCostAnn  * factor)}</td>
+        <td>${fmtC(mntCostAnn  * factor)}</td>
+        <td><strong>${fmtC(totalAnnCost * factor)}</strong></td>
+        <td style="color:#065f46;font-weight:600">${fmtC(annSav * factor)}</td>
+      </tr>`).join('');
+
+    const solarPct = Number(ae.solar_percent     ?? 0);
+    const gridPct  = Number(ae.grid_percent      ?? 0);
+    const genPct   = Number(ae.generator_percent ?? 0);
+    const battPct  = Number(ae.battery_percent   ?? 0);
+
+    return `
+    <div class="section">
+      <h2>Energy Consumption by Period</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Period</th><th>Total Load</th><th>Solar</th><th>Grid</th><th>Generator</th>
+            ${hasBatt ? '<th>Battery (BESS)</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>${energyRows}</tbody>
+      </table>
+      ${battLoss > 0 ? `<p style="font-size:10px;color:#6b7280;margin-top:4px;">Battery round-trip conversion loss: ${fmtE(battLoss)} / year</p>` : ''}
+    </div>
+
+    <div class="section">
+      <h2>Energy Source Mix — Load Coverage</h2>
+      <table>
+        <tr>
+          <td style="width:80px;font-weight:600">Solar</td>
+          <td style="width:48px"><span style="font-weight:700;color:#f59e0b">${solarPct}%</span></td>
+          <td style="width:220px">${pctBar(solarPct, '#f59e0b')}</td>
+          <td>${fmtE(solarAnn)}/yr</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Grid</td>
+          <td><span style="font-weight:700;color:#3b82f6">${gridPct}%</span></td>
+          <td>${pctBar(gridPct, '#3b82f6')}</td>
+          <td>${fmtE(gridAnn)}/yr</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600">Generator</td>
+          <td><span style="font-weight:700;color:#ef4444">${genPct}%</span></td>
+          <td>${pctBar(genPct, '#ef4444')}</td>
+          <td>${fmtE(genAnn)}/yr</td>
+        </tr>
+        ${hasBatt ? `<tr>
+          <td style="font-weight:600">BESS</td>
+          <td><span style="font-weight:700;color:#8b5cf6">${battPct}%</span></td>
+          <td>${pctBar(battPct, '#8b5cf6')}</td>
+          <td>${fmtE(battAnn)}/yr</td>
+        </tr>` : ''}
+      </table>
+      <p style="font-size:10px;color:#6b7280;margin-top:5px;">
+        Percentages represent each source's share of total load served.
+        ${solarPct + gridPct + genPct + battPct < 99 ? `Unmet demand: ${(100 - solarPct - gridPct - genPct - battPct).toFixed(1)}%` : 'Sum ≈ 100% — load fully covered.'}
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>Energy Cost Analysis</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Period</th><th style="background:#fef2f2;color:#991b1b">Baseline (No Solar)</th><th>Grid Cost</th><th>Generator Cost</th><th>Maintenance</th><th>Total (with Solar)</th><th style="background:#f0fdf4;color:#065f46">Savings</th>
+          </tr>
+        </thead>
+        <tbody>${costRows}</tbody>
+      </table>
+      <table style="margin-top:8px;">
+        <tr><td>Grid Tariff (weighted avg)</td><td>${cur}${tariff.toFixed(4)}/kWh</td>
+            <td>Generator Cost</td><td>${cur}${genPerKwh.toFixed(4)}/kWh</td></tr>
+        <tr><td>Annual Baseline Cost (no solar)</td><td>${fmtC(totalNoCost)}</td>
+            <td>Annual Savings</td><td style="color:#065f46;font-weight:700">${fmtC(annSav)} (${savPct}%)</td></tr>
+        ${inv.total_investment ? `<tr><td>Total Investment (solar + BESS)</td><td>${fmtC(inv.total_investment)}</td>
+            <td>Simple Payback</td><td>${pb.simple_payback_years != null ? pb.simple_payback_years + ' years' : 'N/A'}</td></tr>` : ''}
+      </table>
+      ${(() => {
+        const gi = financialData?.generator_info;
+        if (!gi || !gi.is_oversized) return '';
+        return `<blockquote style="border-left:3px solid #f97316;background:#fff7ed;color:#9a3412;margin-top:10px;">
+          <strong>⚠ Generator Oversizing Notice (ISO 8528)</strong><br/>
+          Generator rated ${gi.current_rated_kw} kW is running at an average of ${gi.efficiency_avg_pct}% load
+          (peak demand: ${gi.peak_load_kw} kW). ISO 8528 recommends 70–85% average loading.
+          Recommended size: <strong>${gi.recommended_kw} kW</strong>.
+          At low load fractions the no-load fuel burn inflates effective $/kWh and the apparent baseline savings.
+        </blockquote>`;
+      })()}
+    </div>`;
+  })();
+
+  // Motor inrush section
+  const inrushSection = data.inrush_applied && data.inrush_component ? `
+    <div class="section">
+      <h2>Motor Inrush (NEC Art. 430 / IEC 60947-4)</h2>
+      <table>
+        <tr><td>Largest Motor</td><td><strong>${data.inrush_component.name}</strong></td>
+            <td>Quantity</td><td>${data.inrush_component.quantity}</td></tr>
+        <tr><td>Rated VA (per unit)</td><td>${va(data.inrush_component.per_unit_va)}</td>
+            <td>Total Rated VA</td><td>${va(data.inrush_component.base_va)}</td></tr>
+        <tr><td>Sized VA (125%)</td><td><strong>${va(data.inrush_component.sized_va)}</strong></td>
+            <td>Inrush Addition</td><td>${va(data.inrush_component.inrush_addition_va)}</td></tr>
+      </table>
+    </div>` : '';
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -227,6 +414,10 @@ export function printPowerReport(data, title = 'Power Analysis Report', options 
           <td>Estimated Demand</td><td><strong>${va(data.socket_demand_va)}</strong></td></tr>
     </table>
   </div>` : ''}
+
+  ${batterySection}
+  ${energySection}
+  ${inrushSection}
 
   <!-- ── Signature ── -->
   <div class="section">
