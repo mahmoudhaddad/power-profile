@@ -167,6 +167,105 @@ function ComparisonTable({ comparison, overall }) {
   );
 }
 
+// ── Electrical Design Validation card ────────────────────────────────────────
+function ElectricalDesignValidation({ data }) {
+  if (!data) return null;
+  const overall = data.overall_status;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden print:shadow-none">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-base font-bold text-gray-900">Electrical Design Module — Cable &amp; Voltage-Drop Verification</h2>
+          <p className="text-xs text-gray-500 mt-0.5">IEC 60364-5-52 Table B.52.2 · Method A1 (thermally insulated wall) · Cu 70°C PVC · 30°C ambient · most conservative</p>
+        </div>
+        <StatusBadge status={overall} large />
+      </div>
+
+      {/* Derating row */}
+      <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-6 text-xs text-gray-600">
+        <span>
+          <span className="font-semibold">Derating 40°C (formula):</span>{' '}
+          <span className="font-mono text-indigo-700">
+            √((70−40)/(70−30)) = {data.derating_40c}
+          </span>
+        </span>
+        <span>
+          <span className="font-semibold">IEC tabled value:</span>{' '}
+          <span className="font-mono text-indigo-700">{data.derating_tabled}</span>
+        </span>
+        <StatusBadge status={data.derating_match} />
+      </div>
+
+      {/* Ampacity table */}
+      <div className="px-6 pt-4 pb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Cable Ampacity — 12 Standard Sizes
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {['Size (mm²)', 'IEC Ref (A)', 'System (A)', 'Status'].map(h => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.ampacity_rows.map((row, i) => (
+                <tr key={row.mm2} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-3 py-1.5 font-mono font-semibold text-gray-800">{row.mm2}</td>
+                  <td className="px-3 py-1.5 font-mono text-indigo-700 font-semibold">{row.expected}</td>
+                  <td className="px-3 py-1.5 font-mono text-gray-700">{row.actual ?? '—'}</td>
+                  <td className="px-3 py-1.5"><StatusBadge status={row.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* VD spot checks */}
+      <div className="px-6 pt-2 pb-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-2">
+          Voltage-Drop Spot Checks — ΔU(%) = mV/A/m × I<sub>b</sub> × L / 1000 / V<sub>nom</sub> × 100
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {['Test Case', 'ΔU (V)', 'ΔU (%)', 'Limit (%)', 'Warn?', 'Status'].map(h => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.vd_rows.map((row, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-3 py-1.5 font-medium text-gray-800">{row.label}</td>
+                  <td className="px-3 py-1.5 font-mono text-gray-700">{row.vd_v ?? '—'}</td>
+                  <td className={`px-3 py-1.5 font-mono font-semibold ${row.warn ? 'text-red-600' : 'text-emerald-600'}`}>{row.vd_pct ?? '—'}</td>
+                  <td className="px-3 py-1.5 font-mono text-gray-500">{row.limit_pct}</td>
+                  <td className="px-3 py-1.5">{row.warn ? <span className="text-red-600 font-semibold">⚠ YES</span> : <span className="text-gray-400">No</span>}</td>
+                  <td className="px-3 py-1.5"><StatusBadge status={row.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Method note */}
+      <div className="mx-6 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100 text-[11px] text-gray-500 font-mono space-y-1">
+        <p><span className="text-blue-600 font-bold">Table:</span> {data.notes.table}</p>
+        <p><span className="text-blue-600 font-bold">Column:</span> {data.notes.column}</p>
+        <p><span className="text-blue-600 font-bold">Ambient:</span> {data.notes.ambient}</p>
+        <p><span className="text-blue-600 font-bold">VD formula:</span> {data.notes.vd_method}</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ValidationPage() {
   const navigate     = useNavigate();
@@ -175,13 +274,19 @@ export default function ValidationPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [rerunning, setRerunning] = useState(false);
+  const [edData, setEdData]     = useState(null);
   const printRef = useRef(null);
 
   async function fetchValidation() {
     setError(null);
     try {
-      const { data: d } = await api.get('/api/validation/case-study');
-      setData(d);
+      const [csRes, edRes] = await Promise.allSettled([
+        api.get('/api/validation/case-study'),
+        api.get('/api/validation/electrical-design'),
+      ]);
+      if (csRes.status === 'fulfilled') setData(csRes.value.data);
+      else setError(csRes.reason?.response?.data?.error ?? 'Failed to fetch validation results.');
+      if (edRes.status === 'fulfilled') setEdData(edRes.value.data);
     } catch (e) {
       setError(e.response?.data?.error ?? 'Failed to fetch validation results.');
     }
@@ -334,6 +439,9 @@ export default function ValidationPage() {
 
             {/* Comparison table */}
             <ComparisonTable comparison={data.comparison} overall={overall} />
+
+            {/* Electrical Design Module validation */}
+            {edData && <ElectricalDesignValidation data={edData} />}
 
             {/* Standard callout */}
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 text-xs text-gray-500 space-y-1">

@@ -316,7 +316,7 @@ export default function ProjectPage() {
         )}
       </header>
 
-      <main className="px-8 sm:px-12 py-8 flex gap-6 items-start">
+      <main className="px-4 sm:px-8 lg:px-12 py-8 flex flex-col lg:flex-row gap-6 items-start">
         <ProjectSidebar />
         <div className="flex-1 min-w-0">
 
@@ -382,7 +382,7 @@ export default function ProjectPage() {
         </div>
 
         {canEdit && (
-          <aside className="w-72 flex-shrink-0 flex flex-col gap-4">
+          <aside className="w-full lg:w-72 lg:flex-shrink-0 flex flex-col gap-4">
             <div className="bg-white rounded-xl shadow-lg p-4">
               <h2 className="text-sm font-semibold text-gray-900 mb-3">Add Building</h2>
               <button onClick={() => setShowModal(true)}
@@ -539,9 +539,9 @@ function Chevron() {
 
 function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplicate }) {
   return (
-    <div onClick={onOpen} className="flex items-center justify-between px-5 py-4 border border-blue-300 rounded-xl
+    <div onClick={onOpen} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 border border-blue-300 rounded-xl
       cursor-pointer group transition-all duration-200 hover:bg-blue-50 hover:-translate-y-1 hover:shadow-md">
-      <div className="flex items-center gap-3 min-w-0 w-52">
+      <div className="flex items-center gap-3 min-w-0 flex-1 basis-40">
         <div className="w-9 h-9 bg-blue-50 group-hover:bg-blue-100 rounded-lg flex items-center
           justify-center flex-shrink-0 transition-colors duration-150">
           <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -558,23 +558,25 @@ function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, on
           )}
         </div>
       </div>
-      <div className="flex items-center gap-1.5 w-28 text-sm text-gray-500">
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
-        </svg>
-        <span>{building.floors_count} floor{building.floors_count !== 1 ? 's' : ''}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 flex-shrink-0">
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
+          </svg>
+          {building.floors_count} floor{building.floors_count !== 1 ? 's' : ''}
+        </span>
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+          {Number(building.area).toLocaleString()} m²
+        </span>
+        <span className="text-xs text-gray-400 whitespace-nowrap hidden md:inline">
+          {new Date(building.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </span>
       </div>
-      <div className="flex items-center gap-1.5 w-32 text-sm text-gray-500">
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-        </svg>
-        <span>{Number(building.area).toLocaleString()} m²</span>
-      </div>
-      <div className="text-xs text-gray-400 w-28 hidden md:block">
-        {new Date(building.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
         {canEdit && (
         <button onClick={e => { e.stopPropagation(); onBackup(); }}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5

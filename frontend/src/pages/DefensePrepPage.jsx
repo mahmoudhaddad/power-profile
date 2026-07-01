@@ -404,11 +404,10 @@ LCOE = total_lifetime_cost / total_lifetime_energy   ($/kWh)
       id: 28, category: 'Limitations',
       q: 'What does this tool NOT do? What are its known limitations?',
       a: <>
-        <P>Honest limitations of the current system:</P>
+        <P>The system now includes cable sizing, protective device selection, and voltage-drop calculation via the Electrical Design module (IEC 60364-5-52). Remaining honest limitations:</P>
         <ol className="space-y-1 my-2 ml-4 list-decimal">
-          <li>No cable sizing — does not calculate conductor cross-section or voltage drop</li>
           <li>No short-circuit calculation — fault current levels not computed</li>
-          <li>No protection coordination — does not select fuse/breaker ratings</li>
+          <li>No protection coordination — breaker discrimination curves not verified</li>
           <li>No harmonic analysis — assumes sinusoidal waveforms throughout</li>
           <li>No dynamic simulation — dispatch is quasi-static (hourly averages)</li>
           <li>No weather uncertainty — solar model uses monthly averages, not distributions</li>
@@ -416,7 +415,7 @@ LCOE = total_lifetime_cost / total_lifetime_energy   ($/kWh)
           <li>Single location per project — cannot model geographically distributed sites</li>
           <li>No real-time data — not connected to actual meters or SCADA systems</li>
         </ol>
-        <P>These are all known scope limitations of a graduation project tool. A professional tool like ETAP or DIALux would cover items 1–4.</P>
+        <P>These are known scope limitations of a graduation project tool. A professional tool like ETAP would cover items 1–2.</P>
       </>,
     },
     {
@@ -493,13 +492,13 @@ LCOE = total_lifetime_cost / total_lifetime_energy   ($/kWh)
       id: 35, category: 'General',
       q: 'What testing did you do to verify the system?',
       a: <>
-        <P>Three levels of verification:</P>
+        <P>Four levels of verification:</P>
         <ol className="space-y-1 my-2 ml-4 list-decimal">
-          <li><strong>Unit-level:</strong> the validation case study (<code className="bg-gray-200 px-1 rounded text-xs">/validation</code>) manually verifies all core calculation formulas against hand-computed reference values with 0.1% tolerance for all key outputs.</li>
+          <li><strong>PHPUnit automated tests:</strong> 36 tests, 152 assertions covering the Electrical Design module — circuit classification, cable sizing, breaker sizing, RCD policy, voltage-drop computation, derating, and group-critical logic. All tests pass on the current codebase.</li>
+          <li><strong>Reference case study (<code className="bg-gray-200 px-1 rounded text-xs">/validation</code>):</strong> a 2-floor office building is hand-calculated using the exact formulas from the technical report, then compared against system output with 0.1% tolerance. The IEC 60364-5-52 cable ampacity table (12 sizes) and voltage-drop spot checks are verified live on the /validation page.</li>
           <li><strong>Integration-level:</strong> each API endpoint was tested via the frontend — adding components and verifying the total-power response updates correctly.</li>
-          <li><strong>Solar model:</strong> NASA POWER data was compared against the static PSH lookup table for known locations (latitude 31.5°N, Gaza) and confirmed within expected seasonal variation ranges.</li>
+          <li><strong>Solar model:</strong> NASA POWER data was compared against the static PSH lookup table for Gaza (31.5°N) and confirmed within expected seasonal variation ranges.</li>
         </ol>
-        <P>Formal automated unit tests (PHPUnit) are a known gap in the current implementation — adding a test suite would be the first step for production readiness.</P>
       </>,
     },
     {
@@ -533,7 +532,7 @@ Tech stack: Laravel 13 / PHP 8.4 + React 18 / Vite + SQLite + NASA POWER API`}</
       a: <>
         <P>Three additions in priority order:</P>
         <ol className="space-y-1 my-2 ml-4 list-decimal">
-          <li><strong>Cable sizing module:</strong> calculate conductor cross-section per IEC 60364-5-52 using the calculated current <code className="bg-gray-200 px-1 rounded text-xs">I = S / √3 / 400</code> and voltage drop limits. This is the natural next step after demand calculation.</li>
+          <li><strong>Protection coordination and short-circuit calculation:</strong> compute three-phase fault currents at each panel board using source impedance and cable impedance, then verify that each MCB clears faults before the upstream breaker trips (discrimination / selectivity curves per IEC 60947-2). This is the natural next step after the cable sizing module that was completed.</li>
           <li><strong>Multi-day load optimization:</strong> some loads (EV charging, water heating, industrial processes) are better optimized across a week, not 24 hours. This requires extending the DP state space from 24 to 168 time slots.</li>
           <li><strong>Real-time tariff integration:</strong> connect to utility company APIs so tariffs update automatically — eliminates manual cost entry.</li>
         </ol>
@@ -590,6 +589,67 @@ null     → no access → 403 Forbidden`}</Pre>
         <P><strong>Load profile</strong> (<code className="bg-gray-200 px-1 rounded text-xs">/load-profile</code>) answers: <em>what is the demand at each hour?</em> It applies diversity factors and component schedules to produce a 24-hour demand curve in watts. No sources are considered — it is pure load-side calculation.</P>
         <P><strong>Dispatch simulation</strong> (<code className="bg-gray-200 px-1 rounded text-xs">/schedule</code>) answers: <em>where does each kWh come from?</em> It takes the load profile as input, then simulates the supply sources (solar → battery → utility → generator) hour by hour to determine how much each source contributes. It produces the stacked-area chart, daily energy statistics, and generator/utility costs.</P>
         <P>The separation is intentional — load profile can be reused across different source configurations without recalculation, and the dispatch service is independently testable against any demand array.</P>
+      </>,
+    },
+    // ═══════════════════════════════════════════════════════ ELECTRICAL DESIGN (new)
+    {
+      id: 43, category: 'Engineering',
+      q: 'What is the Electrical Design module and what does it produce?',
+      a: <>
+        <P>The Electrical Design module generates a <strong>panel schedule</strong> — a professional distribution board layout showing every circuit in a building. It takes the existing demand model (floors, rooms, loads) and classifies each load into one of five circuit types:</P>
+        <Pre>{`HEAVY     — loads > 2 kVA (motors, AC units, large appliances)
+CRITICAL  — life-safety loads (UPS, fire panel, emergency lighting)
+SOCKET    — general-purpose socket outlets (1–8 per circuit)
+LIGHTING  — general and emergency luminaires
+AUXILIARY — AV, data, security, and other low-power fixed loads`}</Pre>
+        <P>For each circuit the module outputs:</P>
+        <ul className="space-y-0.5 my-2 ml-4 list-disc text-xs">
+          <Li>Cable cross-section (mm²) per IEC 60364-5-52 Table B.52.2 (Method A1, conservative)</Li>
+          <Li>PE conductor size per IEC 60364-5-54</Li>
+          <Li>MCB rating and curve (B for socket/lighting, D for motor inrush)</Li>
+          <Li>RCD requirement (30 mA for socket/lighting where policy requires)</Li>
+          <Li>Utilisation % = I<sub>b</sub> / I<sub>n</sub> × 100</Li>
+          <Li>Live voltage-drop ΔU% when the engineer enters the cable run length</Li>
+        </ul>
+        <P>The output matches the format of a real distribution board schedule used by electrical engineers to purchase equipment and verify compliance.</P>
+      </>,
+    },
+    {
+      id: 44, category: 'Standards',
+      q: 'How does the system size cables and compute voltage drop per IEC 60364-5-52?',
+      a: <>
+        <P><strong>Cable sizing (ampacity):</strong> The service holds the IEC 60364-5-52 Table B.52.2 ampacity table — Method A1 (conductors in conduit in a thermally insulated wall), PVC/Cu, 2 loaded conductors, 30°C ambient reference. Table B.52.2 Method A1 is the most conservative installation method and is adopted deliberately to give a built-in safety margin. For 40°C ambient (Gaza climate), a derating factor is applied:</P>
+        <Pre>{`Derating = √((T_max − T_ambient) / (T_max − T_ref))
+         = √((70 − 40) / (70 − 30))
+         = √0.75 ≈ 0.866   → tabled as 0.87 in IEC B.52.14
+
+Cable selection: smallest standard size where Iz × 0.87 ≥ In`}</Pre>
+        <P><strong>Voltage drop (mV/A/m method):</strong> Cables are also characterised by a millivolt-per-ampere-per-metre value (from resistance + inductive reactance):</P>
+        <Pre>{`ΔU (V)   = mV/A/m × Ib × length_m / 1000
+ΔU (%)   = ΔU / V_nominal × 100
+           (V_nominal: 230 V single-phase, 400 V three-phase)
+
+Limits:  3 % for LIGHTING circuits (IEC 60364-8-1 Table 1)
+         5 % for all other circuit types`}</Pre>
+        <P>When the user enters the cable run length in the panel schedule table, ΔU% is computed live in the browser. If it exceeds the limit, a warning is shown and the next larger cable size that would satisfy the limit is suggested — but never applied automatically, preserving engineer judgement.</P>
+        <Live s={null}>Both the ampacity table and VD formula are verified on the /validation page</Live>
+      </>,
+    },
+    {
+      id: 45, category: 'Engineering',
+      q: 'What is the group_small_critical option in the Electrical Design module?',
+      a: <>
+        <P>By default every CRITICAL load gets its own dedicated circuit (one-per-load). The <code className="bg-gray-200 px-1 rounded text-xs">group_small_critical</code> design rule changes this for small critical loads:</P>
+        <Pre>{`group_small_critical = false (default):
+  Each critical load → dedicated CRITICAL circuit
+
+group_small_critical = true:
+  va_each < motor_dedicated_threshold_va (default 750 VA)
+    → all small criticals across the whole floor share ONE circuit
+  va_each ≥ threshold
+    → always gets a dedicated circuit regardless of flag`}</Pre>
+        <P>Use case: a floor with 10 emergency LED luminaires at 20 VA each would generate 10 separate circuits at default settings. With <code className="bg-gray-200 px-1 rounded text-xs">group_small_critical = true</code> these pack into one 200 VA CRITICAL circuit — more practical for a real distribution board where breaker count is constrained. Large criticals (fire panel, UPS, life-support) always stay dedicated regardless of the flag, preserving life-safety isolation.</P>
+        <P>No 30 mA RCD is fitted on any CRITICAL circuit under the <code className="bg-gray-200 px-1 rounded text-xs">30mA_socket_lighting</code> policy — this is correct because an RCD trip on a life-safety circuit is itself a hazard.</P>
       </>,
     },
   ];
@@ -846,7 +906,7 @@ export default function DefensePrepPage() {
         <div className="mt-8 p-4 bg-white border border-gray-200 rounded-xl no-print">
           <p className="text-xs font-semibold text-gray-500 mb-2">STANDARDS IMPLEMENTED</p>
           <div className="flex flex-wrap gap-2">
-            {['IEC 60364-8-1','BS 7671','PENRA','NEC Article 430','IEC 60947-4','IEC 60831','IEC 61675-3','Spencer (1971)','NASA POWER v2','CIBSE Guide C'].map(s => (
+            {['IEC 60364-8-1','IEC 60364-5-52','IEC 60364-5-54','BS 7671','PENRA','NEC Article 430','IEC 60947-2','IEC 60831','IEC 61675-3','Spencer (1971)','NASA POWER v2','CIBSE Guide C'].map(s => (
               <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s}</span>
             ))}
           </div>

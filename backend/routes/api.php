@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BatteryController;
 use App\Http\Controllers\Api\CostSignalController;
+use App\Http\Controllers\Api\ElectricalDesignController;
 use App\Http\Controllers\Api\FinancialController;
 use App\Http\Controllers\Api\SolarSystemController;
 use App\Http\Controllers\Api\ValidationController;
@@ -129,7 +130,8 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
     Route::get('/projects/{project}/load-profile',  [LoadProfileController::class, 'project'])->middleware('throttle:api-heavy');
     Route::get('/projects/{project}/schedule',      [ScheduleController::class, 'project'])->middleware('throttle:api-heavy');
     Route::get('/projects/{project}/cost-signal',        [CostSignalController::class, 'show'])->middleware('throttle:30,1');
-    Route::get('/projects/{project}/financial-analysis', [FinancialController::class,  'show'])->middleware('throttle:20,1');
+    Route::get('/projects/{project}/financial-analysis',  [FinancialController::class,       'show'])->middleware('throttle:20,1');
+    Route::get('/projects/{project}/electrical-design',   [ElectricalDesignController::class, 'show'])->middleware('throttle:api-heavy');
     Route::get('/projects/{project}/total-power',  [TotalPowerController::class, 'project'])->middleware('throttle:api-heavy');
     Route::get('/buildings/{building}/total-power', [TotalPowerController::class, 'building'])->middleware('throttle:api-heavy');
     Route::get('/floors/{floor}/total-power',       [TotalPowerController::class, 'floor'])->middleware('throttle:api-heavy');
@@ -229,7 +231,8 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
 Route::get('/battery-chemistry-defaults', [BatteryController::class, 'chemistryDefaults']);
 
 // System validation (auth required; not admin-only so any logged-in user can verify)
-Route::middleware('auth:sanctum')->get('/validation/case-study', [ValidationController::class, 'show']);
+Route::middleware('auth:sanctum')->get('/validation/case-study',          [ValidationController::class, 'show']);
+Route::middleware('auth:sanctum')->get('/validation/electrical-design',   [ValidationController::class, 'electricalDesign']);
 
 // Admin public route
 Route::post('/admin/login', [AdminController::class, 'login']);

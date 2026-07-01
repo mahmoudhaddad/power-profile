@@ -19,6 +19,7 @@ const PhaseBalancePage   = lazy(() => import('./pages/PhaseBalancePage'));
 const FinancialPage           = lazy(() => import('./pages/FinancialPage'));
 const ValidationPage          = lazy(() => import('./pages/ValidationPage'));
 const SingleLineDiagramPage   = lazy(() => import('./pages/SingleLineDiagramPage'));
+const ElectricalDesignPage    = lazy(() => import('./pages/ElectricalDesignPage'));
 const DefensePrepPage    = lazy(() => import('./pages/DefensePrepPage'));
 
 function ProtectedRoute({ children }) {
@@ -62,7 +63,8 @@ export default function App() {
               <Route path="/projects/:projectId/schedule" element={<ErrorBoundary label="load schedule"><LoadSchedulePage /></ErrorBoundary>} />
               <Route path="/projects/:projectId/phase-balance" element={<ErrorBoundary label="phase balance"><PhaseBalancePage /></ErrorBoundary>} />
               <Route path="/projects/:projectId/financial" element={<ErrorBoundary label="financial analysis"><FinancialPage /></ErrorBoundary>} />
-              <Route path="/projects/:projectId/single-line" element={<ErrorBoundary label="single-line diagram"><SingleLineDiagramPage /></ErrorBoundary>} />
+              <Route path="/projects/:projectId/single-line"        element={<ErrorBoundary label="single-line diagram"><SingleLineDiagramPage /></ErrorBoundary>} />
+              <Route path="/projects/:projectId/electrical-design" element={<ErrorBoundary label="electrical design"><ElectricalDesignPage /></ErrorBoundary>} />
             </Route>
           </Routes>
         </Suspense>

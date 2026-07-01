@@ -199,17 +199,18 @@ export default function ProjectSidebar() {
   }
 
   // ── active checks ──
-  const isOnSchedule     = location.pathname.endsWith('/schedule');
-  const isOnPhaseBalance = location.pathname.endsWith('/phase-balance');
-  const isOnFinancial    = location.pathname.endsWith('/financial');
-  const isOnSLD          = location.pathname.endsWith('/single-line');
-  const isOnProject      = !activeBuildingId && !isOnSchedule && !isOnPhaseBalance && !isOnFinancial && !isOnSLD;
+  const isOnSchedule         = location.pathname.endsWith('/schedule');
+  const isOnPhaseBalance     = location.pathname.endsWith('/phase-balance');
+  const isOnFinancial        = location.pathname.endsWith('/financial');
+  const isOnSLD              = location.pathname.endsWith('/single-line');
+  const isOnElectricalDesign = location.pathname.endsWith('/electrical-design');
+  const isOnProject          = !activeBuildingId && !isOnSchedule && !isOnPhaseBalance && !isOnFinancial && !isOnSLD && !isOnElectricalDesign;
   const isOnBuilding = bId => Number(activeBuildingId) === Number(bId) && !activeFloorId;
   const isOnFloor    = fId => Number(activeFloorId)    === Number(fId) && !activeRoomId;
   const isOnRoom     = rId => Number(activeRoomId)     === Number(rId);
 
   return (
-    <aside className="w-60 flex-shrink-0 flex flex-col bg-white rounded-xl overflow-hidden max-h-[70vh] shadow-lg">
+    <aside className="w-full lg:w-60 lg:flex-shrink-0 flex flex-col bg-white rounded-xl overflow-hidden max-h-[70vh] shadow-lg">
 
       {/* Project header */}
       <div className="px-3 pt-4 pb-2 flex-shrink-0">
@@ -286,6 +287,23 @@ export default function ProjectSidebar() {
               d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
           </svg>
           <span>Single-Line Diagram</span>
+        </button>
+      </div>
+
+      {/* Electrical Design link */}
+      <div className="px-3 pt-1 flex-shrink-0">
+        <button
+          onClick={() => navigate(`/projects/${projectId}/electrical-design`)}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
+            ${isOnElectricalDesign
+              ? 'bg-indigo-50 text-indigo-700'
+              : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+              d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Electrical Design</span>
         </button>
       </div>
 

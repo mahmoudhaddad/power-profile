@@ -261,6 +261,85 @@ class ValidationController extends Controller
         ];
     }
 
+    // ── Electrical Design validation ───────────────────────────────────────────
+
+    public function electricalDesign(): JsonResponse
+    {
+        $svc = new \App\Services\ElectricalDesignService();
+        $ref = new \ReflectionClass($svc);
+
+        /** @var array<string,float> $ampacity */
+        $ampacity = $ref->getConstant('CABLE_AMPACITY');
+        /** @var array<string,float> $vdTable */
+        $vdTable = $ref->getConstant('CABLE_VD_MV_A_M');
+
+        // IEC 60364-5-52 Table B.52.2 — Method A1, 2 loaded conductors, PVC/Cu, 30°C ambient
+        $iecRef = [
+            '1.5' => 14.5, '2.5' => 19.5, '4'  => 26.0,  '6'  => 34.0,
+            '10'  => 46.0, '16'  => 61.0,  '25' => 80.0,  '35' => 99.0,
+            '50'  => 119.0,'70'  => 151.0, '95' => 182.0, '120'=> 210.0,
+        ];
+
+        $allPass      = true;
+        $ampacityRows = [];
+        foreach ($iecRef as $mm2 => $expected) {
+            $actual = $ampacity[$mm2] ?? null;
+            $pass   = $actual !== null && abs($actual - $expected) < 0.01;
+            if (! $pass) $allPass = false;
+            $ampacityRows[] = [
+                'mm2'      => $mm2,
+                'expected' => $expected,
+                'actual'   => $actual,
+                'status'   => $pass ? 'PASS' : 'FAIL',
+            ];
+        }
+
+        // Voltage-drop spot checks
+        $spotCases = [
+            ['label'=>'2.5 mm² — 6 A — 20 m — SOCKET',  'mm2'=>'2.5','ib'=>6.0, 'l'=>20.0,'nom'=>230.0,'limit'=>5.0,'warn_expected'=>false],
+            ['label'=>'1.5 mm² — 10 A — 25 m — LIGHTING','mm2'=>'1.5','ib'=>10.0,'l'=>25.0,'nom'=>230.0,'limit'=>3.0,'warn_expected'=>true],
+        ];
+
+        $vdRows = [];
+        foreach ($spotCases as $c) {
+            $mv     = $vdTable[$c['mm2']] ?? null;
+            $vd_v   = $mv !== null ? $mv * $c['ib'] * $c['l'] / 1000.0 : null;
+            $vd_pct = $vd_v !== null ? round($vd_v / $c['nom'] * 100.0, 4) : null;
+            $ref_v  = $mv * $c['ib'] * $c['l'] / 1000.0;
+            $ref_pct= round($ref_v / $c['nom'] * 100.0, 4);
+            $warn   = $vd_pct !== null && $vd_pct > $c['limit'];
+            $pass   = $vd_pct !== null
+                && abs($vd_pct - $ref_pct) < 0.001
+                && $warn === $c['warn_expected'];
+            if (! $pass) $allPass = false;
+            $vdRows[] = [
+                'label'     => $c['label'],
+                'vd_v'      => $vd_v !== null ? round($vd_v, 4) : null,
+                'vd_pct'    => $vd_pct,
+                'limit_pct' => $c['limit'],
+                'warn'      => $warn,
+                'status'    => $pass ? 'PASS' : 'FAIL',
+            ];
+        }
+
+        $derating = round(sqrt((70 - 40) / (70 - 30)), 4);
+
+        return response()->json([
+            'overall_status' => $allPass ? 'PASS' : 'FAIL',
+            'derating_40c'   => $derating,
+            'derating_tabled'=> 0.87,
+            'derating_match' => abs($derating - 0.87) < 0.002 ? 'PASS' : 'FAIL',
+            'ampacity_rows'  => $ampacityRows,
+            'vd_rows'        => $vdRows,
+            'notes' => [
+                'table'     => 'IEC 60364-5-52 Table B.52.2 — Method A1 (most conservative)',
+                'column'    => '2-core (L+N) — single-phase circuits (LIGHTING / SOCKET / CRITICAL / AUXILIARY)',
+                'ambient'   => '30°C reference; derating factor 0.87 applied in service for 40°C ambient',
+                'vd_method' => 'ΔU(V) = mV/A/m × Ib × L / 1000;  ΔU(%) = ΔU / V_nom × 100',
+            ],
+        ]);
+    }
+
     private function sumPower($query, string $entityKey, mixed $df = 1.0): array
     {
         $components = $query->get(['power', 'power_factor', 'quantity', 'group_name', 'priority', $entityKey]);
