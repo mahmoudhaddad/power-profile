@@ -410,9 +410,9 @@ if (!$c->group_name) {
 }
 ```
 
-### Motor Inrush (NEC Article 430 / IEC)
+### Continuous-load / Largest-Motor 125% (NEC 430.24/430.22)
 
-The largest motor in the project is identified and sized at **125%** of rated VA to account for locked-rotor inrush current.
+The largest motor in the project is identified and its full-load VA is scaled at **125%** per NEC 430.24/430.22 — the **continuous-load sizing rule**, which requires conductors and overcurrent devices to be rated at no less than 125% of the motor's full-load current. This is the continuous-load rule, not locked-rotor protection; locked-rotor inrush currents are 500–800% and are handled by the motor's separate overload relay or thermal protection device.
 
 ```
 Inrush addition (VA) = motor_base_VA × (1.25 − 1.0) = motor_base_VA × 0.25
@@ -801,11 +801,11 @@ Constants:
 - `STC_IRRADIANCE = 1000` W/m²
 - `CAPACITY_ESTIMATE_PR = 0.75`
 
-**⚠ Note:** Module efficiency (~0.19 for typical crystalline silicon) is not explicitly applied as a separate factor — it is implicit in the combined `0.17 × 0.75` product.
+**⚠ Heuristic note:** This formula is a rough upper-bound estimate only. `ROOF_COVERAGE_RATIO = 0.17` is the fraction of roof area physically usable for panels; `CAPACITY_ESTIMATE_PR = 0.75` accounts for cable, inverter, and mismatch losses. Module conversion efficiency (~0.19 for typical crystalline silicon) is **not embedded** in either constant — the formula does not model panel-level efficiency and therefore overestimates actual AC output. For engineering-grade calculations use the explicit form: `P_ac = area × coverage_ratio × G_stc × η_module × PR` (e.g., `area × 0.17 × 1000 × 0.19 × 0.75`).
 
 ### Solar Declination
 
-Code uses the formula labeled "Spencer" in comments but correctly attributable to **Cooper (1969)**:
+The declination formula used is **Cooper (1969)**:
 
 ```
 δ (°) = 23.45 × sin(360/365 × (DOY − 81))
@@ -1202,7 +1202,7 @@ api.get(`/api/projects/${projectId}/electrical-design`)
 4. **mV/A/m values** — engineering estimates; each marked ⚠ VERIFY in code
 5. **Module efficiency** — not explicitly applied as a separate factor in solar capacity estimate
 6. **LCOE** — simple/undiscounted; no NPV or IRR
-7. **Cooper declination formula** — labeled "Spencer" in code comments; both formulas are similar but attribution is imprecise
+7. **Cooper declination formula** — code comments say "Spencer"; the formula implemented is **Cooper (1969)**
 8. **NASA POWER year** — hardcoded to 2023
 
 ### Deferred / Not Implemented
@@ -1218,3 +1218,580 @@ api.get(`/api/projects/${projectId}/electrical-design`)
 ---
 
 *Document generated from source code reading on 2026-07-01. All formulas and constants verified against file:line citations listed. Items marked ⚠ require independent verification before licensed engineering submission.*
+
+---
+
+## Section 17 — Page-by-Page User Walkthrough
+
+This section documents every page the user encounters, in natural workflow order. For each page: its purpose, every input field (what it is, unit, how entered, which backend field it populates, how changing it affects outputs), and every output element displayed.
+
+---
+
+### 17.1 Dashboard (`DashboardPage.jsx`)
+
+**Purpose:** Starting point. Lists all projects the current user can access and provides project management actions.
+
+**Outputs shown:**
+- Project cards: name, number of buildings, diversified demand in kVA and kW, last-modified date
+- Role badge per project: **admin** (owner), **Main User**, or **View Only**
+- Demand formatted via `fmtVA()` (VA → kVA → MVA at 1 k / 1 M thresholds) and `fmtKW()` (W → kW → MW)
+
+**Input actions:**
+
+| Action | Fields | Notes |
+|---|---|---|
+| Create new project | Project name (text) | Modal with a single name field; creates an empty project |
+| Edit project | Name (text) + auto-backup interval (Never / Daily / Weekly / Monthly) | Auto-backup saves a full JSON export on the chosen cadence |
+| Restore from backup | JSON file (drag-and-drop or file picker) | Re-imports all buildings, floors, rooms, components, and power sources |
+| Delete project | Confirmation prompt | Permanent; cannot be undone from the UI |
+
+**What the user learns here:** Which projects exist, their total electrical demand, and whether they have editing rights.
+
+---
+
+### 17.2 Project Page (`ProjectPage.jsx`)
+
+**Purpose:** Shows all buildings in the project, configures project-wide schedule and currency, manages team members, and accepts project-level loads.
+
+**Outputs shown:**
+- **PowerBanner** (sticky top bar): diversified demand in kVA and kW, recalculated on every load change
+- **PowerSourcesBanner**: utility lines, generator lines, solar systems, and battery banks in a collapsible strip
+- Building cards: name, building type badge, floor count, area m²
+
+**Input actions:**
+
+| Field | Type | Unit | Backend field | Effect on output |
+|---|---|---|---|---|
+| Building name | Text + autocomplete | — | `buildings.name` | Label only; autocomplete suggests names from existing buildings in project |
+| Building type | Dropdown (12 options) | — | `buildings.type` | Used in building header of Electrical Design page; informs component suggestions |
+| Building area | Number | m² | `buildings.area_m2` | Used in solar capacity heuristic estimate |
+| Currency symbol | Text (1–3 chars) | — | `projects.currency_symbol` | Displayed on Financial page cost figures |
+| Working days | Toggle buttons Mo–Su | — | `schedules.working_days` | Days included in load-profile and cost calculations |
+| Work hours | HH:MM–HH:MM pairs (multiple allowed) | — | `schedules.work_hours` | Active windows for loads with `usage_day_type = weekday` |
+| Operating season | Month + day pairs (start date, end date) | — | `schedules.operating_season` | Date range for loads marked `usage_season = summer` or `winter` |
+
+Building types: Generic, Residential House, Apartment, Hotel, Office, School, University, Retail, Hospital, Industrial, Mosque, Sports.
+
+**What the user learns here:** The overall project layout and top-level demand; sets cost-accounting context via currency and schedule.
+
+---
+
+### 17.3 Building Page (`BuildingPage.jsx`)
+
+**Purpose:** Shows all floors in the selected building. Accepts building-level loads (loads that belong to the whole building rather than a single floor). Same PowerBanner and PowerSourcesBanner scoped to this building.
+
+**Outputs shown:**
+- Floor cards: name, room count, area m²
+- PowerBanner showing building diversified demand
+
+**Input actions:**
+
+| Field | Type | Unit | Notes |
+|---|---|---|---|
+| Floor name | Text | — | e.g. "Ground Floor" |
+| Floor area | Number | m² | Used in area calculations and pro-rated diversity |
+| Building schedule override | Same fields as project schedule | — | Overrides project schedule for this building only |
+
+**What the user learns here:** How many floors the building has and how building-level demand compares to project total.
+
+---
+
+### 17.4 Floor Page (`FloorPage.jsx`)
+
+**Purpose:** Lists rooms on this floor. Accepts floor-level loads. Same banner structure scoped to floor.
+
+**Outputs shown:**
+- Room cards: name, room type badge, area m²
+
+**Input actions:**
+
+| Field | Type | Unit | Notes |
+|---|---|---|---|
+| Room name | Text | — | — |
+| Room type | Dropdown | — | Guides component autocomplete suggestions |
+| Room area | Number | m² | Used in area calculations |
+| Floor schedule override | Schedule fields | — | Overrides building schedule for this floor |
+
+**What the user learns here:** Demand distribution across rooms on the floor.
+
+---
+
+### 17.5 Room Page — Component Entry (`RoomPage` / `EntityComponents.jsx`)
+
+**Purpose:** The primary data-entry screen. Every electrical load in the room is entered here as a **component**. Values entered on this screen are the source data for all outputs in the system — electrical design, load schedule, financial analysis, and phase balance all derive from these entries.
+
+**Component card (list view):**
+Each saved component shows: name, priority badge, flexibility badge, phase badge (1Φ / 3Φ), phase letter (A/B/C if pinned), Socket badge (if `needs_socket = true`), Motor badge (if `is_motor = true`), group name chip, `VA × qty · PF value · total W`, and usage time interval chips.
+
+**Component entry modal — every input field:**
+
+| Field | Type | Unit | What it is | Effect on outputs |
+|---|---|---|---|---|
+| Component Name | Text + autocomplete | — | Names the component type. Autocomplete matches existing types in the project and pre-fills power/phases/PF from previous entries of the same name. Typing a new name creates a new type. | If the selected type is marked `is_motor = true`, triggers 125% continuous-load sizing in the Electrical Design |
+| Apparent Power (VA) | Number ≥ 1 | VA | Rated apparent power of **one** unit. For a 36 W LED at PF=1.0 enter 36. For an AC unit with 2.5 kW real power at PF=0.85 enter 2941 VA (= 2500/0.85). Enter nameplate VA if given. | `Ib = VA / 230` (1Φ) or `VA / (√3 × 400)` (3Φ); also `P_W = VA × PF` for energy calculations |
+| Phases | Toggle: 1Φ / 3Φ | — | Whether the load uses one phase + neutral, or all three phases. Motors and ACs are usually 3Φ; lighting and small sockets are 1Φ. | Changes voltage divisor for Ib (230 V vs 400 V); 3Φ loads are spread equally across all three phases in the phase-balance calculation |
+| Power Factor | Number 0.01–1.00 | — | Ratio of real (W) to apparent (VA) power. PF=1.0 for resistive loads (heaters, LED drivers with no reactive component). PF≈0.85 for induction motors and ACs. PF≈0.90 for switch-mode power supplies. | `P_W = VA × PF`; used in all energy (kWh) and cost calculations; does not affect breaker sizing (which uses VA) |
+| Phase (optional, 1Φ only) | A / B / C toggle | — | Pins this load to a specific phase. If left blank, the FFD greedy algorithm assigns it automatically. | Directly determines which phase accumulates this load's VA in the phase-balance calculation |
+| Number of Pieces | Integer ≥ 1 | — | Quantity of identical units in this room. Enter 6 for six identical luminaires on the same circuit. | `total_VA = VA × qty`; the service may combine multiple components of the same type into one circuit |
+| Priority | Dropdown: Normal / Essential / Critical | — | Load priority for dispatch and protection. Selecting **Critical** automatically sets schedule to 24 h/day (00:00–23:59, all days, all seasons). | Critical loads → routed to ATS-backed essential panel + RCD added to circuit; Essential → preferred in source dispatch order; Normal → flexible |
+| Load Scheduling Type | Dropdown: Fixed / Shiftable / Curtailable | — | How the optimizer treats this load. **Fixed** runs exactly at the time intervals entered below. **Shiftable** lets the optimizer select the cheapest window within earliest/latest bounds (no time intervals needed — optimizer assigns them). **Curtailable** can reduce output below rated during high-cost hours. | Only affects the "Optimized load" line on the Load Schedule page; does not change nameplate VA or breaker sizing |
+| (Shiftable only) Required run hours | Integer 1–24 | h/day | How many hours per day the optimizer must guarantee this load runs | Optimizer hard constraint |
+| (Shiftable only) Earliest start hour | Dropdown 00:00–23:00 | HH:00 | Earliest allowed start time | Optimizer window bound |
+| (Shiftable only) Latest end hour | Dropdown 01:00–24:00 | HH:00 | Latest allowed finish time | Optimizer window bound |
+| (Shiftable only) Allow split / Max interruptions | Checkbox + integer | — | Whether the optimizer may break the run into multiple sub-windows and how many times | Optimizer flexibility |
+| (Curtailable only) Minimum output % | Number 1–100 | % | Floor on how much the load can be reduced (e.g. 50% means cannot curtail below half rated power) | Optimizer reduction bound |
+| Usage Season | Toggle: All / Summer / Winter | — | Which seasons this load is active. "All" = year-round. Seasonal loads are excluded from energy and cost calculations during the off-season months. | Filters load from active hours in the load-profile calculation for months outside the season |
+| Usage Day Type | Toggle: All / Weekday / Weekend | — | Which day types. "All" = every day. | Weekday-only loads are excluded on weekend days per the project schedule |
+| Usage Time Intervals | HH:MM–HH:MM pairs, multiple allowed | — | Clock windows during which this load is on. Add multiple intervals for split-shift operation (e.g. "08:00–12:00" + "14:00–17:00"). Active hours = sum of interval durations. | `kWh/day = VA × PF × Σ(interval_hours)`; directly sets daily energy and cost contribution |
+
+**Additional toggles (shown as badges in card view):**
+- `needs_socket = true`: component requires a socket outlet on its circuit; circuit is classified as SOCKET type (adds 30 mA RCD requirement)
+- `is_motor = true`: circuit is classified HEAVY; largest-motor 125% rule applied; Curve C breaker assigned
+
+**What the user learns here:** The bottom-up electrical load inventory. Every kWh and every ampere in downstream pages traces back to values entered here.
+
+---
+
+### 17.6 Load Schedule Page (`LoadSchedulePage.jsx`)
+
+**Purpose:** Shows the hourly demand profile for a chosen month and day, comparing coincident peak load to the optimizer's peak-shaving result, and breaking down energy supply by source.
+
+**Controls:**
+
+| Control | Effect |
+|---|---|
+| Month picker (1–12) | Selects month for solar declination, seasonal load filtering, and NASA POWER GHI look-up |
+| Day picker (day of month) | Selects the 24-hour profile day to display |
+
+**Tab 1 — Load profile:**
+- Y-axis: kW
+- **Max load** line: coincident sum of all active loads at each hour (worst-case demand)
+- **Optimized load** line: after shiftable loads are rescheduled and curtailable loads are reduced
+- **Reactive kVAR** area: reactive power demand per hour
+
+**Tab 2 — Sources:**
+- **Solar capacity** area: available solar output per hour based on irradiance model and declared system size
+- **Utility capacity** area: configured import limit per hour
+- **Generator capacity** area: rated output if a generator is configured
+
+**Tab 3 — Combined dispatch:**
+- Stacked areas: Solar used, Battery discharge, Utility used, Generator used, Unmet demand
+- **Battery SOC** overlay line (0–100%): shows how the battery charges and drains through the day
+
+**StatCard strip (for the selected day):**
+- Active hours (hours with non-zero demand)
+- kWh delivered (total energy consumed)
+- Source share % (what fraction came from solar / grid / generator / BESS)
+- Daily cost (tariff × kWh from paid sources)
+
+**What the user learns here:** Whether the profile has damaging demand peaks, how much solar offsets consumption each hour, when the battery is charged or discharged, and whether any unmet demand hours exist.
+
+---
+
+### 17.7 Financial Page (`FinancialPage.jsx`)
+
+**Purpose:** Shows the 25-year economic case for the configured power infrastructure versus utility-only baseline.
+
+**Controls:**
+- Month selector (1–12): representative month used for energy-mix calculation
+
+**SummaryCard grid:**
+
+| Card | Value | What it means |
+|---|---|---|
+| LCOE | $/kWh | Levelized cost from solar: total capital / (annual solar kWh × 25 years) |
+| Payback year | Year N | Year when cumulative savings equal total capital outlay |
+| Total 25-year savings | $ | Sum of utility bill reductions over project lifetime |
+| Annual solar kWh | kWh | Solar energy absorbed by the building each year |
+| Energy mix | % per source | Solar / Grid / Generator / BESS shares of annual consumption |
+
+**Charts:**
+- **25-year cumulative net cash flow** (LineChart): runs negative initially (capital cost) then rises as savings accumulate; a `ReferenceDot` marks the exact payback year
+- **Energy mix pie** (PieChart): visual breakdown of annual energy by source
+
+**What the user learns here:** Whether the solar/battery investment makes financial sense and the number of years to break-even.
+
+---
+
+### 17.8 Phase Balance Page (`PhaseBalancePage.jsx`)
+
+**Purpose:** Shows how single-phase loads are distributed across phases A, B, C; flags imbalance; and allows manual phase reassignment.
+
+**Outputs:**
+- **PhaseBar** for each phase: VA on that phase, percentage of three-phase total, line current (A = VA ÷ 230)
+  - Phase A: indigo color
+  - Phase B: emerald color
+  - Phase C: amber color
+- **Overall imbalance %** and status badge: Balanced (< 10%), Warning (10–20%), Critical (> 20%)
+- **Neutral current (A)**: phasor sum of three unbalanced phase currents
+- Current phase assignment of each room: shown as A / B / C chip or "auto"
+
+**Input actions:**
+- `PhaseAssignButtons` per room: click A, B, or C to pin all 1-phase loads in that room to that phase; click Clear to return to auto-assignment
+- Changes take effect immediately; `PhaseBar` and imbalance % update in real time
+
+**What the user learns here:** Whether the electrical system has an unacceptable neutral current (which causes transformer heating and potential neutral conductor overload) and which rooms to reassign to fix it.
+
+---
+
+### 17.9 Single-Line Diagram Page (`SingleLineDiagramPage.jsx`)
+
+**Purpose:** Auto-generated SVG single-line schematic of the project's power topology.
+
+**Outputs:**
+- **SourceNode circles** (top row, y = 60 px): one circle per configured source
+  - Solar: yellow
+  - BESS (battery): violet
+  - Utility grid: blue
+  - Generator: orange
+- **Breaker symbol** on each source-to-bus connection: small square with diagonal line
+- **Main bus bar** (horizontal line, y = 200 px, dark blue): connects all sources and feeds all buildings
+- **BuildingNode rectangles** (bottom row, y = 340 px, green): one per building, labeled with name and total kVA
+- **Download SVG** button: saves the diagram as a .svg file
+- SVG canvas width: 900 px; layout computed from actual source and building counts
+
+**What the user learns here:** A quick visual topology check suitable for reports and presentations; confirms all sources and buildings are connected to the common bus.
+
+---
+
+### 17.10 Electrical Design Page (`ElectricalDesignPage.jsx` + `PanelScheduleTable.jsx`)
+
+**Purpose:** Complete panel schedule for every floor distribution board (DB) and building main distribution board (MDB), computed from the load inventory and IEC 60364 rules.
+
+**Page-level stat cards:**
+
+| Card | Value | Notes |
+|---|---|---|
+| Buildings | count | — |
+| Floor DBs | count | Total distribution boards across all buildings |
+| Total Circuits | count | Final circuits across all DBs |
+| Derating Factor | 0.87 | 40 °C ambient, PVC/Cu cable, Method A1 |
+
+**Engineering notice:** Cable ampacity values from IEC 60364-5-52 Table B.52.2, Method A1 (conductors in conduit in thermally insulated wall — the most conservative reference method). Enter cable run lengths in the L (m) column for live voltage-drop calculation.
+
+**Per-building section — stat cards:**
+
+| Card | Formula |
+|---|---|
+| Nameplate Total | Sum of all VA (all rooms, all components × quantity) |
+| Diversified Demand | Nameplate × IEC 60364-8-1 diversity factors (room → floor → building → project) |
+| MDB Incomer | Next standard MCB rating above `Ib = VA_diversified / (√3 × 400)` |
+| Phase Imbalance % | `(VA_max_phase − VA_min_phase) / VA_avg_phase × 100` |
+
+**Panel schedule table — every column:**
+
+| Column | What it shows | How computed |
+|---|---|---|
+| # | Circuit number | Sequential within the panel |
+| Type | Circuit classification badge | LIGHTING (amber), SOCKET (blue), HEAVY (red), CRITICAL (deep red), AUXILIARY (teal), MIXED (purple), FLOOR_FEEDER (indigo) — see Section 7 for classification rules |
+| Phase | Phase letter A / B / C, or 3PH | From FFD greedy auto-assignment or user override on Phase Balance page |
+| Rooms / Description | Room names or custom label | Rooms whose loads are grouped on this circuit |
+| Loads | Component name × qty | Each load; **M** badge if `is_motor = true` |
+| Total VA | Apparent power | Sum of `VA × quantity` for all loads on the circuit |
+| Ib (A) | Design current | `VA / 230` (1Φ) or `VA / (√3 × 400)` (3Φ); for motor circuits uses `VA × 1.25 / V_nom` |
+| In (A) | Breaker rated current | Next standard MCB/MCCB size above Ib from IEC 60898 series: 6/10/16/20/25/32/40/50/63/80/100 A |
+| Curve | Trip characteristic | B = general (lighting, resistive); C = motor loads, mixed; D = transformer inrush |
+| Cable mm² | Conductor cross-section | Smallest size from IEC 60364-5-52 Table B.52.2 with derated ampacity ≥ Ib (derating = 0.87 at 40 °C) |
+| PE mm² | Protective earth conductor | IEC 60364-5-54 three-band rule: cable ≤ 16 mm² → PE = cable; 16–35 mm² → PE = 16 mm²; > 35 mm² → PE = cable ÷ 2 |
+| Util % | Utilisation | `(Ib / In) × 100`; ≤ 80% green, 80–95% amber, > 95% red |
+| RCD | Residual-current device | "30 mA" badge for all SOCKET circuits and all CRITICAL-priority loads; "—" otherwise |
+| L (m) | Cable run length | User-entered field; not stored server-side; session-only |
+| ΔU % | Voltage drop | `(mV/A/m × Ib × L) / (V_nom × 1000) × 100`; limit 3% for LIGHTING, 5% for others; displayed red when exceeded with suggested next cable size |
+| Note | Warnings | "⚠ Critical" if circuit contains critical-priority loads (routes to essential panel); voltage-drop note if length not yet entered |
+
+**What the user learns here:** The complete switchboard design — every breaker rating and trip curve, every cable and PE size, and (after entering cable lengths) every voltage-drop value — ready for a certified panel-schedule drawing.
+
+---
+
+## Section 18 — End-to-End Worked Example
+
+**Building:** Al-Noor Community School, 2 floors.
+**Location:** Cairo area (latitude 30° N).
+**Project schedule:** Mon–Fri, 08:00–17:00, Operating season all year.
+
+---
+
+### 18.1 Data Entry (Room Page)
+
+**Floor 1 — Ground Floor**
+
+| Room | Component | VA | PF | Qty | Phases | Priority | Season | Intervals | is_motor |
+|---|---|---|---|---|---|---|---|---|---|
+| Admin Office | LED Panel | 36 | 1.00 | 2 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Admin Office | Office Socket | 200 | 0.90 | 4 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Admin Office | Ceiling Fan | 70 | 0.85 | 1 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 101 | LED Panel | 36 | 1.00 | 6 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 101 | Classroom Socket | 200 | 0.90 | 4 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 101 | Ceiling Fan | 70 | 0.85 | 2 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 101 | Split AC | 3000 | 0.85 | 1 | 3Φ | Normal | Summer | 09:00–16:00 | Yes |
+
+**Floor 2 — First Floor**
+
+| Room | Component | VA | PF | Qty | Phases | Priority | Season | Intervals | is_motor |
+|---|---|---|---|---|---|---|---|---|---|
+| Server Room | LED Panel | 36 | 1.00 | 2 | 1Φ | Critical | All | auto (24 h) | No |
+| Server Room | Server UPS | 1500 | 0.90 | 1 | 3Φ | Critical | All | auto (24 h) | No |
+| Classroom 201 | LED Panel | 36 | 1.00 | 6 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 201 | Classroom Socket | 200 | 0.90 | 4 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 201 | Ceiling Fan | 70 | 0.85 | 2 | 1Φ | Normal | All | 08:00–17:00 | No |
+| Classroom 201 | Split AC | 3000 | 0.85 | 1 | 3Φ | Normal | Summer | 09:00–16:00 | Yes |
+
+> Selecting "Critical" priority on Server Room components automatically sets their schedule to 00:00–23:59, all days, all seasons. The user does not need to enter time intervals for Critical loads.
+
+---
+
+### 18.2 PowerBanner — Nameplate and Diversified Demand
+
+Nameplate totals (sum of all `VA × quantity`):
+
+| Level | VA |
+|---|---|
+| Admin Office | 2×36 + 4×200 + 1×70 = **942 VA** |
+| Classroom 101 | 6×36 + 4×200 + 2×70 + 1×3000 = **4 156 VA** |
+| Ground Floor | 942 + 4 156 = **5 098 VA** |
+| Server Room | 2×36 + 1×1 500 = **1 572 VA** |
+| Classroom 201 | same as 101 = **4 156 VA** |
+| First Floor | 1 572 + 4 156 = **5 728 VA** |
+| Building nameplate | 5 098 + 5 728 = **10 826 VA ≈ 10.8 kVA** |
+
+After applying IEC 60364-8-1 diversity factors at room, floor, building, and project levels (project DF = 0.70), the PowerBanner displays approximately **6.8 kVA** diversified demand. The banner also shows active real power: roughly **5.9 kW** (average PF ≈ 0.87).
+
+> **What the user learns:** The building will realistically draw about 6.8 kVA at peak — notably less than the 10.8 kVA nameplate, because not all loads run simultaneously.
+
+---
+
+### 18.3 Electrical Design Page — MDB and Floor DBs
+
+**MDB incomer (building-level, 3-phase supply):**
+
+```
+Ib_mdb = VA_diversified / (√3 × 400)
+       = 6 800 / 692.8
+       = 9.8 A
+
+In_mdb = next standard size above 9.8 A → 10 A MCB, Curve B
+Cable   = next size with derated ampacity ≥ 9.8 A
+        → 2.5 mm² (base 17 A × 0.87 = 14.8 A derated) ✓
+PE      = 2.5 mm² (cable ≤ 16 mm² → PE = cable)
+```
+
+**Selected ground floor circuits (GF DB):**
+
+| # | Type | Phase | Description | Total VA | Ib (A) | In (A) | Curve | Cable mm² | PE mm² | Util % | RCD |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| GF-01 | Lighting | A | Admin LEDs ×2 | 72 | 0.31 | 6 | B | 1.5 | 1.5 | 5% | — |
+| GF-02 | Socket | A | Admin Sockets ×4 | 800 | 3.48 | 6 | B | 1.5 | 1.5 | 58% | 30mA |
+| GF-03 | Lighting | B | C101 LEDs ×6 + Fans ×2 | 356 | 1.55 | 6 | B | 1.5 | 1.5 | 26% | — |
+| GF-04 | Socket | B | C101 Sockets ×4 | 800 | 3.48 | 6 | B | 1.5 | 1.5 | 58% | 30mA |
+| GF-05 | Heavy | 3PH | C101 AC (motor ×1.25) | 3 750 eff | 5.41 | 6 | C | 1.5 | 1.5 | 90% | — |
+
+For circuit GF-05 (motor):
+```
+Ib_rated = 3 000 / (√3 × 400) = 4.33 A
+Ib_sizing = 4.33 × 1.25 = 5.41 A   (NEC 430.24/430.22 continuous-load rule)
+In        = 6 A (next standard above 5.41 A), Curve C
+Util%     = 5.41 / 6 × 100 = 90%    ← amber warning; slightly oversized cable would reduce this
+```
+
+**First floor circuits (FF DB — critical server room):**
+
+| # | Type | Phase | Description | Total VA | Ib (A) | In (A) | Curve | Cable mm² | PE mm² | Util % | RCD | Note |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| FF-01 | Critical | A | Server LEDs ×2 | 72 | 0.31 | 6 | B | 1.5 | 1.5 | 5% | 30mA | ⚠ Critical |
+| FF-02 | Critical | 3PH | Server UPS ×1 | 1 500 | 2.17 | 6 | B | 1.5 | 1.5 | 36% | 30mA | ⚠ Critical |
+
+The page also shows an **Essential Panel Required** notice: critical-priority circuits must be supplied from an ATS-backed essential busbar.
+
+**Voltage drop check (GF-02, socket circuit, cable run L = 25 m):**
+```
+mV/A/m for 1.5 mm² ≈ 24 mV/A/m
+ΔU (V)  = 24 × 3.48 × 25 / 1000 = 2.09 V
+ΔU (%)  = 2.09 / 230 × 100     = 0.91%   (limit 5% → OK)
+```
+
+> **What the user learns:** Complete switchboard design in one view — every breaker, every cable, every PE conductor. The motor circuit's 90% utilisation is an amber flag; the user knows to consider a larger cable on that run.
+
+---
+
+### 18.4 Phase Balance Page
+
+**Auto-assignment result (FFD greedy algorithm):**
+
+| Phase | 1Φ loads | 3Φ share | Total VA | Current (A) |
+|---|---|---|---|---|
+| A | Admin office loads = 1 082 VA | 2 500 VA | 3 582 VA | 15.6 A |
+| B | C101 LEDs + fans = 356 VA; C201 LEDs + fans = 356 VA = 712 VA | 2 500 VA | 3 212 VA | 14.0 A |
+| C | C101 sockets = 800 VA; C201 sockets = 800 VA = 1 600 VA | 2 500 VA | 4 100 VA | 17.8 A |
+
+```
+VA_avg        = (3 582 + 3 212 + 4 100) / 3 = 3 631 VA
+Imbalance %   = (4 100 − 3 212) / 3 631 × 100 = 24.5%   → CRITICAL badge (red)
+
+Neutral current:
+I_N = √(15.6² + 14.0² + 17.8² − 15.6×14.0 − 14.0×17.8 − 17.8×15.6)
+    = √(243.4 + 196.0 + 316.8 − 218.4 − 249.2 − 277.7)
+    = √(756.2 − 745.3)
+    = √10.9 ≈ 3.3 A
+```
+
+**After manual reassignment** (user assigns Classroom 201 sockets to Phase A, Server LEDs to Phase A):
+- Phase A: 1 082 + 72 (server LEDs) + 800 (C201 sockets) = 1 954 VA → 4 454 VA total
+- Phase B: 712 + 800 (C101 sockets) = 1 512 VA → 4 012 VA total
+- Phase C: 800 remaining VA → 3 300 VA total
+
+After second adjustment (split C101 fans to Phase C):
+- Best achievable with this load set ≈ 5% imbalance → **Balanced** badge
+
+> **What the user learns:** The auto-assigned layout was critically unbalanced because the socket loads all fell on Phase C. Manual reassignment distributes the load and reduces the neutral current from 3.3 A to below 0.5 A.
+
+---
+
+### 18.5 Load Schedule Page (August, peak summer day)
+
+**Daily energy calculation for all loads (August working day, 08:00–17:00 school day):**
+
+| Load | W (= VA × PF) | Active hours | kWh/day |
+|---|---|---|---|
+| Admin LEDs ×2 | 72 W | 9 | 0.65 |
+| Admin Sockets ×4 | 720 W | 9 | 6.48 |
+| Admin Fan ×1 | 59.5 W | 9 | 0.54 |
+| C101 LEDs ×6 | 216 W | 9 | 1.94 |
+| C101 Sockets ×4 | 720 W | 9 | 6.48 |
+| C101 Fans ×2 | 119 W | 9 | 1.07 |
+| C101 AC ×1 (summer) | 2 550 W | 7 (09–16) | 17.85 |
+| C201 LEDs ×6 | 216 W | 9 | 1.94 |
+| C201 Sockets ×4 | 720 W | 9 | 6.48 |
+| C201 Fans ×2 | 119 W | 9 | 1.07 |
+| C201 AC ×1 (summer) | 2 550 W | 7 (09–16) | 17.85 |
+| Server LEDs ×2 | 72 W | 24 | 1.73 |
+| Server UPS ×1 | 1 350 W | 24 | 32.40 |
+| **Total** | | | **96.5 kWh/day** |
+
+**Peak coincident demand** (09:00–16:00 when ACs are also running):
+```
+P_peak = 72 + 720 + 59.5 + 216 + 720 + 119 + 2 550 + 216 + 720 + 119 + 2 550 + 72 + 1 350
+       = 9 484 W ≈ 9.5 kW
+```
+
+**Solar declination for August 15 (DOY = 227):**
+```
+δ = 23.45 × sin(360/365 × (227 − 81))
+  = 23.45 × sin(144.0°)
+  = 23.45 × 0.588
+  = 13.8°
+```
+
+**Solar capacity (1 solar system configured, area = 50 m²):**
+```
+P_solar = 50 × 0.17 × 1000 × 0.75 = 6 375 W ≈ 6.4 kW
+```
+With PSH ≈ 6.5 h/day in Cairo in August:
+```
+Daily solar energy = 6.4 × 6.5 = 41.6 kWh/day
+```
+
+The Load Schedule combined-dispatch tab shows solar covering the daytime load from roughly 07:00–17:00; server load at night draws entirely from utility.
+
+> **What the user learns:** The two ACs account for 37% of daily energy (35.7/96.5). Solar with 50 m² covers about 43% of daily demand. The server is the dominant overnight load.
+
+---
+
+### 18.6 Financial Page
+
+Monthly energy (22 working days + 8 non-working server-only days):
+```
+Monthly kWh = 62.4 kWh/workday × 22 + 34.1 kWh/non-workday × 8
+            ≈ 1 373 + 273 = 1 646 kWh/month     (in August)
+```
+(62.4 = 96.5 − 34.1 server portion; 34.1 = server loads × 24 h)
+
+Solar generated (August):
+```
+Monthly solar = 41.6 kWh/day × 30 = 1 248 kWh
+```
+
+Solar covers: 1 248 / 1 646 = **75.8%** of August demand.
+
+Remaining from utility: 1 646 − 1 248 = 398 kWh.
+At tariff $0.05/kWh: utility cost = $19.90/month.
+Without solar: 1 646 × $0.05 = $82.30/month.
+Monthly saving: **$62.40**.
+
+**LCOE and payback (capital = 6.4 kW × $800/kW = $5 120):**
+```
+Annual solar kWh used ≈ 1 248 × 12 = 14 976 kWh
+LCOE = $5 120 / (14 976 kWh × 25 years) = $0.0136/kWh
+Annual saving ≈ $62.40 × 12 = $748.80
+Payback year = $5 120 / $748.80 ≈ 6.8 → Year 7
+25-year total saving = $748.80 × 25 − $5 120 = $13 600
+```
+
+> **What the user learns:** A 6.4 kW system pays back in about 7 years and saves roughly $13 600 over 25 years. LCOE of $0.014/kWh is far below the $0.05/kWh tariff.
+
+---
+
+### 18.7 Single-Line Diagram
+
+For this project (1 utility line + 1 solar system + no battery + no generator), the SVG shows:
+- **Source row (y = 60):** Grid circle (blue) · Solar circle (yellow)
+- **Breaker symbols** on both source connections
+- **Bus bar (y = 200):** horizontal dark-blue line
+- **Building row (y = 340):** "Al-Noor School" rectangle labeled "6.8 kVA"
+
+> **What the user learns:** Topology confirmed — two sources feed one common bus which supplies one building. Suitable for attaching to a permit application.
+
+---
+
+## Section 19 — Glossary
+
+**Apparent power (VA, kVA):** The product of voltage and current without regard to phase angle. For a single-phase 230 V circuit drawing 10 A, apparent power = 2 300 VA = 2.3 kVA. Electrical equipment is rated in VA because conductors and transformers must carry the full current regardless of power factor.
+
+**Real (active) power (W, kW):** The power actually converted to useful work (heat, light, mechanical). `P (W) = VA × power factor`. A 2 300 VA load at PF = 0.87 delivers 2 001 W of real power.
+
+**Reactive power (VAR, kVAR):** Power stored and returned by inductors and capacitors each cycle. Does no useful work but flows through conductors and causes losses. `Q (VAR) = √(VA² − W²)`.
+
+**Power factor (PF):** Ratio of real to apparent power: `PF = W / VA = cos φ`. PF = 1.0 for purely resistive loads (heaters, incandescent lamps). PF ≈ 0.85 for induction motors and ACs. PF ≈ 0.90 for switch-mode power supplies. Low PF means higher current for the same real power, requiring larger conductors.
+
+**Diversity factor (DF) / Coincidence factor:** The ratio of maximum coincident demand to the sum of individual maximum demands. A DF of 0.70 means the actual peak is 70% of the nameplate total because not all loads are on simultaneously. IEC 60364-8-1 defines diversity factors for different occupancy types. The inverse of coincidence factor is sometimes called demand factor.
+
+**Coincident demand (nameplate total):** The hypothetical load if every component ran at its full rated VA at the same instant. This is the worst case; used for breaker sizing at each level.
+
+**Diversified demand:** Nameplate demand scaled by diversity factors. This is what the supply transformer and incomer must actually handle.
+
+**Ampacity:** The maximum continuous current a conductor can carry without exceeding its rated temperature. IEC 60364-5-52 Table B.52.2 tabulates base ampacities for PVC/Cu cables by cross-section and installation method. Method A1 (in conduit in insulated wall) gives the most conservative values.
+
+**Derating:** Reducing rated ampacity to account for elevated ambient temperature or cable grouping. At 40 °C, a 0.87 derating factor is applied to the IEC Table B.52.2 base values (which are for 30 °C). Example: 2.5 mm² base ampacity 17 A × 0.87 = 14.8 A derated.
+
+**RCD (Residual-Current Device) / RCCB:** A protective device that trips when the difference between live-conductor current and neutral-conductor current exceeds a threshold — indicating current leaking to earth through a fault or a person. A 30 mA RCD trips in ≤ 40 ms, which is below the let-through current needed to cause cardiac fibrillation. Required on socket circuits (IEC 60364) and on critical-priority circuits in this system.
+
+**MCB (Miniature Circuit Breaker):** A resettable protective device rated up to 125 A (IEC 60898) that breaks the circuit on overload (thermal trip) or short circuit (magnetic trip). Ratings in this system follow the standard IEC series: 6/10/16/20/25/32/40/50/63/80/100 A.
+
+**MCCB (Moulded Case Circuit Breaker):** Larger version of the MCB, typically 100–3 000 A, used as building incomers or large motor feeders (IEC 60947-2).
+
+**Trip curve B:** MCB magnetic trip at 3–5× In. For resistive loads and lighting circuits where there is no startup inrush.
+
+**Trip curve C:** Magnetic trip at 5–10× In. For loads with moderate inrush — motors, fluorescent luminaires, small transformers.
+
+**Trip curve D:** Magnetic trip at 10–20× In. For high-inrush loads such as large transformer primaries, solenoids, and welding equipment.
+
+**DB (Distribution Board):** The sub-panel on each floor that receives the floor feeder from the MDB and distributes power to final circuits in rooms on that floor. In this system, each floor has one DB.
+
+**MDB (Main Distribution Board):** The primary panel in each building. Receives the utility supply (or generator/ATS output) and feeds floor DBs and any building-level circuits.
+
+**PE (Protective Earth conductor):** The green/yellow conductor connecting exposed conductive parts of equipment to the earthing system. Sized per IEC 60364-5-54: for cables ≤ 16 mm² the PE equals the phase conductor; for 16–35 mm² the PE is fixed at 16 mm²; for > 35 mm² the PE is half the phase conductor area.
+
+**PSH (Peak Sun Hours):** The number of hours per day during which solar irradiance equals 1 000 W/m² (STC — Standard Test Conditions). A location with PSH = 6 will receive the same daily energy as 6 hours of full-sun irradiance. PSH is used to estimate daily solar output: `E_day = P_stc × PSH`.
+
+**GHI (Global Horizontal Irradiance):** Total solar energy (direct + diffuse) incident on a horizontal surface per unit area per day, measured in Wh/m² or kWh/m²/day. This system retrieves GHI from the NASA POWER API for the project's latitude/longitude.
+
+**SOC (State of Charge):** Battery energy level expressed as a percentage of rated capacity (0% = empty, 100% = full). The dispatch logic prevents charging above `soc_max` (typically 95%) and discharging below `soc_min` (typically 10–20%) to protect battery longevity.
+
+**RTE (Round-Trip Efficiency):** The fraction of energy returned by a battery compared to the energy put in during charging. A battery with RTE = 0.90 returns 90 Wh for every 100 Wh charged. In the system, `one_way_efficiency = √(RTE)`, applied once on charge and once on discharge so the combined effect equals RTE.
+
+**LCOE (Levelized Cost of Electricity):** Total lifetime cost of a generation asset divided by total lifetime energy produced. `LCOE = Capital_cost / (Annual_kWh × Lifetime_years)`. This system uses a simple undiscounted form over 25 years; it does not apply NPV or IRR.
+
+**Utilisation percentage (Util %):** The ratio of design current to breaker rated current: `Util% = (Ib / In) × 100`. Values below 80% are green (adequate headroom), 80–95% amber (acceptable but limited), above 95% red (overcrowded — consider the next cable/breaker size up).
+
+**Phase imbalance %:** `(VA_max_phase − VA_min_phase) / VA_avg_phase × 100`. Measures how unevenly single-phase loads are distributed across the three phases. IEC guidelines suggest < 10% as balanced; 10–20% is a warning; > 20% is unacceptable because it causes thermal stress in transformers, excess neutral current, and voltage asymmetry. The system uses: Balanced < 10%, Warning 10–20%, Critical > 20%.
+
+**Neutral current:** In a balanced three-phase system the neutral carries zero current because the three phasor currents cancel. As loads become unbalanced, residual current flows in the neutral: `I_N = √(I_A² + I_B² + I_C² − I_A·I_B − I_B·I_C − I_C·I_A)`. Excessive neutral current overheats the neutral conductor (which is not protected by a breaker in most installations) and increases transformer losses.
