@@ -51,9 +51,13 @@ class UtilityLineController extends Controller
     public function store(Request $request, string $type, int $id)
     {
         $request->validate([
-            'name'   => 'required|string|max:255',
-            'power'  => 'required|numeric|min:0',
-            'phases' => 'required|in:1phase,3phase',
+            'name'                => 'required|string|max:255',
+            'power'               => 'required|numeric|min:0',
+            'phases'              => 'required|in:1phase,3phase',
+            'tariff_per_kwh'      => 'sometimes|nullable|numeric|min:0',
+            'peak_tariff_per_kwh' => 'sometimes|nullable|numeric|min:0',
+            'peak_hours_start'    => 'sometimes|nullable|integer|min:0|max:23',
+            'peak_hours_end'      => 'sometimes|nullable|integer|min:0|max:23',
         ]);
 
         [$parent, $project] = $this->resolveParent($type, $id);
@@ -63,9 +67,13 @@ class UtilityLineController extends Controller
         }
 
         $line = $parent->utilityLines()->create([
-            'name'   => $request->name,
-            'power'  => $request->power,
-            'phases' => $request->phases,
+            'name'                => $request->name,
+            'power'               => $request->power,
+            'phases'              => $request->phases,
+            'tariff_per_kwh'      => $request->input('tariff_per_kwh'),
+            'peak_tariff_per_kwh' => $request->input('peak_tariff_per_kwh'),
+            'peak_hours_start'    => $request->input('peak_hours_start'),
+            'peak_hours_end'      => $request->input('peak_hours_end'),
         ]);
 
         return response()->json(['data' => $line], 201);
@@ -78,7 +86,7 @@ class UtilityLineController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $line->fill($request->only('name', 'power', 'phases'));
+        $line->fill($request->only('name', 'power', 'phases', 'tariff_per_kwh', 'peak_tariff_per_kwh', 'peak_hours_start', 'peak_hours_end'));
         $line->save();
 
         return response()->json(['data' => $line]);

@@ -336,52 +336,89 @@ function SolarSystemsDropdown({ endpoint, onTotalChange, onSystemsChange }) {
 }
 
 // ── Inline edit row for a single solar system ────────────────────────────────
-// Uses uncontrolled inputs (defaultValue + refs) so typing is never blocked
-// by parent re-renders.
-function SysEditRow({ sys, onSave, onCancel, saving }) {
+function SysEditRow({ sys, onSave, onCancel, saving, currency = '$' }) {
   const nameRef = useRef(null);
   const kwRef   = useRef(null);
+  const [installCost, setInstallCost]   = useState(sys.installation_cost != null ? String(sys.installation_cost) : '');
+  const [maintCost, setMaintCost]       = useState(sys.annual_maintenance_cost != null ? String(sys.annual_maintenance_cost) : '');
+  const [lifetime, setLifetime]         = useState(sys.panel_lifetime_years != null ? String(sys.panel_lifetime_years) : '25');
 
   function save() {
     const n = nameRef.current?.value?.trim() ?? '';
     const k = kwRef.current?.value ?? '';
-    if (n && k) onSave(n, k);
+    if (n && k) onSave({
+      name: n, capacity_kw: k,
+      installation_cost:       installCost !== '' ? Number(installCost) : null,
+      annual_maintenance_cost: maintCost !== ''   ? Number(maintCost)   : null,
+      panel_lifetime_years:    lifetime !== ''    ? Number(lifetime)    : 25,
+    });
   }
 
   return (
-    <div className="flex gap-1.5" onMouseDown={e => e.stopPropagation()}>
-      <input
-        ref={nameRef}
-        type="text"
-        defaultValue={sys.name}
-        placeholder="System name"
-        autoFocus
-        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-        className="flex-1 min-w-0 border border-amber-300 rounded px-2 py-1.5 text-xs text-gray-800
-          focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
-      />
-      <div className="relative w-24 flex-shrink-0">
+    <div className="flex flex-col gap-1.5" onMouseDown={e => e.stopPropagation()}>
+      <div className="flex gap-1.5">
         <input
-          ref={kwRef}
-          type="number" min="0.01" step="0.1"
-          defaultValue={sys.capacity_kw}
-          placeholder="kW"
+          ref={nameRef}
+          type="text"
+          defaultValue={sys.name}
+          placeholder="System name"
+          autoFocus
           onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-          className="w-full border border-amber-300 rounded pl-2 pr-7 py-1.5 text-xs text-gray-800
+          className="flex-1 min-w-0 border border-amber-300 rounded px-2 py-1.5 text-xs text-gray-800
             focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
         />
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">kW</span>
+        <div className="relative w-24 flex-shrink-0">
+          <input
+            ref={kwRef}
+            type="number" min="0.01" step="0.1"
+            defaultValue={sys.capacity_kw}
+            placeholder="kW"
+            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
+            className="w-full border border-amber-300 rounded pl-2 pr-7 py-1.5 text-xs text-gray-800
+              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">kW</span>
+        </div>
       </div>
-      <button onClick={save} disabled={saving}
-        className="px-2.5 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600
-          text-white rounded disabled:opacity-40 flex-shrink-0 transition-colors">
-        {saving ? '…' : '✓'}
-      </button>
-      <button onClick={onCancel}
-        className="px-2.5 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200
-          text-gray-600 rounded flex-shrink-0 transition-colors">
-        ✕
-      </button>
+      {/* ── Cost fields ── */}
+      <div className="border-t border-amber-100 pt-1.5 flex flex-col gap-1">
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <input type="number" min="0" step="0.01" value={installCost}
+            onChange={e => setInstallCost(e.target.value)}
+            placeholder="Installation cost"
+            className="w-full border border-gray-200 rounded pl-5 pr-3 py-1 text-xs text-gray-800
+              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+        </div>
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <input type="number" min="0" step="0.01" value={maintCost}
+            onChange={e => setMaintCost(e.target.value)}
+            placeholder="Annual maintenance cost"
+            className="w-full border border-gray-200 rounded pl-5 pr-3 py-1 text-xs text-gray-800
+              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+        </div>
+        <div className="relative">
+          <input type="number" min="1" max="100" value={lifetime}
+            onChange={e => setLifetime(e.target.value)}
+            placeholder="Panel lifetime (years)"
+            className="w-full border border-gray-200 rounded pl-3 pr-10 py-1 text-xs text-gray-800
+              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">yrs</span>
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        <button onClick={save} disabled={saving}
+          className="flex-1 px-2.5 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600
+            text-white rounded disabled:opacity-40 transition-colors">
+          {saving ? '…' : 'Save'}
+        </button>
+        <button onClick={onCancel}
+          className="flex-1 px-2.5 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200
+            text-gray-600 rounded transition-colors">
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -396,11 +433,14 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
 
   // ── Named solar systems (inside the "Existing" section) ─────────────────────
   const [solarSystems, setSolarSystemsLocal] = useState([]);
-  const [sysAddName, setSysAddName]   = useState('');
-  const [sysAddKw, setSysAddKw]       = useState('');
-  const [sysAdding, setSysAdding]     = useState(false);
-  const [sysEditId, setSysEditId]     = useState(null);
-  const [sysSaving, setSysSaving]     = useState(false);
+  const [sysAddName, setSysAddName]         = useState('');
+  const [sysAddKw, setSysAddKw]             = useState('');
+  const [sysAddInstall, setSysAddInstall]   = useState('');
+  const [sysAddMaint, setSysAddMaint]       = useState('');
+  const [sysAddLifetime, setSysAddLifetime] = useState('25');
+  const [sysAdding, setSysAdding]           = useState(false);
+  const [sysEditId, setSysEditId]           = useState(null);
+  const [sysSaving, setSysSaving]           = useState(false);
 
   useEffect(() => {
     if (!solarSystemsEndpoint) return;
@@ -416,9 +456,16 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
     if (!sysAddName.trim() || !sysAddKw) return;
     setSysAdding(true);
     try {
-      const { data } = await api.post(solarSystemsEndpoint, { name: sysAddName.trim(), capacity_kw: Number(sysAddKw) });
+      const { data } = await api.post(solarSystemsEndpoint, {
+        name:                    sysAddName.trim(),
+        capacity_kw:             Number(sysAddKw),
+        installation_cost:       sysAddInstall !== '' ? Number(sysAddInstall) : null,
+        annual_maintenance_cost: sysAddMaint   !== '' ? Number(sysAddMaint)   : null,
+        panel_lifetime_years:    sysAddLifetime !== '' ? Number(sysAddLifetime) : 25,
+      });
       applySystemsUpdate([...solarSystems, data.data]);
       setSysAddName(''); setSysAddKw('');
+      setSysAddInstall(''); setSysAddMaint(''); setSysAddLifetime('25');
     } finally { setSysAdding(false); }
   }
 
@@ -427,13 +474,16 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
     applySystemsUpdate(solarSystems.filter(s => s.id !== id));
   }
 
-  async function handleSysEditSave(id, name, kw) {
-    if (!name.trim() || !kw) return;
+  async function handleSysEditSave(id, fields) {
+    if (!fields.name?.trim() || !fields.capacity_kw) return;
     setSysSaving(true);
     try {
       const { data } = await api.put(`/api/solar-systems/${id}`, {
-        name: name.trim(),
-        capacity_kw: Number(kw),
+        name:                    fields.name.trim(),
+        capacity_kw:             Number(fields.capacity_kw),
+        installation_cost:       fields.installation_cost,
+        annual_maintenance_cost: fields.annual_maintenance_cost,
+        panel_lifetime_years:    fields.panel_lifetime_years,
       });
       applySystemsUpdate(solarSystems.map(s => s.id === id ? data.data : s));
       setSysEditId(null);
@@ -539,8 +589,9 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                           <SysEditRow
                             sys={sys}
                             saving={sysSaving}
-                            onSave={(name, kw) => handleSysEditSave(sys.id, name, kw)}
+                            onSave={fields => handleSysEditSave(sys.id, fields)}
                             onCancel={() => setSysEditId(null)}
+                            currency={entity?.currency_symbol ?? '$'}
                           />
                         ) : (
                           <div className="flex items-center justify-between">
@@ -583,29 +634,59 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                 )}
 
                 {/* Add form */}
-                <div className="flex gap-1.5">
-                  <input type="text" placeholder="System name" value={sysAddName}
-                    onChange={e => setSysAddName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSysAdd()}
-                    className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
-                      placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                  <div className="relative w-20 flex-shrink-0">
-                    <input type="number" min="0.01" step="0.1" placeholder="kW" value={sysAddKw}
-                      onChange={e => setSysAddKw(e.target.value)}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex gap-1.5">
+                    <input type="text" placeholder="System name" value={sysAddName}
+                      onChange={e => setSysAddName(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSysAdd()}
-                      className="w-full border border-gray-200 rounded-lg pl-2 pr-6 py-1.5 text-xs text-gray-800
+                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
                         placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">kW</span>
+                    <div className="relative w-20 flex-shrink-0">
+                      <input type="number" min="0.01" step="0.1" placeholder="kW" value={sysAddKw}
+                        onChange={e => setSysAddKw(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSysAdd()}
+                        className="w-full border border-gray-200 rounded-lg pl-2 pr-6 py-1.5 text-xs text-gray-800
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">kW</span>
+                    </div>
+                    <button onClick={handleSysAdd} disabled={!sysAddName.trim() || !sysAddKw || sysAdding}
+                      className="w-8 h-8 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 rounded-lg flex items-center justify-center text-white flex-shrink-0 transition-colors">
+                      {sysAdding
+                        ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                      }
+                    </button>
                   </div>
-                  <button onClick={handleSysAdd} disabled={!sysAddName.trim() || !sysAddKw || sysAdding}
-                    className="w-8 h-8 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 rounded-lg flex items-center justify-center text-white flex-shrink-0 transition-colors">
-                    {sysAdding
-                      ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                    }
-                  </button>
+                  {/* ── Solar cost fields (add) ── */}
+                  <div className="border-t border-amber-100 pt-1.5 flex flex-col gap-1">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Cost (optional)</p>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{entity?.currency_symbol ?? '$'}</span>
+                      <input type="number" min="0" step="0.01" value={sysAddInstall}
+                        onChange={e => setSysAddInstall(e.target.value)}
+                        placeholder="Installation cost"
+                        className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1 text-xs text-gray-800
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{entity?.currency_symbol ?? '$'}</span>
+                      <input type="number" min="0" step="0.01" value={sysAddMaint}
+                        onChange={e => setSysAddMaint(e.target.value)}
+                        placeholder="Annual maintenance cost"
+                        className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1 text-xs text-gray-800
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                    </div>
+                    <div className="relative">
+                      <input type="number" min="1" max="100" value={sysAddLifetime}
+                        onChange={e => setSysAddLifetime(e.target.value)}
+                        placeholder="Panel lifetime (years)"
+                        className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1 text-xs text-gray-800
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">yrs</span>
+                    </div>
+                  </div>
                 </div>
 
                 {solarMode === 'existing' && solarSystems.length > 0 && (
@@ -666,7 +747,7 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
 }
 
 // ── Battery bank add / edit form (top-level so React never unmounts on rerender)
-function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel, submitLabel }) {
+function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel, submitLabel, currency = '$' }) {
   const [form, setForm] = useState(initialValues);
   const [busy, setBusy] = useState(false);
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
@@ -742,6 +823,26 @@ function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel,
           ))}
         </select>
       )}
+      {/* ── Cost fields ── */}
+      <div className="border-t border-gray-100 pt-1.5 flex flex-col gap-1.5">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Cost (optional)</p>
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <input type="number" min="0" step="0.01" value={form.purchase_cost}
+            onChange={e => set('purchase_cost', e.target.value)}
+            placeholder="Purchase cost (e.g. 5000)"
+            className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1.5 text-xs text-gray-800
+              placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
+        </div>
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <input type="number" min="0" step="0.01" value={form.replacement_cost}
+            onChange={e => set('replacement_cost', e.target.value)}
+            placeholder="Replacement cost (e.g. 4500)"
+            className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1.5 text-xs text-gray-800
+              placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
+        </div>
+      </div>
       <div className="flex gap-1.5">
         <button onClick={handleSubmit} disabled={busy || !isValid}
           className="flex-1 py-1.5 text-xs font-semibold bg-violet-500 hover:bg-violet-600
@@ -766,9 +867,10 @@ const EMPTY_ADD = () => ({
   quantity: '', series_count: '1', parallel_count: '1',
   installation_date: new Date().toISOString().split('T')[0],
   solar_system_id: '',
+  purchase_cost: '', replacement_cost: '',
 });
 
-function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
+function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency = '$' }) {
   const [banks, setBanks]           = useState([]);
   const [totalKwh, setTotalKwh]     = useState(0);
   const [open, setOpen]             = useState(false);
@@ -809,6 +911,8 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
         parallel_count:       Number(f.parallel_count) || 1,
         installation_date:    f.installation_date,
         solar_system_id:      f.solar_system_id ? Number(f.solar_system_id) : null,
+        purchase_cost:        f.purchase_cost !== '' ? Number(f.purchase_cost) : null,
+        replacement_cost:     f.replacement_cost !== '' ? Number(f.replacement_cost) : null,
       });
       applyBanks([...banks, data.data]);
     } catch {
@@ -836,6 +940,8 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
         ? bank.installation_date.split('T')[0]
         : new Date().toISOString().split('T')[0],
       solar_system_id:      bank.solar_system_id != null ? String(bank.solar_system_id) : '',
+      purchase_cost:        bank.purchase_cost != null ? String(bank.purchase_cost) : '',
+      replacement_cost:     bank.replacement_cost != null ? String(bank.replacement_cost) : '',
     });
   }
 
@@ -850,6 +956,8 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
       parallel_count:       Number(f.parallel_count) || 1,
       installation_date:    f.installation_date,
       solar_system_id:      f.solar_system_id ? Number(f.solar_system_id) : null,
+      purchase_cost:        f.purchase_cost !== '' ? Number(f.purchase_cost) : null,
+      replacement_cost:     f.replacement_cost !== '' ? Number(f.replacement_cost) : null,
     });
     applyBanks(banks.map(b => b.id === editingId ? data.data : b));
     setEditingId(null);
@@ -933,6 +1041,7 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
                           onCancel={() => setEditingId(null)}
                           submitLabel="Save"
                           solarSystems={solarSystems}
+                          currency={currency}
                         />
                       ) : (
                         <div>
@@ -1022,6 +1131,7 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
               onCancel={null}
               submitLabel="Add Bank"
               solarSystems={solarSystems}
+              currency={currency}
             />
           </div>
         </div>
@@ -1032,7 +1142,7 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [] }) {
 
 // ── Reusable dropdown for managing generator / utility lines ─────────────────
 function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint, deleteEndpoint, onTotalChange,
-  generatorMode, onGeneratorModeChange, genNeeded }) {
+  generatorMode, onGeneratorModeChange, genNeeded, lineType = 'utility', currency = '$' }) {
   const [lines, setLines]     = useState([]);
   const [total, setTotal]     = useState(0);
   const [open, setOpen]       = useState(false);
@@ -1047,6 +1157,30 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
   const [editPhases, setEditPhases]   = useState('1phase');
   const [saving, setSaving]   = useState(false);
   const ref = useRef(null);
+
+  // ── Cost fields — ADD form ────────────────────────────────────────────────
+  // Utility
+  const [tariff, setTariff]             = useState('');
+  const [peakTariff, setPeakTariff]     = useState('');
+  const [peakStart, setPeakStart]       = useState('');
+  const [peakEnd, setPeakEnd]           = useState('');
+  // Generator
+  const [fuelCost, setFuelCost]         = useState('');
+  const [fuelLph, setFuelLph]           = useState('');
+  const [noLoadFuel, setNoLoadFuel]     = useState('');
+  const [minLoadPct, setMinLoadPct]     = useState('');
+  const [optimalLoadPct, setOptimalLoadPct] = useState('');
+
+  // ── Cost fields — EDIT form ───────────────────────────────────────────────
+  const [editTariff, setEditTariff]             = useState('');
+  const [editPeakTariff, setEditPeakTariff]     = useState('');
+  const [editPeakStart, setEditPeakStart]       = useState('');
+  const [editPeakEnd, setEditPeakEnd]           = useState('');
+  const [editFuelCost, setEditFuelCost]         = useState('');
+  const [editFuelLph, setEditFuelLph]           = useState('');
+  const [editNoLoadFuel, setEditNoLoadFuel]     = useState('');
+  const [editMinLoadPct, setEditMinLoadPct]     = useState('');
+  const [editOptimalLoadPct, setEditOptimalLoadPct] = useState('');
 
   useEffect(() => {
     if (!endpoint) return;
@@ -1077,9 +1211,25 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
     if (!name.trim() || !power) return;
     setError(''); setAdding(true);
     try {
-      const { data } = await api.post(endpoint, { name: name.trim(), power: Number(power), phases });
+      const payload = { name: name.trim(), power: Number(power), phases };
+      if (lineType === 'utility') {
+        if (tariff !== '')     payload.tariff_per_kwh      = Number(tariff);
+        if (peakTariff !== '') payload.peak_tariff_per_kwh = Number(peakTariff);
+        if (peakStart !== '')  payload.peak_hours_start    = Number(peakStart);
+        if (peakEnd !== '')    payload.peak_hours_end      = Number(peakEnd);
+      } else if (lineType === 'generator') {
+        if (fuelCost !== '')      payload.fuel_cost_per_liter  = Number(fuelCost);
+        if (fuelLph !== '')       payload.fuel_consumption_lph = Number(fuelLph);
+        if (noLoadFuel !== '')    payload.no_load_fuel_lph     = Number(noLoadFuel);
+        if (minLoadPct !== '')    payload.min_load_pct         = Number(minLoadPct);
+        if (optimalLoadPct !== '') payload.optimal_load_pct    = Number(optimalLoadPct);
+      }
+      const { data } = await api.post(endpoint, payload);
       applyUpdate([...lines, data.data]);
       setName(''); setPower(''); setPhases('1phase');
+      setTariff(''); setPeakTariff(''); setPeakStart(''); setPeakEnd('');
+      setFuelCost(''); setFuelLph('');
+      setNoLoadFuel(''); setMinLoadPct(''); setOptimalLoadPct('');
     } catch {
       setError('Failed to add. Please try again.');
     } finally {
@@ -1097,17 +1247,38 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
     setEditName(line.name);
     setEditPower(String(line.power));
     setEditPhases(line.phases ?? '1phase');
+    if (lineType === 'utility') {
+      setEditTariff(line.tariff_per_kwh != null ? String(line.tariff_per_kwh) : '');
+      setEditPeakTariff(line.peak_tariff_per_kwh != null ? String(line.peak_tariff_per_kwh) : '');
+      setEditPeakStart(line.peak_hours_start != null ? String(line.peak_hours_start) : '');
+      setEditPeakEnd(line.peak_hours_end != null ? String(line.peak_hours_end) : '');
+    } else if (lineType === 'generator') {
+      setEditFuelCost(line.fuel_cost_per_liter != null ? String(line.fuel_cost_per_liter) : '');
+      setEditFuelLph(line.fuel_consumption_lph != null ? String(line.fuel_consumption_lph) : '');
+      setEditNoLoadFuel(line.no_load_fuel_lph != null ? String(line.no_load_fuel_lph) : '');
+      setEditMinLoadPct(line.min_load_pct != null ? String(line.min_load_pct) : '30');
+      setEditOptimalLoadPct(line.optimal_load_pct != null ? String(line.optimal_load_pct) : '75');
+    }
   }
 
   async function handleSaveEdit() {
     if (!editName.trim() || !editPower) return;
     setSaving(true);
     try {
-      const { data } = await api.put(`${deleteEndpoint}/${editingId}`, {
-        name: editName.trim(),
-        power: Number(editPower),
-        phases: editPhases,
-      });
+      const payload = { name: editName.trim(), power: Number(editPower), phases: editPhases };
+      if (lineType === 'utility') {
+        payload.tariff_per_kwh      = editTariff !== ''    ? Number(editTariff)    : null;
+        payload.peak_tariff_per_kwh = editPeakTariff !== '' ? Number(editPeakTariff) : null;
+        payload.peak_hours_start    = editPeakStart !== ''  ? Number(editPeakStart)  : null;
+        payload.peak_hours_end      = editPeakEnd !== ''    ? Number(editPeakEnd)    : null;
+      } else if (lineType === 'generator') {
+        payload.fuel_cost_per_liter  = editFuelCost !== ''      ? Number(editFuelCost)      : null;
+        payload.fuel_consumption_lph = editFuelLph !== ''       ? Number(editFuelLph)       : null;
+        payload.no_load_fuel_lph     = editNoLoadFuel !== ''    ? Number(editNoLoadFuel)    : null;
+        payload.min_load_pct         = editMinLoadPct !== ''    ? Number(editMinLoadPct)    : 30;
+        payload.optimal_load_pct     = editOptimalLoadPct !== '' ? Number(editOptimalLoadPct) : 75;
+      }
+      const { data } = await api.put(`${deleteEndpoint}/${editingId}`, payload);
       applyUpdate(lines.map(l => l.id === editingId ? data.data : l));
       setEditingId(null);
     } finally {
@@ -1228,6 +1399,114 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
                               }`}>3Φ</button>
                           </div>
                         </div>
+                        {/* ── Utility cost fields (edit) ── */}
+                        {lineType === 'utility' && (
+                          <div className="border-t border-gray-100 pt-2 flex flex-col gap-1.5">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tariff</p>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                              <input type="number" min="0" step="0.0001" value={editTariff}
+                                onChange={e => setEditTariff(e.target.value)}
+                                placeholder="e.g. 0.12"
+                                className="w-full border border-gray-200 rounded-lg pl-5 pr-12 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/kWh</span>
+                            </div>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                              <input type="number" min="0" step="0.0001" value={editPeakTariff}
+                                onChange={e => setEditPeakTariff(e.target.value)}
+                                placeholder="Peak tariff (optional)"
+                                className="w-full border border-gray-200 rounded-lg pl-5 pr-12 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">peak/kWh</span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <input type="number" min="0" max="23" value={editPeakStart}
+                                onChange={e => setEditPeakStart(e.target.value)}
+                                placeholder="Peak start (0–23)"
+                                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                              <input type="number" min="0" max="23" value={editPeakEnd}
+                                onChange={e => setEditPeakEnd(e.target.value)}
+                                placeholder="Peak end (0–23)"
+                                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                            </div>
+                          </div>
+                        )}
+                        {/* ── Generator cost fields (edit) ── */}
+                        {lineType === 'generator' && (
+                          <div className="border-t border-gray-100 pt-2 flex flex-col gap-1.5">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fuel Cost</p>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                              <input type="number" min="0" step="0.01" value={editFuelCost}
+                                onChange={e => setEditFuelCost(e.target.value)}
+                                placeholder="e.g. 1.50"
+                                className="w-full border border-gray-200 rounded-lg pl-5 pr-14 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/liter</span>
+                            </div>
+                            <div className="relative">
+                              <input type="number" min="0" step="0.01" value={editFuelLph}
+                                onChange={e => setEditFuelLph(e.target.value)}
+                                placeholder="Fuel consumption at full load (L/h)"
+                                className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                            </div>
+                            {editFuelCost && editFuelLph && editPower && (
+                              <p className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1">
+                                Rated: {currency}{((Number(editFuelCost) * Number(editFuelLph)) / (Number(editPower) / 1000)).toFixed(4)}/kWh at 100 % load
+                              </p>
+                            )}
+                            {/* ── Affine model fields ── */}
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">Efficiency Profile (optional)</p>
+                            <div className="relative">
+                              <input type="number" min="0" step="0.01" value={editNoLoadFuel}
+                                onChange={e => setEditNoLoadFuel(e.target.value)}
+                                placeholder={editFuelLph ? `No-load fuel (default ${(Number(editFuelLph)*0.3).toFixed(2)} L/h = 30%)` : 'No-load fuel (L/h at idle)'}
+                                className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
+                                  focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <div className="relative flex-1">
+                                <input type="number" min="0" max="100" step="1" value={editMinLoadPct}
+                                  onChange={e => setEditMinLoadPct(e.target.value)}
+                                  placeholder="Min load %"
+                                  className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
+                                    focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                              </div>
+                              <div className="relative flex-1">
+                                <input type="number" min="0" max="100" step="1" value={editOptimalLoadPct}
+                                  onChange={e => setEditOptimalLoadPct(e.target.value)}
+                                  placeholder="Optimal load %"
+                                  className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
+                                    focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                              </div>
+                            </div>
+                            {editFuelCost && editFuelLph && editPower && editNoLoadFuel && (
+                              <div className="text-[10px] bg-orange-50 border border-orange-100 rounded px-2 py-1.5 space-y-0.5">
+                                {[100, 75, 50].map(pct => {
+                                  const kw  = Number(editPower) / 1000 * pct / 100;
+                                  const f0  = Number(editNoLoadFuel);
+                                  const fr  = Number(editFuelLph);
+                                  const fuel = f0 + (fr - f0) * (pct / 100);
+                                  const cpk  = kw > 0 ? (Number(editFuelCost) * fuel / kw).toFixed(4) : '—';
+                                  return (
+                                    <p key={pct} className={pct === 75 ? 'font-bold text-orange-700' : 'text-orange-600'}>
+                                      {pct} % load → {fuel.toFixed(2)} L/h → {currency}{cpk}/kWh{pct === 75 ? ' ★ optimal' : ''}
+                                    </p>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="flex gap-2">
                           <button onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editPower}
                             className="flex-1 py-1.5 text-xs font-semibold bg-indigo-500 hover:bg-indigo-600
@@ -1325,6 +1604,99 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
                   }
                 </button>
               </div>
+
+              {/* ── Utility cost fields (add) ── */}
+              {lineType === 'utility' && (
+                <div className="border-t border-gray-200 pt-2 flex flex-col gap-1.5">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tariff (optional)</p>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                    <input type="number" min="0" step="0.0001" value={tariff}
+                      onChange={e => setTariff(e.target.value)}
+                      placeholder="e.g. 0.12"
+                      className="w-full border border-gray-200 rounded-lg pl-5 pr-12 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/kWh</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                    <input type="number" min="0" step="0.0001" value={peakTariff}
+                      onChange={e => setPeakTariff(e.target.value)}
+                      placeholder="Peak tariff (optional)"
+                      className="w-full border border-gray-200 rounded-lg pl-5 pr-16 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">peak/kWh</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input type="number" min="0" max="23" value={peakStart}
+                      onChange={e => setPeakStart(e.target.value)}
+                      placeholder="Peak start hr (0–23)"
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    <input type="number" min="0" max="23" value={peakEnd}
+                      onChange={e => setPeakEnd(e.target.value)}
+                      placeholder="Peak end hr (0–23)"
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                  </div>
+                </div>
+              )}
+
+              {/* ── Generator cost fields (add) ── */}
+              {lineType === 'generator' && (
+                <div className="border-t border-gray-200 pt-2 flex flex-col gap-1.5">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fuel Cost (optional)</p>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                    <input type="number" min="0" step="0.01" value={fuelCost}
+                      onChange={e => setFuelCost(e.target.value)}
+                      placeholder="e.g. 1.50"
+                      className="w-full border border-gray-200 rounded-lg pl-5 pr-14 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/liter</span>
+                  </div>
+                  <div className="relative">
+                    <input type="number" min="0" step="0.01" value={fuelLph}
+                      onChange={e => setFuelLph(e.target.value)}
+                      placeholder="Consumption at full load (L/h)"
+                      className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                  </div>
+                  {fuelCost && fuelLph && power && (
+                    <p className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1">
+                      Rated: {currency}{((Number(fuelCost) * Number(fuelLph)) / (Number(power) / 1000)).toFixed(4)}/kWh at 100 % load
+                    </p>
+                  )}
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">Efficiency Profile (optional)</p>
+                  <div className="relative">
+                    <input type="number" min="0" step="0.01" value={noLoadFuel}
+                      onChange={e => setNoLoadFuel(e.target.value)}
+                      placeholder={fuelLph ? `No-load fuel (default ${(Number(fuelLph)*0.3).toFixed(2)} L/h = 30%)` : 'No-load fuel (L/h at idle)'}
+                      className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
+                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="relative flex-1">
+                      <input type="number" min="0" max="100" step="1" value={minLoadPct}
+                        onChange={e => setMinLoadPct(e.target.value)}
+                        placeholder="Min load % (30)"
+                        className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                    </div>
+                    <div className="relative flex-1">
+                      <input type="number" min="0" max="100" step="1" value={optimalLoadPct}
+                        onChange={e => setOptimalLoadPct(e.target.value)}
+                        placeholder="Optimal load % (75)"
+                        className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1390,6 +1762,7 @@ export default function PowerSourcesBanner({
 
   const genNeeded    = maxLoad * 1.25;
   const effectiveGen = generatorMode === 'needed' ? genNeeded : genTotal;
+  const currency     = entity?.currency_symbol ?? '$';
 
   const totalAvailable = solar + effectiveGen + utilTotal + battTotal + bldgGenTotal + bldgUtilTotal;
   const hasLoadData    = maxLoad > 0 || optimizedLoad > 0;
@@ -1470,6 +1843,7 @@ export default function PowerSourcesBanner({
               endpoint={batteryEndpoint}
               onTotalChange={pw => { setBattTotal(pw); }}
               solarSystems={solarSystems}
+              currency={currency}
             />
           </>
         )}
@@ -1487,6 +1861,8 @@ export default function PowerSourcesBanner({
               generatorMode={generatorMode}
               onGeneratorModeChange={handleGeneratorModeChange}
               genNeeded={genNeeded}
+              lineType="generator"
+              currency={currency}
             />
           </>
         )}
@@ -1501,6 +1877,8 @@ export default function PowerSourcesBanner({
               accentFrom="from-emerald-600" accentTo="to-emerald-500"
               endpoint={utilityEndpoint} deleteEndpoint="/api/utility-lines"
               onTotalChange={setUtilTotal}
+              lineType="utility"
+              currency={currency}
             />
           </>
         )}

@@ -20,6 +20,13 @@ class StoreComponentRequest extends ApiRequest
             'usage_time_intervals.*.start' => 'required_with:usage_time_intervals|string|regex:/^\d{2}:\d{2}$/',
             'usage_time_intervals.*.end'   => 'required_with:usage_time_intervals|string|regex:/^\d{2}:\d{2}$/',
             'group_name'                   => 'sometimes|nullable|string|max:255',
+            'load_flexibility'             => 'sometimes|in:fixed,shiftable,curtailable',
+            'required_run_hours'           => 'nullable|integer|min:1|max:24',
+            'earliest_start_hour'          => 'nullable|integer|min:0|max:23',
+            'latest_end_hour'              => 'nullable|integer|min:1|max:24',
+            'min_continuous_run'           => 'nullable|integer|min:1|max:24',
+            'max_interruptions'            => 'nullable|integer|min:0|max:10',
+            'curtail_min_pct'              => 'nullable|integer|min:0|max:100',
         ];
     }
 }

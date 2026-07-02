@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
-    protected $fillable = ['user_id', 'name', 'building_type', 'current_step', 'buildings_count', 'total_power', 'solar_power', 'existing_solar_power', 'solar_source', 'generator_source', 'generator_power', 'auto_backup_interval', 'last_auto_backup_at', 'work_days', 'work_time_intervals', 'working_season_intervals', 'location_lat', 'location_lng', 'location_name'];
+    protected $fillable = ['user_id', 'name', 'currency_symbol', 'building_type', 'current_step', 'buildings_count', 'total_power', 'solar_power', 'existing_solar_power', 'solar_source', 'generator_source', 'generator_power', 'auto_backup_interval', 'last_auto_backup_at', 'work_days', 'work_time_intervals', 'working_season_intervals', 'location_lat', 'location_lng', 'location_name'];
 
     protected $casts = [
         'last_auto_backup_at'        => 'datetime',

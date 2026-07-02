@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import ReactivePowerPanel from './ReactivePowerPanel';
-import { printPowerReport } from '../utils/printPowerReport';
+import ReportScopeModal from './ReportScopeModal';
+import { useAuth } from '../contexts/AuthContext';
 
 function fmt(v, unit = 'va') {
   const n = Number(v) || 0;
@@ -23,13 +24,15 @@ const PRIORITIES = [
   { key: 'normal',    label: 'Normal',    dot: 'bg-emerald-400', opt: 'text-emerald-300' },
 ];
 
-export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle }) {
+export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle, projectId }) {
+  const { user }                = useAuth();
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
-  const [open, setOpen]         = useState(false);
-  const [qOpen, setQOpen]       = useState(false);
+  const [open, setOpen]           = useState(false);
+  const [qOpen, setQOpen]         = useState(false);
   const [capApplied, setCapApplied] = useState(false);
-  const [unit, setUnit]         = useState('va');
+  const [unit, setUnit]           = useState('va');
+  const [reportModal, setReportModal] = useState(false);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -129,17 +132,17 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle 
           </button>
         )}
 
-        {/* PDF export */}
-        {!loading && data && (
+        {/* Report button — opens scope selector modal */}
+        {!loading && data && projectId && (
           <button
-            onClick={() => printPowerReport(data, reportTitle ?? 'Power Analysis Report', { capApplied })}
-            title="Download PDF report"
+            onClick={() => setReportModal(true)}
+            title="Generate report"
             className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
               hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0121 9.414V19a2 2 0 01-2 2z" />
             </svg>
           </button>
         )}
@@ -161,6 +164,17 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle 
           data={data}
           capApplied={capApplied}
           onToggleCap={() => setCapApplied(v => !v)}
+        />
+      )}
+
+      {/* ── Report scope modal ── */}
+      {reportModal && projectId && (
+        <ReportScopeModal
+          projectId={projectId}
+          projectName={reportTitle ?? 'Project'}
+          capApplied={capApplied}
+          engineerName={user?.name ?? ''}
+          onClose={() => setReportModal(false)}
         />
       )}
 

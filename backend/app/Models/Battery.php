@@ -14,6 +14,7 @@ class Battery extends Model
         'depth_of_discharge', 'round_trip_efficiency',
         'c_rate_charge', 'c_rate_discharge', 'rated_cycle_life',
         'current_soc', 'is_active', 'notes', 'solar_system_id',
+        'purchase_cost', 'replacement_cost',
     ];
 
     protected $casts = [
@@ -31,6 +32,8 @@ class Battery extends Model
         'rated_cycle_life'      => 'integer',
         'current_soc'           => 'float',
         'solar_system_id'       => 'integer',
+        'purchase_cost'         => 'float',
+        'replacement_cost'      => 'float',
     ];
 
     protected $appends = [

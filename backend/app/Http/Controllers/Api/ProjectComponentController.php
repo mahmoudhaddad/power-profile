@@ -29,7 +29,7 @@ class ProjectComponentController extends Controller
 
         $request->validate([
             'component_name'  => 'required|string|max:255',
-            'power'           => 'required|numeric|min:0.01',
+            'power'           => 'required|numeric|min:0.01|max:10000000',
             'phases'          => 'sometimes|in:1phase,3phase',
             'power_factor'    => 'sometimes|numeric|min:0.01|max:1',
             'quantity'        => 'required|integer|min:1',
@@ -43,6 +43,13 @@ class ProjectComponentController extends Controller
             'group_name'                   => 'sometimes|nullable|string|max:255',
             'phase'                        => 'sometimes|nullable|in:A,B,C',
             'is_motor'                     => 'sometimes|boolean',
+            'load_flexibility'             => 'sometimes|in:fixed,shiftable,curtailable',
+            'required_run_hours'           => 'nullable|integer|min:1|max:24',
+            'earliest_start_hour'          => 'nullable|integer|min:0|max:23',
+            'latest_end_hour'              => 'nullable|integer|min:1|max:24',
+            'min_continuous_run'           => 'nullable|integer|min:1|max:24',
+            'max_interruptions'            => 'nullable|integer|min:0|max:10',
+            'curtail_min_pct'              => 'nullable|integer|min:0|max:100',
         ]);
 
         $componentType = ComponentType::firstOrCreate(
@@ -66,11 +73,18 @@ class ProjectComponentController extends Controller
             'power_factor'      => $request->input('power_factor', 1.00),
             'quantity'          => $request->quantity,
             'group_name'        => $request->input('group_name'),
-            'priority'          => $request->priority,
-            'needs_socket'      => $needsSocket,
-            'usage_season'      => $season,
-            'usage_day_type'    => $dayType,
-            'usage_time_intervals' => $timeIntervals,
+            'priority'            => $request->priority,
+            'needs_socket'        => $needsSocket,
+            'usage_season'        => $season,
+            'usage_day_type'      => $dayType,
+            'usage_time_intervals'=> $timeIntervals,
+            'load_flexibility'    => $request->input('load_flexibility', 'fixed'),
+            'required_run_hours'  => $request->input('required_run_hours'),
+            'earliest_start_hour' => $request->input('earliest_start_hour'),
+            'latest_end_hour'     => $request->input('latest_end_hour'),
+            'min_continuous_run'  => $request->input('min_continuous_run'),
+            'max_interruptions'   => $request->input('max_interruptions'),
+            'curtail_min_pct'     => $request->input('curtail_min_pct'),
         ]);
 
         return response()->json(['data' => $component->load('componentType')], 201);
@@ -99,6 +113,13 @@ class ProjectComponentController extends Controller
             'group_name'                   => 'sometimes|nullable|string|max:255',
             'phase'                        => 'sometimes|nullable|in:A,B,C',
             'is_motor'                     => 'sometimes|boolean',
+            'load_flexibility'             => 'sometimes|in:fixed,shiftable,curtailable',
+            'required_run_hours'           => 'nullable|integer|min:1|max:24',
+            'earliest_start_hour'          => 'nullable|integer|min:0|max:23',
+            'latest_end_hour'              => 'nullable|integer|min:1|max:24',
+            'min_continuous_run'           => 'nullable|integer|min:1|max:24',
+            'max_interruptions'            => 'nullable|integer|min:0|max:10',
+            'curtail_min_pct'              => 'nullable|integer|min:0|max:100',
         ]);
 
         if ($request->has('component_name')) {
@@ -131,6 +152,13 @@ class ProjectComponentController extends Controller
         $component->usage_season         = $season;
         $component->usage_day_type       = $dayType;
         $component->usage_time_intervals = $timeIntervals;
+        $component->load_flexibility     = $request->input('load_flexibility',    $component->load_flexibility    ?? 'fixed');
+        $component->required_run_hours   = $request->input('required_run_hours',  $component->required_run_hours);
+        $component->earliest_start_hour  = $request->input('earliest_start_hour', $component->earliest_start_hour);
+        $component->latest_end_hour      = $request->input('latest_end_hour',     $component->latest_end_hour);
+        $component->min_continuous_run   = $request->input('min_continuous_run',  $component->min_continuous_run);
+        $component->max_interruptions    = $request->input('max_interruptions',   $component->max_interruptions);
+        $component->curtail_min_pct      = $request->input('curtail_min_pct',     $component->curtail_min_pct);
         $component->save();
 
         return response()->json(['data' => $component->load('componentType')]);

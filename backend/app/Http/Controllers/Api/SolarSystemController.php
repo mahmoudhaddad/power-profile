@@ -32,10 +32,13 @@ class SolarSystemController extends Controller
         }
 
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'capacity_kw' => 'required|numeric|min:0.01|max:100000',
-            'is_active'   => 'nullable|boolean',
-            'notes'       => 'nullable|string|max:2000',
+            'name'                     => 'required|string|max:255',
+            'capacity_kw'              => 'required|numeric|min:0.01|max:100000',
+            'is_active'                => 'nullable|boolean',
+            'notes'                    => 'nullable|string|max:2000',
+            'installation_cost'        => 'nullable|numeric|min:0',
+            'annual_maintenance_cost'  => 'nullable|numeric|min:0',
+            'panel_lifetime_years'     => 'nullable|integer|min:1|max:100',
         ]);
 
         $system = $project->solarSystems()->create($validated);
@@ -52,10 +55,13 @@ class SolarSystemController extends Controller
         }
 
         $validated = $request->validate([
-            'name'        => 'sometimes|string|max:255',
-            'capacity_kw' => 'sometimes|numeric|min:0.01|max:100000',
-            'is_active'   => 'sometimes|boolean',
-            'notes'       => 'sometimes|nullable|string|max:2000',
+            'name'                     => 'sometimes|string|max:255',
+            'capacity_kw'              => 'sometimes|numeric|min:0.01|max:100000',
+            'is_active'                => 'sometimes|boolean',
+            'notes'                    => 'sometimes|nullable|string|max:2000',
+            'installation_cost'        => 'sometimes|nullable|numeric|min:0',
+            'annual_maintenance_cost'  => 'sometimes|nullable|numeric|min:0',
+            'panel_lifetime_years'     => 'sometimes|nullable|integer|min:1|max:100',
         ]);
 
         $solarSystem->update($validated);

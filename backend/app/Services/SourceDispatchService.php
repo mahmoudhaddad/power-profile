@@ -88,13 +88,22 @@ class SourceDispatchService
             $unmet[$h]         = round(max(0.0, $d), 2);
         }
 
+        $unmetHoursBasic = array_values(array_keys(array_filter($unmet, fn($v) => $v > 0)));
+        $maxUnmetKwBasic = count($unmetHoursBasic) > 0
+            ? round(max(array_map(fn($h) => $unmet[$h] / 1000.0, $unmetHoursBasic)), 3)
+            : 0.0;
+
         return [
-            'solar_used'          => $solarUsed,
-            'utility_used'        => $utilityUsed,
-            'generator_used'      => $generatorUsed,
-            'unmet'               => $unmet,
-            'has_battery_storage' => false,
-            'stats'               => $this->basicStats($solarUsed, $utilityUsed, $generatorUsed, $unmet, $loadW, $solarW),
+            'solar_used'                    => $solarUsed,
+            'battery_remaining_capacity_kw' => array_fill(0, 24, 0.0),
+            'utility_used'                  => $utilityUsed,
+            'generator_used'                => $generatorUsed,
+            'unmet'                         => $unmet,
+            'unmet_hours'                   => $unmetHoursBasic,
+            'max_unmet_kw'                  => $maxUnmetKwBasic,
+            'battery_depleted_at_hour'      => null,
+            'has_battery_storage'           => false,
+            'stats'                         => $this->basicStats($solarUsed, $utilityUsed, $generatorUsed, $unmet, $loadW, $solarW),
         ];
     }
 
@@ -166,10 +175,12 @@ class SourceDispatchService
         $battChrgSolar    = array_fill(0, 24, 0.0); // charged from solar surplus
         $battChrgGen      = array_fill(0, 24, 0.0); // charged from generator spare
         $battDischarged   = array_fill(0, 24, 0.0);
+        $battRemainingW   = array_fill(0, 24, 0.0); // unused discharge headroom per hour
         $utilityUsed      = array_fill(0, 24, 0.0);
         $genUsed          = array_fill(0, 24, 0.0);
         $unmet            = array_fill(0, 24, 0.0);
         $socTrace         = array_fill(0, 24, 0.0);
+        $battDepletedAt   = null; // first hour any bank hit zero during discharge
 
         for ($h = 0; $h < 24; $h++) {
             $demand    = max(0.0, (float) ($loadW[$h]  ?? 0));
@@ -237,31 +248,44 @@ class SourceDispatchService
             }
 
             // ── STEP 4: All banks discharge to cover remaining demand ─────────
-            if ($remaining > 0) {
-                $totalCurrent = array_sum(array_column($bst, 'current'));
-                if ($totalCurrent > 0) {
-                    // Aggregate discharge ceiling: each bank is also limited by its inverter rating
-                    $maxDischW = min(
-                        array_sum(array_map(fn($b) => min($b['disch_kw'] * 1000.0, $b['inv_cap_w']), $bst)),
-                        $totalCurrent * 1000.0
-                    );
-                    $dischargeW = min($remaining, $maxDischW);
+            // Always compute the discharge ceiling from the pre-discharge battery
+            // state so that battery_remaining_capacity_kw is correct regardless
+            // of whether there was actually any remaining demand to serve.
+            $totalCurrentStep4 = array_sum(array_column($bst, 'current'));
+            $maxDischW = $totalCurrentStep4 > 0
+                ? min(
+                    array_sum(array_map(fn($b) => min($b['disch_kw'] * 1000.0, $b['inv_cap_w']), $bst)),
+                    $totalCurrentStep4 * 1000.0
+                  )
+                : 0.0;
 
-                    foreach ($bst as $bid => &$b) {
-                        if ($b['current'] <= 0 || $totalCurrent <= 0) continue;
-                        $share  = $dischargeW * ($b['current'] / $totalCurrent);
-                        // inv_cap_w: inverter rating caps discharge (shared with solar)
-                        $maxD   = min($b['disch_kw'] * 1000.0, $b['inv_cap_w'], $b['current'] * 1000.0);
-                        $actual = min($share, $maxD);
-                        $b['current'] -= ($actual / 1000.0) / max(0.5, $b['eff']);
-                        $b['current']  = max(0.0, $b['current']);
+            $dischargeW = 0.0;
+            if ($remaining > 0 && $totalCurrentStep4 > 0) {
+                $dischargeW = min($remaining, $maxDischW);
+
+                foreach ($bst as $bid => &$b) {
+                    if ($b['current'] <= 0 || $totalCurrentStep4 <= 0) continue;
+                    $share  = $dischargeW * ($b['current'] / $totalCurrentStep4);
+                    // inv_cap_w: inverter rating caps discharge (shared with solar)
+                    $maxD   = min($b['disch_kw'] * 1000.0, $b['inv_cap_w'], $b['current'] * 1000.0);
+                    $actual = min($share, $maxD);
+                    $b['current'] -= ($actual / 1000.0) / max(0.5, $b['eff']);
+                    // Guard: SOC must never go below zero
+                    if ($b['current'] < 0.0) {
+                        $b['current'] = 0.0;
+                        if ($battDepletedAt === null) {
+                            $battDepletedAt = $h;
+                        }
                     }
-                    unset($b);
-
-                    $battDischarged[$h] = $dischargeW;
-                    $remaining         -= $dischargeW;
                 }
+                unset($b);
+
+                $battDischarged[$h] = $dischargeW;
+                $remaining         -= $dischargeW;
             }
+
+            // Unused discharge headroom this hour (ceiling minus what was used for load).
+            $battRemainingW[$h] = max(0.0, $maxDischW - $dischargeW);
 
             // ── STEP 5: Utility ───────────────────────────────────────────────
             $utilityUsed[$h] = min($utilityCapW, $remaining);
@@ -323,13 +347,20 @@ class SourceDispatchService
 
         $r2 = fn(array $a) => array_map(fn($v) => round($v, 2), $a);
 
-        $solarUsedR  = $r2($solarUsed);
-        $battChrgSolR= $r2($battChrgSolar);
-        $battChrgGenR= $r2($battChrgGen);
-        $battDischR  = $r2($battDischarged);
-        $utilityR    = $r2($utilityUsed);
-        $genR        = $r2($genUsed);
-        $unmetR      = $r2($unmet);
+        $solarUsedR   = $r2($solarUsed);
+        $battChrgSolR = $r2($battChrgSolar);
+        $battChrgGenR = $r2($battChrgGen);
+        $battDischR   = $r2($battDischarged);
+        $battRemKwR   = $r2(array_map(fn($v) => $v / 1000.0, $battRemainingW));
+        $utilityR     = $r2($utilityUsed);
+        $genR         = $r2($genUsed);
+        $unmetR       = $r2($unmet);
+
+        // Unmet demand detail — never null, empty when demand was fully served
+        $unmetHours  = array_values(array_keys(array_filter($unmetR, fn($v) => $v > 0)));
+        $maxUnmetKw  = count($unmetHours) > 0
+            ? round(max(array_intersect_key($unmetR, array_flip($unmetHours))) / 1000.0, 3)
+            : 0.0;
 
         $battChrgTotal = array_map(fn($s, $g) => round($s + $g, 2), $battChrgSolR, $battChrgGenR);
 
@@ -365,15 +396,19 @@ class SourceDispatchService
         $genEfficiencyAvg = $genRunHours > 0 ? round($genLoadingSum / $genRunHours, 1) : 0.0;
 
         return [
-            'solar_used'              => $solarUsedR,
-            'battery_charged_solar'   => $battChrgSolR,
-            'battery_charged_gen'     => $battChrgGenR,
-            'battery_charged'         => $battChrgTotal,
-            'battery_discharged'      => $battDischR,
-            'utility_used'            => $utilityR,
-            'generator_used'          => $genR,
-            'unmet'                   => $unmetR,
-            'battery_soc_trace'       => $socTrace,
+            'solar_used'                    => $solarUsedR,
+            'battery_charged_solar'         => $battChrgSolR,
+            'battery_charged_gen'           => $battChrgGenR,
+            'battery_charged'               => $battChrgTotal,
+            'battery_discharged'            => $battDischR,
+            'battery_remaining_capacity_kw' => $battRemKwR,
+            'utility_used'                  => $utilityR,
+            'generator_used'                => $genR,
+            'unmet'                         => $unmetR,
+            'unmet_hours'                   => $unmetHours,
+            'max_unmet_kw'                  => $maxUnmetKw,
+            'battery_depleted_at_hour'      => $battDepletedAt,
+            'battery_soc_trace'             => $socTrace,
             'stats' => [
                 'solar_hours'                   => $sH,
                 'solar_kwh'                     => round($solarKwh, 2),
