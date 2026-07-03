@@ -113,8 +113,17 @@ class TotalPowerController extends Controller
 
     private function projectSources(Project $project): array
     {
-        $buildingsArea = $project->buildings()->sum('area');
-        $solarComputed = SolarIrradianceService::estimateCapacityW((float) $buildingsArea);
+        $solarComputed = $project->buildings()->get(['area'])
+            ->sum(fn($b) => SolarIrradianceService::estimateCapacityW((float) $b->area));
+
+        return [
+            'solar_computed' => round($solarComputed, 2),
+        ];
+    }
+
+    private function buildingSources(Building $building): array
+    {
+        $solarComputed = SolarIrradianceService::estimateCapacityW((float) $building->area);
 
         return [
             'solar_computed' => round($solarComputed, 2),
@@ -584,7 +593,7 @@ class TotalPowerController extends Controller
             'room'     => $room['w'],  'room_va'  => $room['va'],
         ], $inrush,
            $this->reactivePowerFields($totalVa, $totalW, $totalQ, $maxVa, $maxW, $maxQ, $is3Phase),
-           $this->projectSources($building->project)));
+           $this->buildingSources($building)));
     }
 
     public function floor(Request $request, Floor $floor)
