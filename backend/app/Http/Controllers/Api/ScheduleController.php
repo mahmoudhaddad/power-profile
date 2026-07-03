@@ -42,6 +42,7 @@ class ScheduleController extends Controller
      */
     public function project(Request $request, Project $project)
     {
+        $this->authorize('view', $project);
         if (! $project->userRole($request->user()->id)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
@@ -90,6 +91,54 @@ class ScheduleController extends Controller
         $genCapVA  = (float) $project->generatorLines()->sum('power');
         $utilCapW  = $utilCapVA * 0.8;
         $genCapW   = $genCapVA  * 0.8;
+
+        // Guard: return a structured error if the project has no power sources at all
+        $hasSolarSystems = $project->solarSystems()->where('is_active', true)->exists();
+        $hasBatteries    = $project->batteries()->where('is_active', true)->exists();
+        if ($utilCapW <= 0 && $genCapW <= 0 && $solarCapacityW <= 0 && !$hasSolarSystems && !$hasBatteries) {
+            return response()->json([
+                'error'   => 'no_sources',
+                'message' => 'No power sources are configured for this project. '
+                           . 'Please add a utility line, generator, or solar system first.',
+            ], 422);
+        }
+
+        // ── Cost rates (for daily cost display in the UI) ─────────────────────
+        $utilLine = $project->utilityLines()->whereNotNull('tariff_per_kwh')->orderBy('id')->first();
+        $tariff      = $utilLine ? (float) $utilLine->tariff_per_kwh : null;
+        $peakTariff  = ($utilLine && $utilLine->peak_tariff_per_kwh) ? (float) $utilLine->peak_tariff_per_kwh : null;
+        $peakStart   = $utilLine ? (int) ($utilLine->peak_hours_start ?? 0) : null;
+        $peakEnd     = $utilLine ? (int) ($utilLine->peak_hours_end   ?? 0) : null;
+
+        $genLine = $project->generatorLines()
+            ->whereNotNull('fuel_cost_per_liter')->whereNotNull('fuel_consumption_lph')
+            ->where('fuel_cost_per_liter', '>', 0)->where('fuel_consumption_lph', '>', 0)
+            ->orderBy('id')->first();
+        $genCostPerKwh = null;
+        if ($genLine && (float) $genLine->power > 0) {
+            $genCostPerKwh = round(
+                (float) $genLine->fuel_cost_per_liter * (float) $genLine->fuel_consumption_lph
+                / ((float) $genLine->power / 1000.0), 4
+            );
+        }
+
+        // Include raw generator parameters so the frontend can compute affine
+        // hourly fuel cost (F(P) = F₀ + (F_rated-F₀)×P/P_rated) instead of
+        // a flat kWh rate, which would be inaccurate at part-load conditions.
+        $costRates = [
+            'tariff_per_kwh'           => $tariff,
+            'peak_tariff_per_kwh'      => $peakTariff,
+            'peak_hours_start'         => $peakStart,
+            'peak_hours_end'           => $peakEnd,
+            'generator_cost_per_kwh'   => $genCostPerKwh,          // rated (100 % load) — kept for fallback
+            'generator_rated_kw'       => $genLine ? round((float) $genLine->power / 1000.0, 3) : null,
+            'generator_rated_lph'      => $genLine ? (float) $genLine->fuel_consumption_lph : null,
+            'generator_no_load_lph'    => $genLine ? ($genLine->no_load_fuel_lph
+                                              ?? round((float) $genLine->fuel_consumption_lph * 0.30, 4))
+                                              : null,
+            'fuel_cost_per_liter'      => $genLine ? (float) $genLine->fuel_cost_per_liter : null,
+            'currency_symbol'          => $project->currency_symbol ?? '$',
+        ];
 
         // ── 4. Active batteries (fetched once, used in every day simulation) ───
         $batteries = $project->batteries()->where('is_active', true)->get();
@@ -145,6 +194,7 @@ class ScheduleController extends Controller
             'solar'                 => $solarProfile,
             'solar_systems'         => $solarSystems->values(),
             'battery_summary'       => $batterySummary,
+            'cost_rates'            => $costRates,
             'days'                  => $days,
         ]);
     }
@@ -160,6 +210,9 @@ class ScheduleController extends Controller
         // Project-own components: no diversity reduction at their own level.
         $this->extractRaw($result, $project->components, 'project_id', $pDays, $pSeasons, 1.0);
 
+        // Eager load all project data in one query set to prevent N+1 problems.
+        // Without this, a project with 10 buildings × 5 floors × 10 rooms
+        // would generate 500+ individual database queries per request.
         $buildings = $project->buildings()->with([
             'components',
             'floors.components',

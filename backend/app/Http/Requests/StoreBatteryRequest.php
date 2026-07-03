@@ -28,6 +28,8 @@ class StoreBatteryRequest extends FormRequest
             'is_active'             => 'nullable|boolean',
             'notes'                 => 'nullable|string|max:2000',
             'solar_system_id'       => 'nullable|integer|exists:solar_systems,id',
+            'purchase_cost'         => 'nullable|numeric|min:0',
+            'replacement_cost'      => 'nullable|numeric|min:0',
         ];
     }
 }

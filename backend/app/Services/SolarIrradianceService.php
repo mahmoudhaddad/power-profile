@@ -49,8 +49,15 @@ class SolarIrradianceService
         return $areaM2 * self::ROOF_COVERAGE_RATIO * self::STC_IRRADIANCE_W * self::CAPACITY_ESTIMATE_PR;
     }
 
-    /** Tracks which data source was used in the last getHourlyOutputWatts() call. */
+    /**
+     * Tracks which data source was used in the last getHourlyOutputWatts() call.
+     * Values: 'nasa_power' | 'static_lookup' | 'nasa_fallback'
+     * 'nasa_fallback' = NASA was attempted but failed; static table was used instead.
+     */
     private string $dataSource = 'static_lookup';
+
+    /** Whether the last NASA attempt failed (used to set 'nasa_fallback' source). */
+    private bool $nasaFailed = false;
 
     public function getDataSource(): string
     {
@@ -192,8 +199,9 @@ class SolarIrradianceService
      */
     private function fetchNasaHourlyGhi(?float $lat, ?float $lng, int $month, int $day = self::REPRESENTATIVE_DAY): array
     {
-        // Cannot fetch without a valid location
+        // Cannot fetch without a valid location — not a failure, just no location set
         if ($lat === null || $lng === null) {
+            $this->nasaFailed = false;
             return [];
         }
 
@@ -230,11 +238,14 @@ class SolarIrradianceService
 
             if (! $response->successful()) {
                 Log::warning('NASA POWER API returned non-200, falling back to static PSH table', [
-                    'status' => $response->status(),
-                    'lat'    => $latR,
-                    'lng'    => $lngR,
-                    'month'  => $month,
+                    'status'    => $response->status(),
+                    'url'       => self::NASA_API_BASE_URL,
+                    'lat'       => $latR,
+                    'lng'       => $lngR,
+                    'month'     => $month,
+                    'timestamp' => now()->toIso8601String(),
                 ]);
+                $this->nasaFailed = true;
                 return [];
             }
 
@@ -243,8 +254,13 @@ class SolarIrradianceService
 
             if (empty($raw)) {
                 Log::warning('NASA POWER API returned empty data, falling back to static PSH table', [
-                    'lat' => $latR, 'lng' => $lngR, 'month' => $month,
+                    'lat'       => $latR,
+                    'lng'       => $lngR,
+                    'month'     => $month,
+                    'url'       => self::NASA_API_BASE_URL,
+                    'timestamp' => now()->toIso8601String(),
                 ]);
+                $this->nasaFailed = true;
                 return [];
             }
 
@@ -264,8 +280,13 @@ class SolarIrradianceService
             $isPolarNight = abs($latR) >= 60 && in_array($month, [11, 12, 1, 2]);
             if (max($hourly) <= 0 && ! $isPolarNight) {
                 Log::warning('NASA POWER returned all-zero GHI for non-polar location, using static fallback', [
-                    'lat' => $latR, 'lng' => $lngR, 'month' => $month,
+                    'lat'       => $latR,
+                    'lng'       => $lngR,
+                    'month'     => $month,
+                    'url'       => self::NASA_API_BASE_URL,
+                    'timestamp' => now()->toIso8601String(),
                 ]);
+                $this->nasaFailed = true;
                 return [];
             }
 
@@ -273,12 +294,15 @@ class SolarIrradianceService
             return $hourly;
 
         } catch (\Throwable $e) {
-            Log::warning('NASA POWER fallback triggered', [
-                'reason' => $e->getMessage(),
-                'lat'    => $latR,
-                'lng'    => $lngR,
-                'month'  => $month,
+            Log::warning('NASA POWER API unreachable, falling back to static PSH table', [
+                'reason'    => $e->getMessage(),
+                'url'       => self::NASA_API_BASE_URL,
+                'lat'       => $latR,
+                'lng'       => $lngR,
+                'month'     => $month,
+                'timestamp' => now()->toIso8601String(),
             ]);
+            $this->nasaFailed = true;
             return [];
         }
     }
@@ -304,6 +328,8 @@ class SolarIrradianceService
         float  $performanceRatio = self::PERFORMANCE_RATIO,
         int    $day              = self::REPRESENTATIVE_DAY
     ): array {
+        $this->nasaFailed = false; // reset before each call
+
         if ($panelCapacityKw <= 0) {
             $this->dataSource = 'static_lookup';
             return array_fill(0, 24, 0.0);
@@ -326,9 +352,9 @@ class SolarIrradianceService
         }
 
         // ── Static fallback ─────────────────────────────────────────────────
-        // hourlyProfile() uses the same PERFORMANCE_RATIO constant (0.80).
-        // If a custom ratio was passed we scale proportionally.
-        $this->dataSource = 'static_lookup';
+        // 'nasa_fallback' = NASA was tried but failed; 'static_lookup' = no location set.
+        $this->dataSource = $this->nasaFailed ? 'nasa_fallback' : 'static_lookup';
+
         $static = $this->hourlyProfile($lat ?? 0.0, $lng ?? 0.0, $month, $panelCapacityKw * 1000);
 
         if ($performanceRatio !== self::PERFORMANCE_RATIO && self::PERFORMANCE_RATIO > 0) {

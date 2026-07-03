@@ -51,9 +51,11 @@ class GeneratorLineController extends Controller
     public function store(Request $request, string $type, int $id)
     {
         $request->validate([
-            'name'   => 'required|string|max:255',
-            'power'  => 'required|numeric|min:0',
-            'phases' => 'required|in:1phase,3phase',
+            'name'                 => 'required|string|max:255',
+            'power'                => 'required|numeric|min:0',
+            'phases'               => 'required|in:1phase,3phase',
+            'fuel_cost_per_liter'  => 'sometimes|nullable|numeric|min:0',
+            'fuel_consumption_lph' => 'sometimes|nullable|numeric|min:0',
         ]);
 
         [$parent, $project] = $this->resolveParent($type, $id);
@@ -63,9 +65,14 @@ class GeneratorLineController extends Controller
         }
 
         $line = $parent->generatorLines()->create([
-            'name'   => $request->name,
-            'power'  => $request->power,
-            'phases' => $request->phases,
+            'name'                 => $request->name,
+            'power'                => $request->power,
+            'phases'               => $request->phases,
+            'fuel_cost_per_liter'  => $request->input('fuel_cost_per_liter'),
+            'fuel_consumption_lph' => $request->input('fuel_consumption_lph'),
+            'no_load_fuel_lph'     => $request->input('no_load_fuel_lph'),
+            'min_load_pct'         => $request->input('min_load_pct', 30),
+            'optimal_load_pct'     => $request->input('optimal_load_pct', 75),
         ]);
 
         return response()->json(['data' => $line], 201);
@@ -78,7 +85,8 @@ class GeneratorLineController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $line->fill($request->only('name', 'power', 'phases'));
+        $line->fill($request->only('name', 'power', 'phases', 'fuel_cost_per_liter', 'fuel_consumption_lph',
+            'no_load_fuel_lph', 'min_load_pct', 'optimal_load_pct'));
         $line->save();
 
         return response()->json(['data' => $line]);
