@@ -5,45 +5,72 @@ namespace App\Services;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Optimized source dispatch — greedy per-hour.
+ * Target-SOC look-ahead dispatch engine — charge to full, protect the night floor.
  *
- * Priority order (highest to lowest benefit):
- *   1. Solar covers load directly
- *   2. Solar surplus → paired battery banks (dedicated solar system)
- *   3. Solar surplus pool → unpaired battery banks
- *   4. Battery banks discharge → remaining load
- *   5. Utility grid → remaining load
- *   6. Generator → remaining load
- *   7. Opportunistic generator charging: when generator is already running
- *      AND has spare capacity below GEN_OPTIMAL_MAX_LOAD (85%), charge batteries.
- *      Generator is burning fuel anyway; improving its load factor toward the
- *      70–85% optimal band reduces specific fuel consumption.
+ * Strategy (one-pass day-ahead, deterministic):
+ *
+ *   PRE-DISPATCH: scan the 24-hour load + solar profile to compute how much
+ *   energy the battery must hold at sunset to cover all non-daylight hours
+ *   (battery_target_kwh).  Add RESERVE_MARGIN (10 %) as a safety buffer.
+ *   This is the FLOOR, never a ceiling.
+ *
+ *   DAYTIME (solar hours):
+ *     • Solar surplus always charges the battery toward 100 % usable SOC.
+ *     • Battery may discharge energy *above* battery_target_kwh to shave the
+ *       daytime peak and displace generator fuel — the floor is protected.
+ *     • If the generator is already running for load at ≥ 60 % rated, spare
+ *       capacity charges the battery all the way to 100 % usable SOC (the
+ *       headroom check is the only ceiling).  This builds a larger above-floor
+ *       buffer for afternoon peak shaving and reduces generator start hours.
+ *
+ *   NIGHT (non-solar hours): discharge freely — the reserve was banked for
+ *   this moment.  Generator fires only when battery is exhausted/insufficient.
+ *
+ * Priority order (highest → lowest):
+ *   1. Solar (shared + paired)
+ *   2. Battery discharge (capped at above-floor portion during daylight)
+ *   3. Utility grid
+ *   4. Generator (last resort)
+ *   5. Generator spare → battery to full (≥ 60 % load, headroom is the ceiling)
  *
  * Utility charging is INTENTIONALLY excluded.
- * Without Time-of-Use tariff data, charging from utility incurs:
- *   - Utility cost to charge
- *   - ~15% round-trip efficiency loss
- *   - Discharged later to displace… more utility
- * Net result is a cost increase, not savings.
+ * Without Time-of-Use tariff data the round-trip loss makes it a net cost.
  * Future: enable when ToU tariffs are added to the data model.
  */
 class SourceDispatchService
 {
     /**
      * Maximum generator loading fraction when opportunistically charging batteries.
-     * Above 85% load, generator wear rate increases and specific fuel consumption
-     * rises above the optimal band. The generator does NOT start solely to charge.
+     * Above 85 % load, wear rate rises and specific fuel consumption leaves the
+     * optimal band.  The generator does NOT start solely to charge.
      */
     private const GEN_OPTIMAL_MAX_LOAD = 0.85;
 
     /**
+     * Minimum generator load fraction required before spare capacity may charge
+     * batteries.  Below this threshold the SFC penalty exceeds the value of stored
+     * energy after the 15–20 % round-trip battery loss.
+     */
+    private const GEN_MIN_EFFICIENT_LOAD = 0.60; // ⚠ tunable
+
+    /**
      * Inverter/rectifier one-way efficiency for the generator→battery AC→DC path.
-     * Both AC-coupled and DC-coupled topologies incur this loss when generator
-     * AC power is rectified to DC for battery charging.
-     * Note: solar charging uses the panel performance ratio (PR = 0.80) which
-     * already accounts for DC-side losses, so INV_EFF is NOT applied there.
      */
     private const INV_EFF = 0.95;
+
+    /**
+     * Solar output threshold (W) for classifying an hour as daylight.
+     * Hours below this are treated as night for the look-ahead pre-pass.
+     */
+    private const SOLAR_PRESENCE_THRESHOLD = 50.0; // ⚠ tunable
+
+    /**
+     * Extra fraction of total usable battery capacity added on top of the
+     * calculated night-energy requirement.  Guards against forecast errors
+     * and battery aging (actual usable capacity < nameplate).
+     */
+    private const RESERVE_MARGIN = 0.10; // ⚠ tunable
+
     public function dispatch(
         array $loadW,
         array $solarW,
@@ -78,7 +105,7 @@ class SourceDispatchService
             $d = max(0.0, (float) ($loadW[$h]  ?? 0));
             $s = max(0.0, (float) ($solarW[$h] ?? 0));
 
-            $sU = min($s, $d);          $d -= $sU;
+            $sU = min($s, $d);           $d -= $sU;
             $uU = min($utilityCapW, $d); $d -= $uU;
             $gU = min($generatorCapW, $d); $d -= $gU;
 
@@ -107,7 +134,7 @@ class SourceDispatchService
         ];
     }
 
-    // ── Optimized dispatch (batteries + optional named solar systems) ─────────
+    // ── Optimised dispatch (batteries + optional named solar systems) ─────────
 
     private function dispatchOptimized(
         array $loadW,
@@ -119,10 +146,6 @@ class SourceDispatchService
         ?Collection $solarSystems
     ): array {
         // ── Solar system inverter capacities (W) ─────────────────────────────
-        // The solar system's capacity_kw = the inverter's rated output power.
-        // A battery paired to a solar system shares that inverter, so its
-        // maximum discharge rate is capped by the inverter's rated power.
-        // At night solar = 0 but the inverter is still the bottleneck.
         $sysInvCapW = [];
         if ($solarSystems && $solarSystems->isNotEmpty()) {
             foreach ($solarSystems as $sys) {
@@ -134,23 +157,21 @@ class SourceDispatchService
         $bst = [];
         foreach ($batteries as $b) {
             $sysId   = $b->solar_system_id;
-            // inv_cap_w: the hard discharge ceiling imposed by the shared inverter.
-            // Unpaired batteries have no inverter constraint beyond their own C-rate.
             $invCapW = isset($sysInvCapW[$sysId]) ? $sysInvCapW[$sysId] : PHP_FLOAT_MAX;
 
             $bst[$b->id] = [
-                'usable'     => (float) $b->usable_capacity_kwh,
-                'current'    => (float) $b->usable_capacity_kwh * max(0.0, min(1.0, (float) $b->current_soc)),
-                'charge_kw'  => (float) $b->max_charge_power_kw,
-                'disch_kw'   => (float) $b->max_discharge_power_kw,
-                'eff'        => sqrt(max(0.5, (float) $b->round_trip_efficiency)),
-                'sys_id'     => $sysId,
-                'inv_cap_w'  => $invCapW,
+                'usable'    => (float) $b->usable_capacity_kwh,
+                'current'   => (float) $b->usable_capacity_kwh * max(0.0, min(1.0, (float) $b->current_soc)),
+                'charge_kw' => (float) $b->max_charge_power_kw,
+                'disch_kw'  => (float) $b->max_discharge_power_kw,
+                'eff'       => sqrt(max(0.5, (float) $b->round_trip_efficiency)),
+                'sys_id'    => $sysId,
+                'inv_cap_w' => $invCapW,
             ];
         }
 
-        // ── Index: solar_system_id → [battery_ids paired to it] ─────────────
-        $sysToBank = [];
+        // ── Index: solar_system_id → [battery_ids] ───────────────────────────
+        $sysToBank   = [];
         $unpairedIds = [];
         foreach ($bst as $bid => $b) {
             if ($b['sys_id']) {
@@ -161,7 +182,6 @@ class SourceDispatchService
         }
 
         // ── Solar system capacity ratios ──────────────────────────────────────
-        // Each named system's share of the total solar profile
         $totalSolarCapW = max(1.0, $solarCapacityW);
         $sysRatios = [];
         if ($solarSystems && $solarSystems->isNotEmpty()) {
@@ -170,26 +190,66 @@ class SourceDispatchService
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // PRE-DISPATCH LOOK-AHEAD — compute night energy target
+        //
+        // Scans the full 24-hour profile BEFORE the hourly loop to determine
+        // how much the battery must hold at sunset to cover all non-daylight
+        // hours (including the hours before sunrise).
+        // ═══════════════════════════════════════════════════════════════════════
+
+        $totalUsableKwh = array_sum(array_column($bst, 'usable'));
+
+        // Average one-way discharge efficiency across all batteries
+        $avgDischEff = count($bst) > 0
+            ? array_sum(array_column($bst, 'eff')) / count($bst)
+            : 0.90;
+
+        // Identify daylight vs. night hours from the solar profile
+        $isDaylightH = [];
+        $sunriseH    = -1;
+        $sunsetH     = -1;
+        for ($h = 0; $h < 24; $h++) {
+            $isDaylightH[$h] = ((float)($solarW[$h] ?? 0)) > self::SOLAR_PRESENCE_THRESHOLD;
+            if ($isDaylightH[$h] && $sunriseH === -1) { $sunriseH = $h; }
+            if ($isDaylightH[$h])                     { $sunsetH  = $h; }
+        }
+
+        // Total load energy in non-daylight hours (all hours the battery must cover)
+        $nightEnergyKwh = 0.0;
+        for ($h = 0; $h < 24; $h++) {
+            if (!$isDaylightH[$h]) {
+                $nightEnergyKwh += max(0.0, (float)($loadW[$h] ?? 0)) / 1000.0;
+            }
+        }
+
+        // Battery energy needed to deliver night_energy_kwh to the load,
+        // accounting for one-way discharge efficiency, plus RESERVE_MARGIN.
+        $nightEnergyRequired = $nightEnergyKwh / max(0.01, $avgDischEff);
+        $reserveKwh          = $totalUsableKwh * self::RESERVE_MARGIN;
+        $battTargetKwh       = min($totalUsableKwh, $nightEnergyRequired + $reserveKwh);
+        $battTargetSoc       = $totalUsableKwh > 0 ? $battTargetKwh / $totalUsableKwh : 0.0;
+
         // ── Output arrays ─────────────────────────────────────────────────────
-        $solarUsed        = array_fill(0, 24, 0.0);
-        $battChrgSolar    = array_fill(0, 24, 0.0); // charged from solar surplus
-        $battChrgGen      = array_fill(0, 24, 0.0); // charged from generator spare
-        $battDischarged   = array_fill(0, 24, 0.0);
-        $battRemainingW   = array_fill(0, 24, 0.0); // unused discharge headroom per hour
-        $utilityUsed      = array_fill(0, 24, 0.0);
-        $genUsed          = array_fill(0, 24, 0.0);
-        $unmet            = array_fill(0, 24, 0.0);
-        $socTrace         = array_fill(0, 24, 0.0);
-        $battDepletedAt   = null; // first hour any bank hit zero during discharge
+        $solarUsed       = array_fill(0, 24, 0.0);
+        $battChrgSolar   = array_fill(0, 24, 0.0);
+        $battChrgGen     = array_fill(0, 24, 0.0);
+        $battDischarged  = array_fill(0, 24, 0.0);
+        $battRemainingW  = array_fill(0, 24, 0.0);
+        $utilityUsed     = array_fill(0, 24, 0.0);
+        $genUsed         = array_fill(0, 24, 0.0);
+        $unmet           = array_fill(0, 24, 0.0);
+        $socTrace        = array_fill(0, 24, 0.0);
+        $genDaylightFlag = array_fill(0, 24, false);
+        $battDepletedAt  = null;
 
         for ($h = 0; $h < 24; $h++) {
-            $demand    = max(0.0, (float) ($loadW[$h]  ?? 0));
-            $solarTot  = max(0.0, (float) ($solarW[$h] ?? 0));
-            $sharedSolar = $solarTot; // will be reduced as paired systems claim their slices
+            $demand      = max(0.0, (float)($loadW[$h]  ?? 0));
+            $solarTot    = max(0.0, (float)($solarW[$h] ?? 0));
+            $isDay       = $isDaylightH[$h];
+            $sharedSolar = $solarTot;
 
-            // ── STEP 1: Paired solar systems charge their exclusive batteries ───
-            // Each system's proportional output goes to its bank first.
-            // Whatever the bank can't absorb (full/rate-limited) returns to shared pool.
+            // ── STEP 1: Paired solar systems charge their exclusive batteries ──
             foreach ($sysRatios as $sysId => $ratio) {
                 $sysOutputW = $solarTot * $ratio;
                 $bankIds    = $sysToBank[$sysId] ?? [];
@@ -212,25 +272,25 @@ class SourceDispatchService
                         $totalCharged         += $actual;
                     }
                 }
-                // Only the consumed portion is "claimed" from shared pool
-                $sharedSolar -= $totalCharged;
+                $sharedSolar       -= $totalCharged;
                 $battChrgSolar[$h] += $totalCharged;
             }
             $sharedSolar = max(0.0, $sharedSolar);
 
-            // ── STEP 2: Shared solar covers load ─────────────────────────────
+            // ── STEP 2: Shared solar covers load ──────────────────────────────
             $solarUsed[$h] = min($sharedSolar, $demand);
             $surplus       = $sharedSolar - $solarUsed[$h];
             $remaining     = $demand       - $solarUsed[$h];
 
-            // ── STEP 3: Surplus shared solar charges unpaired banks ───────────
+            // ── STEP 3: Surplus shared solar charges unpaired banks ────────────
             if ($surplus > 0 && !empty($unpairedIds)) {
                 $totalHead = 0.0;
                 foreach ($unpairedIds as $bid) {
                     $totalHead += max(0.0, $bst[$bid]['usable'] - $bst[$bid]['current']) * 1000.0;
                 }
                 if ($totalHead > 0) {
-                    $maxPoolCharge = min($surplus,
+                    $maxPoolCharge = min(
+                        $surplus,
                         array_sum(array_map(fn($bid) => $bst[$bid]['charge_kw'], $unpairedIds)) * 1000.0
                     );
                     $totalCharged = 0.0;
@@ -247,35 +307,47 @@ class SourceDispatchService
                 }
             }
 
-            // ── STEP 4: All banks discharge to cover remaining demand ─────────
-            // Always compute the discharge ceiling from the pre-discharge battery
-            // state so that battery_remaining_capacity_kw is correct regardless
-            // of whether there was actually any remaining demand to serve.
+            // ── STEP 4: Battery discharge → remaining load ─────────────────────
+            //
+            // Night-reserve protection (look-ahead gate):
+            //   During daylight hours the battery may only discharge energy
+            //   *above* battery_target_kwh.  This banks the night reserve before
+            //   sunset rather than consuming it for daytime loads.
+            //   At night (before sunrise or after sunset) the reserve was built
+            //   for exactly this moment — discharge freely.
             $totalCurrentStep4 = array_sum(array_column($bst, 'current'));
-            $maxDischW = $totalCurrentStep4 > 0
-                ? min(
-                    array_sum(array_map(fn($b) => min($b['disch_kw'] * 1000.0, $b['inv_cap_w']), $bst)),
-                    $totalCurrentStep4 * 1000.0
-                  )
+            $rateCapW = $totalCurrentStep4 > 0
+                ? array_sum(array_map(fn($b) => min($b['disch_kw'] * 1000.0, $b['inv_cap_w']), $bst))
                 : 0.0;
 
+            if ($isDay) {
+                // Only discharge energy above the night-reserve floor.
+                // Ceiling uses $avgDischEff so battery drain = exactly aboveReserveKwh
+                // and SOC never dips below battery_target_kwh due to efficiency loss.
+                $aboveReserveKwh = max(0.0, $totalCurrentStep4 - $battTargetKwh);
+                $maxDischW = $aboveReserveKwh > 0
+                    ? min($rateCapW, $aboveReserveKwh * $avgDischEff * 1000.0)
+                    : 0.0;
+            } else {
+                // Night: discharge freely
+                $maxDischW = $totalCurrentStep4 > 0
+                    ? min($rateCapW, $totalCurrentStep4 * 1000.0)
+                    : 0.0;
+            }
+
             $dischargeW = 0.0;
-            if ($remaining > 0 && $totalCurrentStep4 > 0) {
+            if ($remaining > 0 && $maxDischW > 0) {
                 $dischargeW = min($remaining, $maxDischW);
 
                 foreach ($bst as $bid => &$b) {
                     if ($b['current'] <= 0 || $totalCurrentStep4 <= 0) continue;
                     $share  = $dischargeW * ($b['current'] / $totalCurrentStep4);
-                    // inv_cap_w: inverter rating caps discharge (shared with solar)
                     $maxD   = min($b['disch_kw'] * 1000.0, $b['inv_cap_w'], $b['current'] * 1000.0);
                     $actual = min($share, $maxD);
                     $b['current'] -= ($actual / 1000.0) / max(0.5, $b['eff']);
-                    // Guard: SOC must never go below zero
                     if ($b['current'] < 0.0) {
                         $b['current'] = 0.0;
-                        if ($battDepletedAt === null) {
-                            $battDepletedAt = $h;
-                        }
+                        if ($battDepletedAt === null) { $battDepletedAt = $h; }
                     }
                 }
                 unset($b);
@@ -284,24 +356,38 @@ class SourceDispatchService
                 $remaining         -= $dischargeW;
             }
 
-            // Unused discharge headroom this hour (ceiling minus what was used for load).
             $battRemainingW[$h] = max(0.0, $maxDischW - $dischargeW);
 
             // ── STEP 5: Utility ───────────────────────────────────────────────
             $utilityUsed[$h] = min($utilityCapW, $remaining);
             $remaining      -= $utilityUsed[$h];
 
-            // ── STEP 6: Generator ─────────────────────────────────────────────
+            // ── STEP 6: Generator — last resort ──────────────────────────────
             $genUsed[$h] = min($genCapW, $remaining);
             $remaining  -= $genUsed[$h];
+            if ($genUsed[$h] > 0 && $solarTot > 0) {
+                $genDaylightFlag[$h] = true;
+            }
 
-            // ── STEP 7: Opportunistic generator charging ──────────────────────
-            // Only when generator is ALREADY running for load coverage.
-            // Capped at GEN_OPTIMAL_MAX_LOAD (85%) to stay in the efficient band.
-            // Generator does NOT start solely to charge — that wastes fuel.
-            if ($genUsed[$h] > 0 && $genCapW > 0) {
+            // ── STEP 7: Generator spare → battery (charge to full usable SOC) ──
+            //
+            // Charges the battery when ALL of the following hold:
+            //   (a) Generator already running for load this hour (never starts solely to charge)
+            //   (b) Load-serving fraction ≥ GEN_MIN_EFFICIENT_LOAD (60 %): below that, SFC
+            //       penalty exceeds the value of stored energy after battery round-trip loss
+            //
+            // The charge ceiling is 100 % usable SOC, not battery_target_kwh.
+            // battery_target_kwh is the FLOOR for discharge (Step 4), not a charge cap.
+            // A fuller battery builds a larger above-floor buffer for afternoon peak shaving
+            // and reduces generator runtime in subsequent hours.
+            // Natural stop: when headroom → 0, totalHead = 0, inner block is skipped.
+            $genLoadFraction = $genCapW > 0 ? $genUsed[$h] / $genCapW : 0.0;
+
+            if ($genUsed[$h] > 0 && $genCapW > 0
+                && $genLoadFraction >= self::GEN_MIN_EFFICIENT_LOAD) {
+
                 $genMaxForCharging = $genCapW * self::GEN_OPTIMAL_MAX_LOAD;
-                $spareGenW = max(0.0, $genMaxForCharging - $genUsed[$h]);
+                $spareGenW         = max(0.0, $genMaxForCharging - $genUsed[$h]);
 
                 if ($spareGenW > 0) {
                     $totalHead = 0.0;
@@ -310,9 +396,7 @@ class SourceDispatchService
                     }
                     if ($totalHead > 0) {
                         $totalChargeKwAll = array_sum(array_column($bst, 'charge_kw'));
-
-                        // AC watts drawn from generator (headroom is DC → divide by INV_EFF)
-                        $maxGenChargeAc = min(
+                        $maxGenChargeAc   = min(
                             $spareGenW,
                             $totalChargeKwAll * 1000.0,
                             $totalHead / self::INV_EFF
@@ -325,25 +409,34 @@ class SourceDispatchService
                             $maxC  = min($b['charge_kw'] * 1000.0, $head / self::INV_EFF);
                             $share = $maxGenChargeAc * ($head / $totalHead);
                             $acW   = min($share, $maxC);
-                            // Apply INV_EFF (AC→DC) then battery one-way efficiency
                             $b['current'] += ($acW * self::INV_EFF / 1000.0) * $b['eff'];
                             $totalChargeAc += $acW;
                         }
                         unset($b);
 
-                        $genUsed[$h]     += $totalChargeAc; // generator draws more AC for charging
-                        $battChrgGen[$h]  = $totalChargeAc; // track AC watts drawn (pre-conversion)
+                        $genUsed[$h]    += $totalChargeAc;
+                        $battChrgGen[$h] = $totalChargeAc;
                     }
                 }
             }
 
             $unmet[$h] = max(0.0, $remaining);
 
-            // SOC trace — capacity-weighted average across all banks
             $totalUsable  = array_sum(array_column($bst, 'usable'));
             $totalCurrent = array_sum(array_column($bst, 'current'));
             $socTrace[$h] = $totalUsable > 0 ? round($totalCurrent / $totalUsable, 3) : 0.0;
         }
+
+        // ── Night generator stats (computed from raw arrays before rounding) ──
+        $nightGenKwh   = 0.0;
+        $nightGenHours = 0;
+        for ($h = 0; $h < 24; $h++) {
+            if (!$isDaylightH[$h] && $genUsed[$h] > 0) {
+                $nightGenKwh  += $genUsed[$h] / 1000.0;
+                $nightGenHours++;
+            }
+        }
+        $sunsetSoc = $sunsetH >= 0 ? ($socTrace[$sunsetH] ?? 0.0) : 0.0;
 
         $r2 = fn(array $a) => array_map(fn($v) => round($v, 2), $a);
 
@@ -356,9 +449,8 @@ class SourceDispatchService
         $genR         = $r2($genUsed);
         $unmetR       = $r2($unmet);
 
-        // Unmet demand detail — never null, empty when demand was fully served
-        $unmetHours  = array_values(array_keys(array_filter($unmetR, fn($v) => $v > 0)));
-        $maxUnmetKw  = count($unmetHours) > 0
+        $unmetHours = array_values(array_keys(array_filter($unmetR, fn($v) => $v > 0)));
+        $maxUnmetKw = count($unmetHours) > 0
             ? round(max(array_intersect_key($unmetR, array_flip($unmetHours))) / 1000.0, 3)
             : 0.0;
 
@@ -372,8 +464,8 @@ class SourceDispatchService
         $utilKwh     = array_sum($utilityR)     / 1000;
         $genKwh      = array_sum($genR)         / 1000;
         $unmetKwh    = array_sum($unmetR)       / 1000;
-        $loadKwh     = array_sum(array_map(fn($v) => max(0.0, (float) $v) / 1000, $loadW));
-        $solarGenKwh = array_sum(array_map(fn($v) => max(0.0, (float) $v) / 1000, $solarW));
+        $loadKwh     = array_sum(array_map(fn($v) => max(0.0, (float)$v) / 1000, $loadW));
+        $solarGenKwh = array_sum(array_map(fn($v) => max(0.0, (float)$v) / 1000, $solarW));
         $bChrgKwh    = $bChrgSolKwh + $bChrgGenKwh;
 
         $solarSelfConsumption = $solarGenKwh > 0
@@ -384,8 +476,6 @@ class SourceDispatchService
         $uH = count(array_filter($utilityR));
         $gH = count(array_filter($genR));
 
-        // Average generator loading % across hours it was running
-        // (genUsed already includes the extra AC drawn for battery charging)
         $genLoadingSum = 0.0;
         $genRunHours   = 0;
         if ($genCapW > 0) {
@@ -425,8 +515,16 @@ class SourceDispatchService
                 'generator_hours'               => $gH,
                 'generator_kwh'                 => round($genKwh, 2),
                 'generator_efficiency_avg'      => $genEfficiencyAvg,
+                'generator_daylight_hours'      => array_values(array_keys(array_filter($genDaylightFlag))),
                 'unmet_kwh'                     => round($unmetKwh, 2),
                 'total_load_kwh'                => round($loadKwh, 2),
+                // ── Look-ahead diagnostics ────────────────────────────────────
+                'battery_target_soc'            => round($battTargetSoc, 3),
+                'battery_target_kwh'            => round($battTargetKwh, 2),
+                'night_energy_kwh'              => round($nightEnergyKwh, 2),
+                'soc_at_sunset'                 => $sunsetSoc,
+                'night_generator_hours'         => $nightGenHours,
+                'night_generator_kwh'           => round($nightGenKwh, 2),
             ],
         ];
     }

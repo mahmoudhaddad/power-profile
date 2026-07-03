@@ -65,8 +65,11 @@ class Battery extends Model
 
     public function getAgeYearsAttribute(): float
     {
-        $days = \Carbon\Carbon::parse($this->getRawOriginal('installation_date'))->diffInDays(now());
-        return round($days / 365.25, 2);
+        // Divide by 365.25 to express age in FRACTIONAL YEARS (not days or months).
+        // A 36-day battery returns 0.10 yr; a brand-new one returns 0.00.
+        $raw  = $this->getRawOriginal('installation_date');
+        $days = $raw ? \Carbon\Carbon::parse($raw)->diffInDays(now()) : 0;
+        return round($days / 365.25, 2); // years
     }
 
     public function getNominalCapacityKwhAttribute(): float
@@ -78,10 +81,12 @@ class Battery extends Model
 
     public function getAgeFactorAttribute(): float
     {
-        $defaults    = BatteryChemistryService::getDefaults($this->chemistry);
+        // ?? [] guards against unknown chemistry keys returning null (avoids null-offset PHP 8 deprecation).
+        // Per-chemistry rates are in BatteryChemistryService ($degradation_per_year). // ⚠ tunable there
+        $defaults    = BatteryChemistryService::getDefaults($this->chemistry) ?? [];
         $degradation = $defaults['degradation_per_year'] ?? 0.03;
-        $factor      = 1.0 - ($this->age_years * $degradation);
-        return max(0.70, $factor); // industry replace threshold: 70%
+        $factor      = 1.0 - $this->age_years * $degradation;
+        return max(0.70, $factor); // industry replace threshold: 70 %
     }
 
     public function getUsableCapacityKwhAttribute(): float
