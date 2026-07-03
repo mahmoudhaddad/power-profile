@@ -1029,8 +1029,10 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
             ) : (
               <ul className="divide-y divide-gray-50">
                 {banks.map((bank, i) => {
-                  const health = HEALTH[bank.health_status] ?? HEALTH.good;
-                  const socPct = Math.round((bank.current_soc ?? 0) * 100);
+                  const health    = HEALTH[bank.health_status] ?? HEALTH.good;
+                  const socPct    = Math.round((bank.current_soc ?? 0) * 100);
+                  // stored = usable × current_soc — always consistent with the SOC bar below
+                  const storedKwh = (bank.usable_capacity_kwh ?? 0) * (bank.current_soc ?? 0);
                   return (
                     <li key={bank.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group/bank">
                       {editingId === bank.id && editInitial ? (
@@ -1072,14 +1074,19 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
                               </button>
                             </div>
                           </div>
-                          {/* Capacity + health row */}
+                          {/* Capacity rows — stored energy is derived from usable × current_soc,
+                              so it always agrees with the SOC bar below. */}
                           <div className="flex items-center gap-2 mt-1.5 ml-7">
-                            <span className="text-xs font-semibold text-violet-600">{fmtKwh(bank.usable_capacity_kwh)}</span>
-                            <span className="text-[10px] text-gray-400">of {fmtKwh(bank.nominal_capacity_kwh)}</span>
+                            <span className="text-xs font-semibold text-violet-600">{fmtKwh(storedKwh)} stored</span>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${health.cls}`}>
                               {health.label}
                             </span>
                             <span className="text-[10px] text-gray-400 ml-auto">{Number(bank.age_years ?? 0).toFixed(1)} yr</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5 ml-7">
+                            <span className="text-[10px] text-gray-400">{fmtKwh(bank.usable_capacity_kwh)} usable</span>
+                            <span className="text-[10px] text-gray-300">·</span>
+                            <span className="text-[10px] text-gray-400">{fmtKwh(bank.nominal_capacity_kwh)} nominal</span>
                           </div>
                               {/* Solar system pairing badge */}
                           {bank.solar_system_id && (() => {

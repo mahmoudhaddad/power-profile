@@ -78,7 +78,22 @@ class BatteryController extends Controller
             return response()->json(['error' => 'Read-only access'], 403);
         }
 
-        $battery->update($request->validated());
+        $validated = $request->validated();
+
+        // When chemistry is being changed, re-derive operating parameters from the new
+        // chemistry's defaults for any field not explicitly included in this request.
+        // This mirrors the store() logic and prevents stale DoD/efficiency from
+        // a previous chemistry carrying over silently.
+        if (isset($validated['chemistry'])) {
+            $defaults = BatteryChemistryService::getDefaults($validated['chemistry']) ?? [];
+            foreach (['depth_of_discharge', 'round_trip_efficiency', 'c_rate_charge', 'c_rate_discharge', 'rated_cycle_life'] as $field) {
+                if (! array_key_exists($field, $validated) && isset($defaults[$field])) {
+                    $validated[$field] = $defaults[$field];
+                }
+            }
+        }
+
+        $battery->update($validated);
 
         return response()->json(['data' => $battery->fresh()]);
     }

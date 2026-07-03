@@ -13,7 +13,7 @@ class BatteryChemistryService
             'c_rate_discharge'      => 0.20,
             'rated_cycle_life'      => 500,
             'calendar_life_years'   => 5,
-            'degradation_per_year'  => 0.05,
+            'degradation_per_year'  => 0.05, // ⚠ tunable — linear % capacity loss per year
         ],
         'lead_acid_agm' => [
             'label'                 => 'Lead-Acid (AGM)',
@@ -23,7 +23,7 @@ class BatteryChemistryService
             'c_rate_discharge'      => 0.30,
             'rated_cycle_life'      => 700,
             'calendar_life_years'   => 7,
-            'degradation_per_year'  => 0.04,
+            'degradation_per_year'  => 0.04, // ⚠ tunable — linear % capacity loss per year
         ],
         'lead_acid_gel' => [
             'label'                 => 'Lead-Acid (Gel)',
@@ -33,7 +33,7 @@ class BatteryChemistryService
             'c_rate_discharge'      => 0.25,
             'rated_cycle_life'      => 800,
             'calendar_life_years'   => 8,
-            'degradation_per_year'  => 0.035,
+            'degradation_per_year'  => 0.035, // ⚠ tunable — linear % capacity loss per year
         ],
         'lithium_lfp' => [
             'label'                 => 'Lithium-Ion (LFP / LiFePO4)',
@@ -43,7 +43,7 @@ class BatteryChemistryService
             'c_rate_discharge'      => 1.00,
             'rated_cycle_life'      => 4000,
             'calendar_life_years'   => 15,
-            'degradation_per_year'  => 0.02,
+            'degradation_per_year'  => 0.02, // ⚠ tunable — linear % capacity loss per year (~2-3 % for LFP)
         ],
         'lithium_nmc' => [
             'label'                 => 'Lithium-Ion (NMC)',
@@ -53,7 +53,7 @@ class BatteryChemistryService
             'c_rate_discharge'      => 1.00,
             'rated_cycle_life'      => 2500,
             'calendar_life_years'   => 10,
-            'degradation_per_year'  => 0.025,
+            'degradation_per_year'  => 0.025, // ⚠ tunable — linear % capacity loss per year
         ],
     ];
 
