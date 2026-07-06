@@ -1,0 +1,13 @@
+# Word temp / lock files
+~$*
+
+# Claude Code local project settings (personal, not project code)
+.claude/
+
+# Sixth/skill tool local directory
+.sixth/
+
+# Root-level env files (just in case)
+.env
+.env.*
+!.env.example

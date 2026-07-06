@@ -1,9 +1,11 @@
 # Power Profile — Master Technical Documentation
 
-**Version:** 1.0 · **Date:** 2026-07-01 · **Author:** Ahmed Zoher  
+**Version:** 1.2 · **Date:** 2026-07-06 · **Author:** Ahmed Zoher  
 **Purpose:** Master reference for graduation report and defense presentation.  
 All facts verified against actual source code with file:line citations.  
-Items that could not be confirmed in code are marked **⚠ NOT CONFIRMED IN CODE**.
+Items that could not be confirmed in code are marked **⚠ NOT CONFIRMED IN CODE**.  
+**Changes in v1.1:** Phase-balance algorithm (LPT + iterative re-split), two-page consistency model, target-SOC look-ahead dispatch engine, battery chemistry table and chemistry comparison feature, SLD hybrid-inverter topology, new tests, updated walkthrough and glossary.  
+**Changes in v1.2:** Demand-side load-shedding system (LoadSheddingService — full new section 8.3); `shiftCapW` solar+utility-only cap for shift-target selection; round-trip-waste guard confirmed and cited; age_factor unit fix (days÷365.25 = fractional years); battery display format confirmed (stored · usable · nominal); RESTORE_MARGIN added to tunable constants; test suite updated to 371 tests / 1247 assertions; LoadSheddingServiceTest (8 tests) added to Section 13; shedding alert banner added to page walkthrough (17.6); new "Validation & Corrections Applied" section (Section 20); glossary extended with curtailable, hysteresis, critical\_unmet\_kwh, shiftCapW.
 
 ---
 
@@ -25,6 +27,10 @@ Items that could not be confirmed in code are marked **⚠ NOT CONFIRMED IN CODE
 14. [Frontend Architecture](#14-frontend-architecture)
 15. [Standards Referenced](#15-standards-referenced)
 16. [Implemented vs Deferred Features](#16-implemented-vs-deferred-features)
+17. [Page-by-Page User Walkthrough](#section-17--page-by-page-user-walkthrough)
+18. [End-to-End Worked Example](#section-18--end-to-end-worked-example)
+19. [Glossary](#section-19--glossary)
+20. [Validation & Corrections Applied](#section-20--validation--corrections-applied)
 
 ---
 
@@ -62,7 +68,7 @@ Items that could not be confirmed in code are marked **⚠ NOT CONFIRMED IN CODE
 | Framework | Laravel 11 (PHP 8.2) | RESTful JSON API only |
 | Auth | Laravel Sanctum + Google OAuth (Socialite) | Token-based; per-project role checks |
 | ORM | Eloquent | No raw SQL in codebase (`api.php` comment, line 48) |
-| Testing | PHPUnit 11 | 36 tests, 152 assertions |
+| Testing | PHPUnit 11 | 371 tests, 1247 assertions (26 deprecated notices, 0 failures) |
 | Rate limiting | Laravel throttle middleware | Heavy: 20/min; optimizer/financial: 10/min; general: per `api-general` config |
 | External API | NASA POWER (GHI) | 30-day cache; `ALLSKY_SFC_SW_DWN` parameter |
 
@@ -174,22 +180,23 @@ Key migrations: `2026_04_20_120928`, `2026_05_16_100000`, `2026_04_27_300000`, `
 | Column | Type | Notes |
 |--------|------|-------|
 | `project_id` | FK | |
-| `chemistry` | string(50) | e.g., `'LiFePO4'`, `'lead_acid'` |
+| `solar_system_id` | FK → solar_systems (nullable) | When non-null, battery is DC-coupled to that solar system (shared hybrid inverter); used by SLD topology and dispatch engine |
+| `chemistry` | string(50) | Key into `BatteryChemistryService` presets: `lead_acid_flooded`, `lead_acid_agm`, `lead_acid_gel`, `lithium_lfp`, `lithium_nmc` |
 | `nominal_voltage_v` | decimal | |
 | `capacity_ah_per_unit` | decimal | |
 | `quantity` | integer | Total cells/units |
 | `series_count` | integer | |
 | `parallel_count` | integer | |
-| `installation_date` | date | For age calculation |
-| `depth_of_discharge` | decimal(4,3) | e.g., 0.800 |
-| `round_trip_efficiency` | decimal(4,3) | e.g., 0.950 |
-| `c_rate_charge` | decimal(4,2) | |
-| `c_rate_discharge` | decimal(4,2) | |
-| `rated_cycle_life` | integer | |
+| `installation_date` | date | For age calculation; defaults to today on create so age_factor = 1.0 for new batteries |
+| `depth_of_discharge` | decimal(4,3) | Set from chemistry preset on create/update (e.g., 0.850 for LFP) |
+| `round_trip_efficiency` | decimal(4,3) | Set from chemistry preset (e.g., 0.920 for LFP) |
+| `c_rate_charge` | decimal(4,2) | Set from chemistry preset |
+| `c_rate_discharge` | decimal(4,2) | Set from chemistry preset |
+| `rated_cycle_life` | integer | Set from chemistry preset |
 | `current_soc` | decimal(4,3) | Default 0.500 |
 | `is_active` | boolean | |
 
-Migration: `2026_05_29_100000_create_batteries_table.php`
+Migration: `2026_05_29_100000_create_batteries_table.php`; chemistry preset sync migration: `2026_07_05_195454_sync_battery_chemistry_presets.php`
 
 #### `utility_lines`
 | Column | Type |
@@ -258,6 +265,21 @@ Components → `GET/POST /api/{rooms|floors|buildings|projects}/{id}/components`
 | `GET /api/projects/{project}/electrical-design` | api-heavy | ElectricalDesignController |
 | `GET /api/projects/{project}/financial-analysis` | 20/min | FinancialController |
 | `GET /api/projects/{project}/cost-signal` | 30/min | CostSignalController |
+| `GET /api/projects/{project}/battery-chemistry-comparison` | 20/min | ScheduleController@chemistryComparison |
+
+### Battery Endpoints
+
+| Endpoint | Notes |
+|----------|-------|
+| `GET /api/projects/{project}/batteries` | List all batteries |
+| `POST /api/projects/{project}/batteries` | Create (chemistry preset auto-fills DoD/RTE/C-rates) |
+| `GET /api/batteries/{battery}` | Show single battery with all computed accessors |
+| `PUT /api/batteries/{battery}` | Update (chemistry change ALWAYS overwrites DoD/RTE from new preset) |
+| `DELETE /api/batteries/{battery}` | Delete |
+| `POST /api/batteries/{battery}/reset-soc` | Set `current_soc` to a new value (0.0–1.0) |
+| `POST /api/batteries/{battery}/runtime-at-load` | Returns runtime at a given load kW |
+| `GET /api/projects/{project}/battery-runtime` | Aggregate runtime vs. critical and optimized loads |
+| `GET /api/battery-chemistry-defaults` | Returns all chemistry presets (public, no auth required) |
 
 ### Polymorphic Resources (Utility Lines, Generator Lines, Sockets)
 
@@ -680,10 +702,46 @@ project
               └── circuits[] (per circuit: type, VA, Ib, In, curve, cable, PE, RCD, VD data)
 ```
 
-### Phase Assignment in Electrical Design
+### Phase Assignment in Electrical Design — Three-Stage Pipeline
 
-Source: `ElectricalDesignService.php` — `assignPhases()` method.  
-Uses the same FFD greedy algorithm as PhaseBalanceController: sort circuits by VA descending, assign each to the least-loaded phase.
+Source: `ElectricalDesignService.php` — `analyzeFloor()` lines 486–494
+
+Each floor's circuits pass through three stages before phase numbers are printed:
+
+**Stage 1 — Electrical split (`splitOversizedCircuits`)** (lines 1132–1171)  
+Any 1-phase circuit whose VA exceeds the breaker loading ceiling is split into sub-circuits using **LPT (Longest Processing Time) fixture-level bin packing**:
+
+```
+maxCircVA = breaker_A × 230 V × LOADING_FACTOR
+n = ceil(circuit_VA / maxCircVA)
+
+LPT: expand each load entry into individual fixture units,
+     sort units by VA descending,
+     greedily assign each to the lightest bin.
+```
+
+Guards: minimum total VA `≥ MIN_SPLIT_VA`, and `≥ 2` fixtures must exist. 3-phase circuits and circuits already within the ceiling are passed through unchanged.
+
+**Stage 2 — Balance-driven re-split (`balanceDrivenReSplit`)** (lines 1304–1361)  
+Iterates up to `MAX_ITERS` times. Each iteration:
+1. Runs pure LPT assignment (no DB hints) → computes `imbalance_pct`.
+2. If `imbalance_pct ≤ IMBALANCE_TARGET × 100` → stop.
+3. Otherwise: find the largest splittable circuit on the heaviest phase; try splitting it in 2 with LPT; keep the split only if `newImbalance < currentImbalance`.
+4. If no improving move is found → stop (local minimum reached).
+
+**Stage 3 — Final LPT assignment (`assignPhases(useSavedHints=false)`)** (lines 1387–1431)  
+Sort circuits by VA descending; assign each 1-phase circuit to the least-loaded phase so far (greedy). 3-phase circuits contribute VA/3 to each phase equally. DB-saved phase hints are bypassed at this stage (they were already used by Stage 1 to identify the correct load-to-circuit mapping).
+
+### Balance / Split Tuning Constants
+
+Source: `ElectricalDesignService.php` lines 103–111
+
+| Constant | Value | Tunable? | Role |
+|----------|-------|----------|------|
+| `LOADING_FACTOR` | 0.80 | ⚠ yes | Breaker utilisation ceiling (Stage 1 split trigger) |
+| `IMBALANCE_TARGET` | 0.15 | ⚠ yes | Stop re-splitting when imbalance ≤ 15 % |
+| `MAX_ITERS` | 12 | ⚠ yes | Maximum balance-driven re-split iterations per floor |
+| `MIN_SPLIT_VA` | 150.0 VA | ⚠ yes | Minimum sub-circuit VA after any split (avoids micro-circuits) |
 
 ### MDB Incomer Sizing
 
@@ -736,23 +794,159 @@ generator_capacity_W = Σ(generator_lines.power) × 0.8
 
 Source: `ScheduleController.php` lines 90–93
 
-### 7-Step Energy Dispatch Algorithm
+### Demand-Side Load Shedding (LoadSheddingService)
 
-**Service:** `backend/app/Services/SourceDispatchService.php`
+**Service:** `backend/app/Services/LoadSheddingService.php`
 
-For each hour of the day, the dispatch service allocates supply from sources in this priority order:
+This service runs **before** `SourceDispatchService`. When hourly demand exceeds available supply it resolves the deficit through a strict priority-aware algorithm, then returns a modified `$loadW` array with exactly the same 24-element shape that dispatch already expects. The supply-side dispatch logic is completely unmodified.
 
-1. **Solar direct use** — serve load from available solar generation
-2. **Solar → paired battery charge** — excess solar charges batteries paired to that solar system
-3. **Solar → shared solar pool** — remaining solar to shared battery banks
-4. **Unpaired battery charge** (from solar)
-5. **Battery discharge** — discharge batteries to serve remaining load
-6. **Utility grid** — draw from utility for remaining load (up to `utilCapW`)
-7. **Generator** — last resort; operates within `ISO_OPTIMAL_MAX_LOAD = 0.85`
+#### Architecture
 
-Constants:
-- `GEN_OPTIMAL_MAX_LOAD = 0.85` (ISO 8528 optimal band ceiling)
-- `INV_EFF = 0.95` (inverter efficiency applied to battery round-trips)
+`ScheduleController` calls `buildComponentSlots()` to produce per-component slot objects — mirrors `buildHourlyW()`'s group-max and season/day-type filtering — and passes them with two separate supply-cap arrays:
+
+```
+supplyCapW = solar + utilCapW + genCapW + battMaxDischargeW   (full upper-bound cap)
+shiftCapW  = solar + utilCapW   (solar + grid ONLY — no battery, no generator)
+```
+
+`shiftCapW` is used exclusively when selecting shift targets (`findShiftTarget()`). Excluding battery and generator capacity from this cap prevents a shiftable load from moving to a dark overnight hour that looks attractive only because the battery/generator can theoretically serve it — which would drain the battery and force the generator to compensate. (`ScheduleController.php` lines 156–164)
+
+Both max-mode and optimized-mode shedding runs are performed separately before the corresponding dispatch call. (`ScheduleController.php` lines 172–177)
+
+#### Shedding Order Per Deficit Hour (`LoadSheddingService.php` lines 98–201)
+
+| Step | Action | Rule |
+|------|--------|------|
+| **1 Shift** | Shiftable loads moved to a surplus hour within `[earliest_start, latest_end)` | Best target = highest supply headroom (`supplyCapW[h] − effectiveLoadW[h]`) that can absorb the full load; no partial shifts |
+| **2 Curtail** | Curtailable loads reduced toward `curtail_min_pct` | Largest reduction first; curtailed watts removed from this hour and all remaining active hours |
+| **3 Shed Normal** | `priority = 'normal'` fixed loads removed from hour h onwards | Largest first |
+| **4 Shed Essential** | `priority = 'essential'` loads removed, only if Normal alone insufficient | Largest first |
+| **5 Critical** | `priority = 'critical'` loads are **never auto-shed** | Residual deficit accumulates in `critical_unmet_kwh` — a distinct field; never folded into the generic `unmet` figure |
+
+`activeSlotsAtHour()` always skips critical slots, so critical loads cannot appear in any tier. (`LoadSheddingService.php` lines 354–355)
+
+#### Restoration (Reverse Order with Hysteresis)
+
+A shed load is restored in hour H only if hour H−1 had supply ≥ demand × (1 + RESTORE_MARGIN). Restoration order: **Essential → Normal → Curtailable** — reverse of shedding. Within each tier: largest-first. A load is only re-added if it fits within the remaining supply headroom at hour H. (`LoadSheddingService.php` lines 249–306)
+
+| Constant | Value | File:line |
+|----------|-------|-----------|
+| `RESTORE_MARGIN` | **0.05** (5% surplus headroom required) | `LoadSheddingService.php:27` |
+| `TIEBREAK` | `'largest_first'` | `LoadSheddingService.php:30` |
+
+#### Output Fields
+
+```
+adjusted_load_w      float[24]  — post-shed/shift load profile fed to dispatch
+shed_curtailable_kwh float      — kWh removed by curtailment
+shed_normal_kwh      float      — kWh removed from Normal loads
+shed_essential_kwh   float      — kWh removed from Essential loads
+critical_unmet_kwh   float      — residual after all non-critical loads shed
+per_load_shed_list   array      — per-event log: [slot_id, label, hour, action, kwh]
+hourly_shed          array[24]  — per-hour: {deficit_w, critical_unmet_w?}
+```
+
+The schedule API response exposes two additional fields per day:
+```
+load_shed_max        float[24]  — adjusted_load_w from max-mode shedding run
+load_shed_optimized  float[24]  — adjusted_load_w from optimized-mode shedding run
+```
+
+These are used as the `demand` reference line in the Load Schedule chart so the stacked supply areas and demand line remain in sync. (`ScheduleController.php` lines 186–189, `LoadSchedulePage.jsx` lines 579–582)
+
+#### UI Surface
+
+The Load Schedule page reads `dayData.shedding_optimized` (or `shedding_max` depending on mode). When `critical_unmet_kwh > 0` a **red alert banner** is rendered at the top of the page: "CRITICAL LOADS UNMET: X.XX kWh cannot be served — All non-critical loads were shed but supply is still insufficient." (`LoadSchedulePage.jsx` lines 676–694)
+
+---
+
+### Target-SOC Look-Ahead Dispatch Engine
+
+**Service:** `backend/app/Services/SourceDispatchService.php`  
+**Class:** `SourceDispatchService::dispatchOptimized()` (batteries present path)
+
+#### Strategy Summary
+
+The engine uses a **one-pass day-ahead look-ahead** to protect a night-energy reserve in the battery, then dispatches hour by hour in priority order.
+
+**PRE-DISPATCH (before the 24-hour loop):**  
+Scan the full load + solar profile to compute how much energy the battery must hold at sunset to cover all post-sunset hours, then add a 10% reserve margin:
+
+```
+nightEnergyKwh  = Σ load_W[h] / 1000    (for all non-daylight hours after sunset)
+nightEnergyReq  = nightEnergyKwh / avg_discharge_efficiency
+reserveKwh      = totalUsableKwh × RESERVE_MARGIN   (10 %)
+battTargetKwh   = min(totalUsableKwh, nightEnergyReq + reserveKwh)
+battTargetSoc   = battTargetKwh / totalUsableKwh
+```
+
+Pre-sunrise hours are excluded from `nightEnergyKwh` because they are served by free night discharge before the first daylight hour; including them would set the floor too high at sunrise.
+
+**Per-hour priority order (Steps 1–7):**
+
+| Step | Action |
+|------|--------|
+| 1 | **Paired solar → dedicated battery banks**: each solar system charges its `solar_system_id`-matched batteries (pro-rata by headroom) |
+| 2 | **Shared solar → load** |
+| 3 | **Surplus shared solar → unpaired batteries** |
+| 4 | **Battery discharge → remaining load** (day: only above the dynamic floor; night: discharge freely) |
+| 5 | **Utility grid** (up to `utilCapW`) |
+| 6 | **Generator** (last resort, up to `genCapW`) |
+| 7 | **Generator spare → battery to 100% usable SOC** (Case A or B) |
+
+#### Night-Reserve Protection (Step 4 Gate)
+
+During daylight, the battery may only discharge the energy **above** a dynamic floor that shrinks as night approaches:
+
+```
+dynamicFloorKwh = min(totalUsableKwh,
+    (Σ load_W[j] / 1000 for all j > h where !isDaylight[j])
+    / avgDischEff + reserveKwh)
+
+aboveReserveKwh = max(0, totalSOC − dynamicFloorKwh)
+maxDischW = min(rateCapW, aboveReserveKwh × avgDischEff × 1000)
+```
+
+At night, discharge freely: `maxDischW = min(rateCapW, totalSOC × 1000)`.
+
+#### Generator → Battery (Step 7, Two Cases)
+
+Guards common to both cases: generator already running this hour; **no same-hour battery discharge** (`$dischargeW === 0.0` — the round-trip-waste guard: prevents the generator from charging the battery in the same hour the battery is discharging to load, which would waste ~15–20% of the energy in the charge/discharge round-trip — `SourceDispatchService.php` line 464); not in afternoon-ramp window (post solar-peak, still daylight, load > solar, battery has above-floor buffer to discharge); not in morning pre-peak window (before solar peak with above-floor energy present).
+
+**Case A (generator ≥ 60% loaded):** Use spare capacity up to 85% optimal maximum load.  
+```
+spareGenW = max(0, genCapW × 0.85 − genUsed[h])
+```
+
+**Case B (generator < 60% loaded, daylight, solar-deficit day):** Boost generator output to exactly 60% efficient threshold by adding battery charging load. Activated only when `solarCoversTarget = false` (daytime solar surplus × discharge efficiency would not alone fill `battTargetKwh`).  
+```
+spareGenW = max(0, genCapW × 0.60 − genUsed[h])
+```
+
+The charge ceiling is **100% usable SOC** (not `battTargetKwh`). `battTargetKwh` is the discharge floor, not a charge cap — a fuller battery builds a larger above-floor buffer for afternoon peak shaving.
+
+#### Solar-Coupled Battery (Hybrid Inverter)
+
+Batteries with `solar_system_id ≠ null` are DC-coupled to their solar system. In Step 1, each solar system's output is split proportionally by remaining headroom across its paired battery bank. The shared solar pool (Step 2/3) receives only the leftover output after Step 1.
+
+Source: `SourceDispatchService.php` lines 148–175 (pairing index), 275–331 (Steps 1–3), 345–399 (Step 4 with dynamic floor), 460–505 (Step 7).
+
+#### Dispatch Constants
+
+Source: `SourceDispatchService.php` lines 47–72
+
+| Constant | Value | Tunable? | Meaning |
+|----------|-------|----------|---------|
+| `GEN_OPTIMAL_MAX_LOAD` | 0.85 | ⚠ yes | Max generator loading when charging from spare (ISO 8528 optimal band ceiling) |
+| `GEN_MIN_EFFICIENT_LOAD` | 0.60 | ⚠ yes | Min load fraction before spare charges battery (below this, SFC penalty exceeds RTE gain) |
+| `INV_EFF` | 0.95 | — | One-way inverter efficiency for generator → battery AC/DC path |
+| `SOLAR_PRESENCE_THRESHOLD` | 50 W | ⚠ yes | Solar output below this classifies the hour as night |
+| `RESERVE_MARGIN` | 0.10 | ⚠ yes | Extra 10 % of usable capacity added on top of `nightEnergyReq` |
+| `RESTORE_MARGIN` | 0.05 | ⚠ yes | `LoadSheddingService` — min supply-to-demand surplus ratio (5%) required in previous hour to trigger restoration |
+
+#### No-Battery Path (`dispatchBasic`)
+
+When no active batteries exist, the service runs a simple 3-step priority: Solar → Utility → Generator, with no SOC tracking.
 
 ### Battery Round-Trip Efficiency in Dispatch
 
@@ -846,28 +1040,86 @@ Performance ratio for hourly profile: `PR = 0.80` (`ScheduleController.php` line
 ## 10. Battery and Storage Model
 
 **Model:** `backend/app/Models/Battery.php`  
-**Controller:** `backend/app/Http/Controllers/Api/BatteryController.php`
+**Controller:** `backend/app/Http/Controllers/Api/BatteryController.php`  
+**Chemistry Service:** `backend/app/Services/BatteryChemistryService.php`
 
 ### Capacity Calculations
 
-Source: `Battery.php` model attributes
+Source: `Battery.php` model attributes (computed accessors, appended to every JSON response)
 
 ```
 nominal_capacity_kwh = nominal_voltage_V × capacity_ah_per_unit × quantity / 1000
 ```
 
-### Age Degradation
+### Age Degradation and Usable Capacity
 
 ```
-age_factor = max(0.70, 1 − age_years × degradation_per_year)
+age_years   = diffInDays(installation_date, today) / 365.25   [fractional years]
+age_factor  = max(0.70, 1.0 − age_years × degradation_per_year)
+
 usable_capacity_kwh = nominal_capacity_kwh × depth_of_discharge × age_factor
 ```
 
-Battery health thresholds:
+`age_years` is computed in **fractional years** (days ÷ 365.25), not months or integer years. A 36-day-old battery returns `age_years = 0.10`. `installation_date` defaults to today on battery creation so new batteries start at `age_years = 0`, `age_factor = 1.0`. (`Battery.php` lines 66–73)
+
+The floor of 0.70 means a battery never degrades below 70% of its nominal capacity in this model (industry replacement threshold).
+
+`depth_of_discharge` and `degradation_per_year` are both chemistry-dependent (see chemistry table below).
+
+Battery health thresholds (based on `age_factor`):
 - ≥ 0.90 → **Good**
 - ≥ 0.80 → **Fair**
 - ≥ 0.70 → **Degraded**
 - < 0.70 → **Replace**
+
+### Battery Chemistry Service
+
+**Service:** `backend/app/Services/BatteryChemistryService.php`
+
+Five chemistry presets are built in. When a battery is created or updated with a chemistry key, `BatteryController` always overwrites `depth_of_discharge`, `round_trip_efficiency`, `c_rate_charge`, `c_rate_discharge`, and `rated_cycle_life` from the current preset. The old `!array_key_exists` guard that allowed stale values to persist through an edit has been removed (`BatteryController.php:92–98`).
+
+`installation_date` defaults to today on battery creation so that `age_factor = 1.0` for new batteries (`BatteryController.php:56`).
+
+#### Chemistry Preset Table
+
+Source: `BatteryChemistryService.php` lines 12–63
+
+| Key | Label | DoD | RTE | C-rate charge | C-rate disch | Cycle life | Cal. life (yr) | Degrad./yr |
+|-----|-------|-----|-----|---------------|--------------|------------|----------------|------------|
+| `lead_acid_flooded` | Lead-Acid (Flooded) | **50%** | **82%** | 0.10 | 0.20 | 500 | 5 | 5.0% |
+| `lead_acid_agm` | Lead-Acid (AGM) | **70%** | **82%** | 0.20 | 0.30 | 700 | 7 | 4.0% |
+| `lead_acid_gel` | Lead-Acid (Gel) | **80%** | **82%** | 0.15 | 0.25 | 800 | 8 | 3.5% |
+| `lithium_lfp` | Lithium-Ion (LFP) | **85%** | **92%** | 0.50 | 1.00 | 4000 | 15 | 2.0% |
+| `lithium_nmc` | Lithium-Ion (NMC) | **80%** | **93%** | 0.50 | 1.00 | 2500 | 10 | 2.5% |
+| *(default)* | *(unknown key)* | **80%** | **90%** | — | — | — | — | — |
+
+`DEFAULT_DOD = 0.80`, `DEFAULT_RTE = 0.90` (applied when chemistry key is unrecognised).
+
+All ⚠ values are marked tunable in source code.
+
+**Note on table values:** All DoD and RTE figures in the table are typical manufacturer/industry guidance values (Battery University, IEEE 1188 storage recommendations). Exact values vary by manufacturer and operating conditions. The system marks all preset constants `⚠ tunable` in `BatteryChemistryService.php`.
+
+Chemistry and age affect **usable capacity and delivered energy** only — they never affect building demand itself. A worse chemistry (lower DoD or RTE) forces more generator fuel for the same building load. This trade-off is demonstrated by the battery chemistry comparison endpoint (Section 10, Chemistry Comparison subsection).
+
+#### Battery Display Format (PowerSourcesBanner)
+
+Source: `frontend/src/components/PowerSourcesBanner.jsx` lines 1085–1094
+
+Each battery bank card in the Power Sources banner shows three capacity rows:
+
+```
+{storedKwh} kWh stored       ← usable_capacity_kwh × current_soc
+{usable_capacity_kwh} kWh usable
+{nominal_capacity_kwh} kWh nominal
+```
+
+`storedKwh = usable × current_soc` — always consistent with the SOC bar on the same card. The chemistry label and DoD% are shown alongside (`PowerSourcesBanner.jsx` lines 1058–1060) so the usable-vs-nominal gap is self-explanatory to the user.
+
+The battery age (years) and health badge (Good / Fair / Degraded) are also shown on the card (`PowerSourcesBanner.jsx` lines 1086–1089).
+
+#### Chemistry Preset Sync Migration
+
+`2026_07_05_195454_sync_battery_chemistry_presets.php` — walks every existing `batteries` row, looks up its chemistry key in `BatteryChemistryService::all()`, and overwrites the five operating parameters. Required when preset values change so that previously-created batteries pick up the new values without manual edits.
 
 ### Charge/Discharge Power Limits
 
@@ -876,12 +1128,22 @@ max_charge_power_kW  = nominal_capacity_kwh × c_rate_charge
 max_discharge_power_kW = nominal_capacity_kwh × c_rate_discharge
 ```
 
+### Solar-Coupled BESS (`solar_system_id`)
+
+When `solar_system_id` is non-null, the battery is DC-coupled to that solar system and shares its hybrid inverter. Implications:
+- **SLD:** rendered as a `HybridGroup` node instead of separate source circles (see Section 17.9)
+- **Dispatch:** Step 1 of the dispatch engine exclusively routes that solar system's surplus to its paired battery bank (see Section 8)
+- **Chemistry comparison:** uses `solar_system_id = null` for the synthetic comparison banks
+
+Source: `Battery.php` `$fillable`, `$casts` (cast to `integer`), `solarSystem()` `belongsTo` relationship.
+
 ### Runtime Estimation
 
 `GET /api/projects/{project}/battery-runtime`
 
 ```
-runtime_hours = usable_kwh / load_kW
+runtime_hours_full    = usable_kwh    / load_kW
+runtime_hours_current = available_kwh / load_kW
 ```
 
 `POST /api/batteries/{battery}/runtime-at-load` — computes runtime at a specified load.
@@ -893,6 +1155,23 @@ Source: `FinancialAnalysisService.php`
 ```
 replacement_year = ceil((rated_cycle_life / 365) − age_years)
 ```
+
+### Battery Chemistry Comparison
+
+**Endpoint:** `GET /api/projects/{project}/battery-chemistry-comparison?month=M&day=D&day_type=weekday|weekend`  
+**Controller:** `ScheduleController@chemistryComparison` (lines 448–593)
+
+Simulates the same load + solar profile twice — once with a **Lead-Acid bank** (DoD 50%, RTE 82%) and once with **Lithium LFP** (DoD 85%, RTE 92%) — both sharing the project's actual total nominal capacity. Returns per-chemistry: generator kWh, generator hours, battery discharged kWh, unmet kWh, and affine fuel cost.
+
+Also returns `delta` (LFP advantage over lead-acid): `generator_kwh_saved`, `generator_hours_saved`, `fuel_cost_saved`.
+
+**Fuel cost model (ISO 8528 affine):**
+```
+F(P) = F₀ + (F_rated − F₀) × P / P_rated   [L/hr]
+daily_fuel_cost = Σ[h where genUsed[h]>0] { F(P_h) × fuel_cost_per_liter }
+```
+
+`F₀ = no_load_fuel_lph ?? round(F_rated × 0.30, 4)` — uses actual no-load figure if stored, otherwise estimates 30% of rated consumption.
 
 ---
 
@@ -971,11 +1250,12 @@ Recommended size: `peak_load / 0.75` (targeting 75% average loading per ISO 8528
 
 ## 12. Phase Balance Analysis
 
-**Controller:** `backend/app/Http/Controllers/Api/PhaseBalanceController.php`
+**Controller:** `backend/app/Http/Controllers/Api/PhaseBalanceController.php`  
+**Frontend:** `frontend/src/pages/PhaseBalancePage.jsx`
 
 ### Constants
 
-Source: `PhaseBalanceController.php`
+Source: `PhaseBalanceController.php` lines 17–30
 
 | Constant | Value |
 |----------|-------|
@@ -983,8 +1263,33 @@ Source: `PhaseBalanceController.php`
 | `WARN_PCT` | 10% |
 | `CRIT_PCT` | 20% |
 | `SOCKET_ASSUMED_PF` | 0.95 |
+| `PHASE_SPLIT_MIN_VA` | 1500.0 VA |
 
-Phase voltage angles: A = 0°, B = 120°, C = 240°
+Phase voltage angles (positive-sequence ABC): A = 0°, B = 120° (2π/3 rad), C = 240° (4π/3 rad).
+
+### Two-Page Consistency Model
+
+The Phase Balance page is a **consumer** of the Electrical Design page, not an independent calculator.
+
+`PhaseBalanceController::buildingReport()` reads the `phase_balance_va` field directly from each floor's `ElectricalDesignService` output:
+
+```php
+foreach (['A', 'B', 'C'] as $ph) {
+    $optVa[$ph] += (float) ($edFloor['db']['phase_balance_va'][$ph] ?? 0);
+}
+```
+
+This means the **Optimal** distribution shown on the Phase Balance page is identical — to the VA — to the per-phase totals shown on the Electrical Design page. The two pages cannot show different values for the same project.
+
+### Circuit-Level Phase Inference for SPLIT Rooms
+
+`PhaseBalanceController` calls `ElectricalDesignService::analyzeProject()` and then maps ED circuits back to rooms. For each room and circuit type (SOCKET / LIGHTING / AUXILIARY):
+
+1. Find all ED circuits on that floor that list the room in `room_names` and share the circuit type.
+2. Sum those circuits' VA per phase → `circPhaseVa[A/B/C]`.
+3. The room's own VA for that type is split proportionally: `roomVaPerPh[ph] = roomTypeVa × (circPhaseVa[ph] / totalCircVA)`.
+
+A room whose loads land on multiple phases gets `is_split = true` in the API response, with a `split_sections` array listing each phase and its VA share. The Phase Balance page renders such rooms as a split badge row. This happens naturally when `ElectricalDesignService::balanceDrivenReSplit` places two sub-circuits of the same room on different phases.
 
 ### Phasor Current Calculation
 
@@ -992,13 +1297,14 @@ For each load on phase P with power factor PF:
 
 ```
 θ_V = phase voltage angle (0° / 120° / 240°)
+|I| = VA / VOLT    (apparent current)
 θ_I = θ_V − arccos(PF)    [current lags voltage by arccos(PF)]
 
 I_re += |I| × cos(θ_I)
 I_im += |I| × sin(θ_I)
 ```
 
-Source: `PhaseBalanceController.php`
+Source: `PhaseBalanceController::computePhaseCurrent()` lines 436–454
 
 ### Neutral Current
 
@@ -1007,7 +1313,9 @@ Phasor (complex) sum of the three phase currents:
 I_N = √((I_A_re + I_B_re + I_C_re)² + (I_A_im + I_B_im + I_C_im)²)
 ```
 
-For a perfectly balanced 3-phase system, I_N → 0.
+For a perfectly balanced 3-phase system, I_N → 0. This replaces the earlier PF=1 approximation (`I_N = √(I_A² + I_B² + I_C² − I_A·I_B − I_B·I_C − I_C·I_A)`), which assumed purely resistive loads.
+
+Source: `PhaseBalanceController::computeNeutralCurrent()` lines 457–465
 
 ### Imbalance Metric
 
@@ -1015,21 +1323,17 @@ For a perfectly balanced 3-phase system, I_N → 0.
 imbalance_pct = (I_max − I_min) / I_avg × 100
 ```
 
-where `I_max`, `I_min`, `I_avg` are the magnitudes of currents on phases A, B, C.
+where `I_max`, `I_min`, `I_avg` are computed from VA ÷ 230 (scalar magnitudes, PF=1 approximation used here only for the spread metric).
 
-**Note:** This is a spread metric (max-min range / mean), not the standard NEMA MG-1 voltage imbalance definition (which uses deviations from average). Source: `PhaseBalanceController.php`
+**Note:** This is a spread metric (max-min range / mean), not the NEMA MG-1 voltage imbalance definition. Source: `PhaseBalanceController::imbalanceStatus()` lines 676–690
 
 Thresholds: WARN at 10%, CRITICAL at 20%.
 
-### FFD Greedy Phase Assignment
+### Apply Optimal — Room-Split Handling
 
-Used in both ElectricalDesignService and PhaseBalanceController:
+`POST /api/buildings/{building}/apply-optimal-phase` reads `block_assignments` from the building report. For a **split room**, each section specifies `component_ids` — the exact component IDs in that section — and `optimal_phase`. The controller updates only those components' `phase` field, leaving other components in the same room untouched. Different circuit-type sections of the same room can end up on different phases.
 
-1. Sort all load blocks by VA (descending — largest first)
-2. For each block: assign to the currently least-loaded phase
-3. Repeat until all loads assigned
-
-**Effect:** Near-optimal phase balancing with O(n log n) complexity (sort dominates).
+Source: `PhaseBalanceController::applyOptimalBuilding()` lines 129–189
 
 ---
 
@@ -1037,17 +1341,50 @@ Used in both ElectricalDesignService and PhaseBalanceController:
 
 ### PHPUnit Test Suite
 
-**File:** `backend/tests/Feature/ElectricalDesignTest.php`  
-**Status:** 36 tests, 152 assertions — all passing.
+**Total: 371 tests, 1247 assertions** (26 deprecation notices, 0 failures). Verified: `php artisan test` — all pass.
 
-Test coverage includes:
-- Cable ampacity table verification: for each of the 12 sizes, asserts the value matches IEC 60364-5-52 Table B.52.2, Method A1
-- Derating factor at 40°C: 0.87
-- Voltage drop spot checks (2 known cases)
+| File | Tests | Status | Purpose |
+|------|-------|--------|---------|
+| `tests/Feature/ElectricalDesignTest.php` | 36 | ✓ | Cable ampacity, derating, VD, circuit classification, breaker curves, PE sizing |
+| `tests/Unit/BatteryCapacityDisplayTest.php` | 6 | ✓ | Capacity formulas, age degradation, DoD, solar coupling fillable |
+| `tests/Feature/PhaseBalanceConsistencyTest.php` | 7 | ✓ | ED↔Phase Balance two-page consistency; SPLIT rooms; imbalance formula identity |
+| `tests/Feature/PhaseBalanceGeneralityTest.php` | ~312 (data-driven) | ✓ | Randomised floor inputs → imbalance ≤ 15% or provably at local minimum |
+| `tests/Unit/SourceDispatchServiceTest.php` | 6 | ✓ | Generator loading threshold, round-trip-waste guard, daylight-flag |
+| `tests/Unit/LoadSheddingServiceTest.php` | 8 | ✓ | Full shedding tier ordering, shift, fallthrough, restoration hysteresis |
 
-The tests use PHP reflection to access the private `CABLE_AMPACITY` constant directly.
+#### `ElectricalDesignTest.php`
 
-Test docblock: `Table B.52.2, Method A1 (conduit in thermally insulated wall), 2 loaded conductors`
+Cable ampacity table verification: for each of the 12 sizes, asserts the value matches IEC 60364-5-52 Table B.52.2, Method A1. Derating factor at 40°C: 0.87. Voltage drop spot checks (2 known cases). Uses PHP reflection to access the private `CABLE_AMPACITY` constant directly.
+
+#### `BatteryCapacityDisplayTest.php`
+
+**File:** `backend/tests/Unit/BatteryCapacityDisplayTest.php`  
+Extends bare `PHPUnit\Framework\TestCase` (no DB, no Eloquent). All tests are pure arithmetic using helpers that mirror the Battery model accessor formulas.
+
+| Test | What it checks |
+|------|----------------|
+| `test_nominal_capacity_kwh_formula` | `nominal = V × Ah × qty / 1000` for four cases (48V/100Ah, LFP 51.2V/100Ah) |
+| `test_age_factor_degradation` | Linear degradation at 3%/yr; floor at 0.70 at 20 years |
+| `test_usable_kwh_for_new_battery` | `usable = nominal × DoD × 1.0` (brand-new battery; gel 80% DoD, LFP 85% DoD) |
+| `test_usable_always_less_than_nominal_when_dod_below_one` | For DoD ∈ {0.50, 0.70, 0.80, 0.85, 0.90}: asserts `usable < nominal` |
+| `test_every_chemistry_preset_has_dod_below_one` | Iterates `BatteryChemistryService::all()`: all DoD in (0, 1) — ensures SLD never shows nominal as usable |
+| `test_solar_system_id_is_fillable_for_sld_coupling` | `Battery::getFillable()` includes `solar_system_id` |
+
+#### `LoadSheddingServiceTest.php`
+
+**File:** `backend/tests/Unit/LoadSheddingServiceTest.php`  
+Extends bare `PHPUnit\Framework\TestCase` (no DB). Tests the full shedding/restoration algorithm with synthetic slot and supply arrays.
+
+| Test | What it proves |
+|------|---------------|
+| `test_healthy_day_produces_zero_shedding` | No deficit → all shed fields = 0, `adjusted_load_w` unchanged (regression guard) |
+| `test_curtailable_reduced_before_normal_shed` | Step 2 fires before Step 3; `shed_normal_kwh = 0` when curtailment resolves deficit |
+| `test_normal_shed_before_essential` | `shed_normal` event appears before `shed_essential` in `per_load_shed_list` |
+| `test_critical_load_never_auto_shed` | Critical label absent from `per_load_shed_list`; residual in `critical_unmet_kwh` |
+| `test_shiftable_shifted_before_shedding` | `shifted_to_h*` action present; `shed_normal_kwh = 0`; `adjusted_load_w[8] = 0` |
+| `test_shiftable_falls_through_when_no_feasible_window` | When all window hours are supply-constrained, `shed_normal` fires (no shift action) |
+| `test_curtailable_restored_last_after_normal` | Constrained supply at restoration hour fits Normal but not Normal+Curtailable → Curtailable deferred one more hour |
+| `test_restoration_reverse_order_with_hysteresis` | Loads absent at h=6 (hysteresis); fully restored at h=7 (one hour after surplus clears) |
 
 ### Validation API (Cross-Check Service)
 
@@ -1178,6 +1515,7 @@ api.get(`/api/projects/${projectId}/electrical-design`)
 | Breaker curve selection (B/C/D) | `ElectricalDesignService.php:878–883` |
 | Phase assignment FFD greedy + phasor neutral current | `PhaseBalanceController.php` |
 | 7-step multi-source energy dispatch with battery SOC tracking | `SourceDispatchService.php` |
+| Demand-side load shedding (priority-aware shift/curtail/shed/restore with hysteresis) | `LoadSheddingService.php`, `ScheduleController::buildComponentSlots()` |
 | Solar irradiance (NASA POWER API + PSH table fallback) | `SolarIrradianceService.php` |
 | Affine generator fuel model | `GeneratorLine.php` |
 | LCOE (simple/undiscounted, 25-year) | `FinancialAnalysisService.php` |
@@ -1185,8 +1523,15 @@ api.get(`/api/projects/${projectId}/electrical-design`)
 | Generator oversizing detection (<30% average load) | `FinancialAnalysisService.php` |
 | Essential panel separation (hospital, data center) | `ElectricalDesignService.php:312` |
 | group_small_critical packing option | `ElectricalDesignService.php:355` |
-| PHPUnit test suite (36 tests, 152 assertions) | `ElectricalDesignTest.php` |
+| PHPUnit test suite (371 tests, 1247 assertions) | `ElectricalDesignTest.php`, `BatteryCapacityDisplayTest.php`, `PhaseBalance*Test.php`, `SourceDispatchServiceTest.php`, `LoadSheddingServiceTest.php` |
 | Live validation API with reference implementation | `ValidationController.php`, `ValidationReferenceService.php` |
+| Battery chemistry presets (5 types: flooded/AGM/gel lead-acid, LFP, NMC) with auto-fill on create/update | `BatteryChemistryService.php`, `BatteryController.php` |
+| Battery chemistry comparison endpoint (Lead-Acid vs LFP, same nominal capacity, affine fuel cost) | `ScheduleController@chemistryComparison` |
+| LPT fixture-level circuit splitting + iterative balance-driven re-split (15% target) | `ElectricalDesignService.php` |
+| Two-page phase-balance consistency: ED as single source of truth; Phase Balance page reads ED circuit-level data | `PhaseBalanceController::buildingReport()` |
+| SPLIT-room phase display on Phase Balance page | `PhaseBalancePage.jsx` |
+| Solar-coupled BESS (hybrid inverter topology via `solar_system_id` FK) | `Battery.php`, `SourceDispatchService.php`, `SingleLineDiagramPage.jsx` |
+| SLD hybrid-inverter group node (HybridGroup SVG component), conditional legend, BESS dual capacity display, bus voltage label, breaker ratings | `SingleLineDiagramPage.jsx` |
 | Project backup/restore (JSON), building/floor/room scoped | `ProjectBackupController.php` |
 | Multi-user project collaboration (roles: admin/main/normal) | `ProjectMemberController.php` |
 | Google OAuth login | `AuthController.php` via Socialite |
@@ -1217,7 +1562,7 @@ api.get(`/api/projects/${projectId}/electrical-design`)
 
 ---
 
-*Document generated from source code reading on 2026-07-01. All formulas and constants verified against file:line citations listed. Items marked ⚠ require independent verification before licensed engineering submission.*
+*Document updated 2026-07-06 (v1.2). All formulas and constants verified against file:line citations listed. Items marked ⚠ require independent verification before licensed engineering submission. See Section 20 for corrections log.*
 
 ---
 
@@ -1376,15 +1721,26 @@ Each saved component shows: name, priority badge, flexibility badge, phase badge
 
 **Tab 3 — Combined dispatch:**
 - Stacked areas: Solar used, Battery discharge, Utility used, Generator used, Unmet demand
-- **Battery SOC** overlay line (0–100%): shows how the battery charges and drains through the day
+- **Battery SOC** overlay line (0–100%): shows how the battery charges through the solar peak and drains during the evening/night
+- The dispatch engine's **target SOC** (the night-reserve floor) is visible as the SOC floor the battery holds at sunset before the night discharge begins
 
 **StatCard strip (for the selected day):**
 - Active hours (hours with non-zero demand)
 - kWh delivered (total energy consumed)
 - Source share % (what fraction came from solar / grid / generator / BESS)
-- Daily cost (tariff × kWh from paid sources)
+- Daily cost (tariff × kWh from paid sources; generator cost uses affine F(P) = F₀ + (F_rated − F₀) × P/P_rated)
 
-**What the user learns here:** Whether the profile has damaging demand peaks, how much solar offsets consumption each hour, when the battery is charged or discharged, and whether any unmet demand hours exist.
+**Additional dispatch diagnostics (from `stats` field):**
+- `battery_target_soc` / `battery_target_kwh` — night-reserve target computed by the pre-dispatch look-ahead
+- `soc_at_sunset` — actual SOC when solar output drops below 50 W
+- `night_generator_hours` / `night_generator_kwh` — generator activity after sunset
+- `solar_peak_hour` — hour of maximum solar output
+
+**Shedding alert banner:** If `shedding.critical_unmet_kwh > 0` for the selected day, a red banner appears at the top of the page: "CRITICAL LOADS UNMET: X.XX kWh cannot be served — All non-critical loads were shed but supply is still insufficient. Add generation capacity, battery storage, or reduce critical load." This means the supply is so severely undersized that even completely removing all Normal and Essential loads cannot cover the Critical ones. (`LoadSchedulePage.jsx` lines 676–694)
+
+**Demand line consistency:** The combined-dispatch chart's demand reference line uses `load_shed_optimized[h]` (or `load_shed_max[h]` in max mode) — the post-shed/shift adjusted profile — not the original pre-shed profile. This keeps the stacked supply areas and demand line in sync. (`LoadSchedulePage.jsx` lines 579–582)
+
+**What the user learns here:** Whether the profile has damaging demand peaks, how much solar offsets consumption each hour, when the battery charges and discharges relative to the night-reserve floor, whether any unmet demand hours exist, whether any loads were shifted or shed, and how the generator fits into the supply mix.
 
 ---
 
@@ -1415,7 +1771,9 @@ Each saved component shows: name, priority badge, flexibility badge, phase badge
 
 ### 17.8 Phase Balance Page (`PhaseBalancePage.jsx`)
 
-**Purpose:** Shows how single-phase loads are distributed across phases A, B, C; flags imbalance; and allows manual phase reassignment.
+**Purpose:** Shows how single-phase loads are distributed across phases A, B, C; flags imbalance; allows manual phase reassignment; and displays rooms that have been automatically split across multiple phases by the electrical design engine.
+
+**Consistency guarantee:** The per-phase VA totals shown on this page are sourced from `ElectricalDesignService` — the identical numbers shown on the Electrical Design panel schedule. The two pages always agree.
 
 **Outputs:**
 - **PhaseBar** for each phase: VA on that phase, percentage of three-phase total, line current (A = VA ÷ 230)
@@ -1423,34 +1781,68 @@ Each saved component shows: name, priority badge, flexibility badge, phase badge
   - Phase B: emerald color
   - Phase C: amber color
 - **Overall imbalance %** and status badge: Balanced (< 10%), Warning (10–20%), Critical (> 20%)
-- **Neutral current (A)**: phasor sum of three unbalanced phase currents
-- Current phase assignment of each room: shown as A / B / C chip or "auto"
+- **Neutral current (A)**: phasor sum of three unbalanced phase currents (complex phasor sum, accounts for PF)
+- **Room assignment rows**: each room shows A / B / C chip, or "auto", or a **SPLIT** badge if the room's loads were distributed across multiple phases by the balance engine
+  - **SPLIT rooms** show a section breakdown: e.g. "Section 1 → A (720 VA) · Section 2 → B (360 VA)"
+  - Each section corresponds to a distinct circuit type (SOCKET / LIGHTING / AUXILIARY)
 
 **Input actions:**
 - `PhaseAssignButtons` per room: click A, B, or C to pin all 1-phase loads in that room to that phase; click Clear to return to auto-assignment
+- **Apply Optimal** button: writes the engine's computed assignment to the database. For SPLIT rooms, each section's component IDs are updated independently so different circuit types in the same room can be on different phases.
 - Changes take effect immediately; `PhaseBar` and imbalance % update in real time
 
-**What the user learns here:** Whether the electrical system has an unacceptable neutral current (which causes transformer heating and potential neutral conductor overload) and which rooms to reassign to fix it.
+**What the user learns here:** Whether the electrical system has an unacceptable neutral current (which causes transformer heating and potential neutral conductor overload), which rooms or sections to reassign to fix it, and how the automatic balance engine has distributed loads.
 
 ---
 
 ### 17.9 Single-Line Diagram Page (`SingleLineDiagramPage.jsx`)
 
-**Purpose:** Auto-generated SVG single-line schematic of the project's power topology.
+**Purpose:** Auto-generated SVG single-line schematic of the project's power topology. Includes a back-to-project navigation button.
 
-**Outputs:**
-- **SourceNode circles** (top row, y = 60 px): one circle per configured source
-  - Solar: yellow
-  - BESS (battery): violet
-  - Utility grid: blue
-  - Generator: orange
-- **Breaker symbol** on each source-to-bus connection: small square with diagonal line
-- **Main bus bar** (horizontal line, y = 200 px, dark blue): connects all sources and feeds all buildings
-- **BuildingNode rectangles** (bottom row, y = 340 px, green): one per building, labeled with name and total kVA
-- **Download SVG** button: saves the diagram as a .svg file
-- SVG canvas width: 900 px; layout computed from actual source and building counts
+**Canvas geometry:**
 
-**What the user learns here:** A quick visual topology check suitable for reports and presentations; confirms all sources and buildings are connected to the common bus.
+| Constant | Value | Role |
+|----------|-------|------|
+| `W` | 1200 px | Total SVG width |
+| `SRC_Y` | 100 | Source node row Y |
+| `BUS_Y` | 310 | Bus bar Y |
+| `BLD_Y` | 500 | Building node row Y |
+| `NODE_R` | 46 px | Source circle radius |
+| `HYBW × HYBH` | 180 × 110 px | HybridGroup rectangle |
+
+**Source topology (top row):**
+
+- **Standalone SourceNode circles**: Solar (yellow) · BESS (violet, standalone batteries only) · Utility Grid (blue) · Generator (orange)
+  - Each circle shows: emoji icon, source name, capacity (kW), and for BESS: "X.X kWh usable / Y.Y kWh nominal"
+- **HybridGroup rectangle** (when one or more batteries have `solar_system_id ≠ null`): replaces the separate solar and coupled-battery circles with a single combined node. Shows:
+  - Left side: ☀️ Solar symbol, solar capacity kW
+  - Right side: 🔋 Battery symbol, usable kWh / nominal kWh
+  - A DC BUS line divides the two sides
+  - Footer label: "Hybrid Inverter"
+
+**Topology detection (in the React component):**
+
+```javascript
+const coupledBatt  = activeBatt.filter(b => b.solar_system_id != null);
+const standaloneBatt = activeBatt.filter(b => b.solar_system_id == null);
+const hasSolarCoupling = coupledBatt.length > 0 && activeSolar.length > 0;
+// When hasSolarCoupling: solar + coupled batteries → hybridNodes[]
+// Standalone sources → srcNodes[]
+```
+
+**Connection line and breaker:**
+- One wire from each source/group to the bus bar
+- **Breaker symbol** on each wire: small square (10×10 px) with diagonal line; labeled with IEC 125%-rated current in amperes (`nextBreaker(kW)` function)
+
+**Bus bar:** Horizontal line at `BUS_Y`, dark blue, labeled "230 / 400 V · 3-phase"
+
+**BuildingNode rectangles** (bottom row): one per building; labeled with name, floor count, and total kVA.
+
+**Legend** (conditional): only items present in the diagram appear. Empty legend if all types are missing.
+
+**Download SVG** button saves the diagram.
+
+**What the user learns here:** A quick visual topology check suitable for reports and presentations — distinguishes DC-coupled hybrid-inverter configurations from separate sources, shows breaker ratings, and confirms all sources and buildings are connected to the common bus.
 
 ---
 
@@ -1615,34 +2007,35 @@ mV/A/m for 1.5 mm² ≈ 24 mV/A/m
 
 ### 18.4 Phase Balance Page
 
-**Auto-assignment result (FFD greedy algorithm):**
+**Engine pipeline result (LPT + iterative re-split, sourced from Electrical Design page):**
 
-| Phase | 1Φ loads | 3Φ share | Total VA | Current (A) |
+The Phase Balance page reads phase totals from the Electrical Design panel schedule (same numbers, guaranteed identical). After the three-stage pipeline:
+
+| Phase | 1Φ VA (from ED circuits) | 3Φ share | Total VA | Current (A) |
 |---|---|---|---|---|
-| A | Admin office loads = 1 082 VA | 2 500 VA | 3 582 VA | 15.6 A |
-| B | C101 LEDs + fans = 356 VA; C201 LEDs + fans = 356 VA = 712 VA | 2 500 VA | 3 212 VA | 14.0 A |
-| C | C101 sockets = 800 VA; C201 sockets = 800 VA = 1 600 VA | 2 500 VA | 4 100 VA | 17.8 A |
+| A | ~1 082 VA (admin office) | 2 500 VA | ~3 582 VA | ~15.6 A |
+| B | ~712 VA (classroom LEDs + fans) | 2 500 VA | ~3 212 VA | ~14.0 A |
+| C | ~1 600 VA (classroom sockets) | 2 500 VA | ~4 100 VA | ~17.8 A |
 
 ```
-VA_avg        = (3 582 + 3 212 + 4 100) / 3 = 3 631 VA
-Imbalance %   = (4 100 − 3 212) / 3 631 × 100 = 24.5%   → CRITICAL badge (red)
-
-Neutral current:
-I_N = √(15.6² + 14.0² + 17.8² − 15.6×14.0 − 14.0×17.8 − 17.8×15.6)
-    = √(243.4 + 196.0 + 316.8 − 218.4 − 249.2 − 277.7)
-    = √(756.2 − 745.3)
-    = √10.9 ≈ 3.3 A
+Imbalance % ≈ (4 100 − 3 212) / 3 631 × 100 ≈ 24.5%   → CRITICAL badge (red)
 ```
 
-**After manual reassignment** (user assigns Classroom 201 sockets to Phase A, Server LEDs to Phase A):
-- Phase A: 1 082 + 72 (server LEDs) + 800 (C201 sockets) = 1 954 VA → 4 454 VA total
-- Phase B: 712 + 800 (C101 sockets) = 1 512 VA → 4 012 VA total
-- Phase C: 800 remaining VA → 3 300 VA total
+If `balanceDrivenReSplit` identifies a large enough circuit on Phase C (e.g., the classroom socket circuit, 800 VA), it will try splitting it. If the split improves imbalance, the sub-circuits land on different phases, and Classroom 101 appears as a **SPLIT** room on the Phase Balance page with:
+```
+Section 1 → Phase C (400 VA sockets)
+Section 2 → Phase B (400 VA sockets)
+```
 
-After second adjustment (split C101 fans to Phase C):
-- Best achievable with this load set ≈ 5% imbalance → **Balanced** badge
+**Apply Optimal** then writes both section phases independently to the database.
 
-> **What the user learns:** The auto-assigned layout was critically unbalanced because the socket loads all fell on Phase C. Manual reassignment distributes the load and reduces the neutral current from 3.3 A to below 0.5 A.
+**After optimal assignment:**
+- Best achievable with this load set ≈ 5–10% imbalance → **Balanced** or **Warning** badge
+
+**Neutral current (phasor method, PF ≈ 0.87 average):**
+The complex phasor sum correctly accounts for load angle; for this near-balanced result I_N < 2 A.
+
+> **What the user learns:** The Phase Balance page faithfully reflects the Electrical Design panel's phase distribution. SPLIT rooms indicate the engine has already cross-phase distributed sub-circuits. "Apply Optimal" commits these assignments to the database.
 
 ---
 
@@ -1685,6 +2078,8 @@ P_peak = 72 + 720 + 59.5 + 216 + 720 + 119 + 2 550 + 216 + 720 + 119 + 2 550 + 7
 ```
 P_solar = 50 × 0.17 × 1000 × 0.75 = 6 375 W ≈ 6.4 kW
 ```
+> ⚠ **Heuristic estimate — system-computed value, not engineering-grade:** This is what `SolarIrradianceService::estimateCapacityW` computes and what the UI displays. As Section 9 documents, `CAPACITY_ESTIMATE_PR = 0.75` covers cable/inverter/mismatch losses only; module conversion efficiency (η ≈ 0.19 for crystalline silicon) is **not** applied separately, so the formula overestimates actual AC output by ~1/η ≈ **5.3×**. Engineering-accurate form: `P_ac = 50 × 0.17 × 1000 × 0.19 × 0.75 ≈ 1 211 W ≈ 1.2 kW` → daily energy ≈ **7.8 kWh** → working-day coverage ≈ **8%**. The 41.6 kWh/day and 43% figures that follow are what the system computes and displays; they are not engineering-grade values.
+
 With PSH ≈ 6.5 h/day in Cairo in August:
 ```
 Daily solar energy = 6.4 × 6.5 = 41.6 kWh/day
@@ -1692,7 +2087,7 @@ Daily solar energy = 6.4 × 6.5 = 41.6 kWh/day
 
 The Load Schedule combined-dispatch tab shows solar covering the daytime load from roughly 07:00–17:00; server load at night draws entirely from utility.
 
-> **What the user learns:** The two ACs account for 37% of daily energy (35.7/96.5). Solar with 50 m² covers about 43% of daily demand. The server is the dominant overnight load.
+> **What the user learns:** The two ACs account for 37% of daily energy (35.7/96.5). Solar with 50 m² covers about 43% of daily demand per the system's heuristic estimate (see caveat above; engineering-accurate figure ≈ 8%). The server is the dominant overnight load.
 
 ---
 
@@ -1712,6 +2107,8 @@ Monthly solar = 41.6 kWh/day × 30 = 1 248 kWh
 
 Solar covers: 1 248 / 1 646 = **75.8%** of August demand.
 
+> ⚠ **All figures below inherit the heuristic 6.4 kW capacity.** With the engineering-accurate 1.2 kW (Section 9): monthly solar ≈ 234 kWh, coverage ≈ 14%, monthly saving ≈ $11.70, capital ≈ $960, 25-year net saving ≈ $2 550. Note that payback period (~7 yr) and LCOE (~$0.014/kWh) are incidentally stable because both capital cost and generation output scale by the same η factor (0.19). The section demonstrates the Financial page workflow; treat all absolute figures as system-heuristic outputs.
+
 Remaining from utility: 1 646 − 1 248 = 398 kWh.
 At tariff $0.05/kWh: utility cost = $19.90/month.
 Without solar: 1 646 × $0.05 = $82.30/month.
@@ -1726,19 +2123,27 @@ Payback year = $5 120 / $748.80 ≈ 6.8 → Year 7
 25-year total saving = $748.80 × 25 − $5 120 = $13 600
 ```
 
-> **What the user learns:** A 6.4 kW system pays back in about 7 years and saves roughly $13 600 over 25 years. LCOE of $0.014/kWh is far below the $0.05/kWh tariff.
+> **What the user learns:** The Financial page shows a 6.4 kW system (heuristic estimate) paying back in ~7 years and saving ~$13 600 over 25 years. LCOE of $0.014/kWh is far below the $0.05/kWh tariff. With the engineering-accurate 1.2 kW capacity, absolute savings drop to ~$2 550 over 25 years — the financial output is only as reliable as the solar capacity input.
 
 ---
 
 ### 18.7 Single-Line Diagram
 
 For this project (1 utility line + 1 solar system + no battery + no generator), the SVG shows:
-- **Source row (y = 60):** Grid circle (blue) · Solar circle (yellow)
-- **Breaker symbols** on both source connections
-- **Bus bar (y = 200):** horizontal dark-blue line
-- **Building row (y = 340):** "Al-Noor School" rectangle labeled "6.8 kVA"
+- **Source row (y = 100):** Grid circle (blue) · Solar circle (yellow)
+- **Breaker symbols** on both source connections, labeled with IEC-rated amperes
+- **Bus bar (y = 310):** horizontal dark-blue line labeled "230 / 400 V · 3-phase"
+- **Building row (y = 500):** "Al-Noor School" rectangle labeled "6.8 kVA"
+- **Legend** (conditional): shows only Grid and Solar, since no battery or generator is configured.
 
-> **What the user learns:** Topology confirmed — two sources feed one common bus which supplies one building. Suitable for attaching to a permit application.
+**Variant — if an LFP battery with `solar_system_id` pointing to the solar system were added:**  
+The solar circle and battery circle are replaced by a single `HybridGroup` rectangle showing:  
+- Left: ☀️ Solar 6.4 kW  
+- DC BUS divider  
+- Right: 🔋 4.4 kWh usable / 5.1 kWh nominal  
+- Footer: "Hybrid Inverter"
+
+> **What the user learns:** Topology confirmed — sources feed one common bus supplying one building. The hybrid-inverter node immediately communicates DC coupling to the reviewer without extra annotation.
 
 ---
 
@@ -1792,6 +2197,70 @@ For this project (1 utility line + 1 solar system + no battery + no generator), 
 
 **Utilisation percentage (Util %):** The ratio of design current to breaker rated current: `Util% = (Ib / In) × 100`. Values below 80% are green (adequate headroom), 80–95% amber (acceptable but limited), above 95% red (overcrowded — consider the next cable/breaker size up).
 
-**Phase imbalance %:** `(VA_max_phase − VA_min_phase) / VA_avg_phase × 100`. Measures how unevenly single-phase loads are distributed across the three phases. IEC guidelines suggest < 10% as balanced; 10–20% is a warning; > 20% is unacceptable because it causes thermal stress in transformers, excess neutral current, and voltage asymmetry. The system uses: Balanced < 10%, Warning 10–20%, Critical > 20%.
+**Phase imbalance %:** `(VA_max_phase − VA_min_phase) / VA_avg_phase × 100`. Measures how unevenly single-phase loads are distributed across the three phases. IEC guidelines suggest < 10% as balanced; 10���20% is a warning; > 20% is unacceptable because it causes thermal stress in transformers, excess neutral current, and voltage asymmetry. The system uses: Balanced < 10%, Warning 10–20%, Critical > 20%.
 
-**Neutral current:** In a balanced three-phase system the neutral carries zero current because the three phasor currents cancel. As loads become unbalanced, residual current flows in the neutral: `I_N = √(I_A² + I_B² + I_C² − I_A·I_B − I_B·I_C − I_C·I_A)`. Excessive neutral current overheats the neutral conductor (which is not protected by a breaker in most installations) and increases transformer losses.
+**Neutral current:** In a balanced three-phase system the neutral carries zero current because the three phasor currents cancel. As loads become unbalanced, residual current flows in the neutral. The phasor formula: `I_N = |I_A + I_B + I_C|` (complex sum). Excessive neutral current overheats the neutral conductor (which is not protected by a breaker in most installations) and increases transformer losses.
+
+**DoD (Depth of Discharge):** The maximum fraction of a battery's nominal capacity that can be withdrawn in normal operation without shortening its service life. A 100 Ah battery with DoD = 0.85 has 85 Ah (= 85%) available for use; the remaining 15% is reserved as a buffer. Values in this system: flooded lead-acid 50%, AGM 70%, gel 80%, LFP 85%, NMC 80%.
+
+**LFP (LiFePO4 — Lithium Iron Phosphate):** A lithium-ion battery chemistry known for long cycle life (4000 cycles), thermal stability, and moderate energy density. Preferred for stationary storage. DoD 85%, RTE 92%, C-rate 0.5C charge / 1C discharge in this system.
+
+**NMC (Nickel Manganese Cobalt):** A lithium-ion chemistry with higher energy density than LFP but shorter cycle life (2500 cycles) and slightly higher RTE (93%). More common in electric vehicles than stationary storage.
+
+**C-rate:** Charge or discharge rate expressed as a multiple of battery capacity. A 1C rate fully charges or discharges the battery in 1 hour; 0.5C takes 2 hours; 0.1C takes 10 hours. `max_power_kW = nominal_kwh × C_rate`.
+
+**Hybrid inverter:** A bidirectional power conversion device that manages both the DC-coupled battery bank and the solar PV array through a common DC bus. Unlike a standard grid-tied inverter (solar only) or a battery inverter (storage only), a hybrid inverter simultaneously handles solar charging, battery charge/discharge, and AC grid interface. In this system, a battery with `solar_system_id ≠ null` is DC-coupled to that solar system through the solar system's hybrid inverter — shown as a single `HybridGroup` node on the Single-Line Diagram.
+
+**LPT (Longest Processing Time):** A classic bin-packing heuristic. Items are sorted by size (largest first) and greedily assigned to the least-full bin. Applied here at the fixture level when splitting an oversized circuit: individual luminaires or socket outlets are the items, and the target sub-circuits are the bins. LPT gives a near-optimal split with guaranteed maximum-bin imbalance ≤ 4/3 − 1/3n of optimal.
+
+**Night-reserve target SOC:** A battery state-of-charge floor computed from the day-ahead load profile. The dispatch engine calculates how much energy the battery must hold at sunset to cover all post-sunset load hours, adds a 10% reserve margin, then uses this as the daytime discharge floor. Above this floor the battery can discharge freely to shave peak demand; below it the energy is reserved for the night.
+
+**SFC (Specific Fuel Consumption):** The mass of fuel consumed per unit of electrical energy output, typically in g/kWh. For a diesel generator on the affine model, SFC rises as load drops below the optimum band (60–85%), making part-load operation inefficient. This justifies the `GEN_MIN_EFFICIENT_LOAD = 0.60` threshold in the dispatch engine.
+
+**Curtailable load:** A load whose output can be reduced below its rated power to a configurable floor (`minimum_output_pct`) during periods of supply shortage, without completely switching it off. Example: a 2 kW HVAC unit with `minimum_output_pct = 50%` can be curtailed to 1 kW instead of fully shed. In the shedding service this is Step 2, before any complete load removal.
+
+**Shiftable load:** A load with a flexible scheduling window (`[earliest_start_hour, latest_end_hour)`) and a daily runtime requirement (`required_run_hours`). The optimizer picks the cheapest consecutive block within the window; the shedding service can move it to a different hour within the same window when a deficit is detected at its currently assigned hour. Neither action changes the rated power or required daily runtime.
+
+**shiftCapW:** The supply-capacity array used exclusively for shift-target selection in `LoadSheddingService::findShiftTarget()`. Contains only `solar + utilCapW` (no battery, no generator). Using the full `supplyCapW` would make dark overnight hours appear as valid shift targets because generator+battery capacity is available then — which would drain the battery and force additional generator runtime. Defined in `ScheduleController.php` lines 161–163.
+
+**Hysteresis (load restoration):** A deliberate one-hour delay in restoring shed loads after supply recovers. A load shed at hour H is not restored until hour H+1 or later, and only if hour H had supply ≥ demand × (1 + RESTORE_MARGIN). This prevents rapid oscillation ("flicker") where a load is shed and immediately restored if supply is marginal. Controlled by `RESTORE_MARGIN = 0.05` in `LoadSheddingService.php`.
+
+**critical_unmet_kwh:** A distinct output field from `LoadSheddingService` that reports energy that could not be served even after completely removing all Normal and Essential loads. Critical loads are never automatically shed, so any remaining deficit after full non-critical shedding becomes `critical_unmet_kwh`. This is separate from the dispatch engine's `unmet_kwh`, which represents supply gaps after dispatch optimization. A non-zero `critical_unmet_kwh` triggers a red alert banner on the Load Schedule page and indicates the system needs more generation or storage capacity.
+
+**Round-trip-waste guard:** A condition in `SourceDispatchService` (Step 7) that prevents the generator from charging the battery in the same hour that the battery is also discharging to load (`$dischargeW === 0.0` check, `SourceDispatchService.php` line 464). Without this guard the battery would charge and discharge simultaneously, wasting 15–20% of the energy in the charge/discharge round-trip. The guard ensures energy flows directionally: generator → battery OR battery → load, never both in the same hour.
+
+**target-SOC:** The battery state-of-charge floor computed from the day-ahead load profile. Documented in Section 8 under "Night-Reserve Protection." See also *night-reserve target SOC* entry above (same concept, two names used in different parts of the codebase).
+
+---
+
+## Section 20 — Validation & Corrections Applied
+
+This section is a chronological record of bugs confirmed in code and corrections applied. Each item includes the affected component, the fault found, and what was changed.
+
+### Round 1 Corrections (v1.0 → v1.1)
+
+| # | Area | Fault | Fix applied |
+|---|------|-------|-------------|
+| 1 | Phase Balance | FFD greedy assignment only — no splitting, could not reach target imbalance | Added LPT fixture-level split (Stage 1) + iterative balance-driven re-split loop (Stage 2) to `ElectricalDesignService` |
+| 2 | Phase Balance page vs ED page | Phase Balance computed its own phase totals independently of Electrical Design — totals could diverge | `PhaseBalanceController::buildingReport()` now reads `phase_balance_va` directly from ED output; one source of truth |
+| 3 | SPLIT room display | Phase Balance forced every room to a single phase even when two circuits of the same room landed on different phases | Added `is_split` + `split_sections` room model; Phase Balance page renders SPLIT badge |
+| 4 | Dispatch engine — target-SOC | Engine discharged battery freely during the day without protecting overnight reserve, forcing generator at night | Added pre-dispatch look-ahead that computes `battTargetKwh` (night energy req + RESERVE_MARGIN) and enforces a dynamic floor during Step 4 battery discharge |
+| 5 | Dispatch Step 7 — afternoon ramp gate | Generator pre-charged the battery during afternoon discharge hours, cancelling the peak-shave benefit | Added `inAfternoonRamp` guard: Step 7 suppressed when past solar peak, still daylight, load > solar, and battery has above-floor buffer |
+| 6 | Dispatch Step 7 — morning ramp gate | Generator needlessly started before solar peak to pre-charge, when rising solar would do it naturally | Added `inMorningRamp` guard: Step 7 suppressed between sunrise and solar peak when battery has above-floor energy |
+| 7 | Battery chemistry display | Create/update allowed old chemistry-derived values (DoD/RTE/C-rates) to persist through an edit because of an `!array_key_exists` guard | Removed guard in `BatteryController.php:92–98`; chemistry preset now always overwrites the five fields on every chemistry change |
+| 8 | Battery test (Test 23) | `test_every_chemistry_preset_has_dod_below_one` was failing for an old test dataset that assumed an incorrect chemistry key format | Updated test to use live `BatteryChemistryService::all()` presets; all DoD values confirmed in (0, 1) |
+| 9 | SLD topology | Separate battery and solar circles were shown even when the battery was DC-coupled to the solar system (solar_system_id ≠ null) | Added `HybridGroup` node: when a battery has `solar_system_id ≠ null`, the paired solar and battery are rendered as one `HybridGroup` rectangle |
+
+### Round 2 Corrections (v1.1 → v1.2)
+
+| # | Area | Fault | Fix applied |
+|---|------|-------|-------------|
+| 10 | LoadSheddingService — shift target selection | `findShiftTarget()` used `supplyCapW` (includes generator + battery) for shift-target scoring, making dark overnight hours attractive targets; shiftable loads moved to night hours draining battery and forcing generator | Added `shiftCapW = solar + utilCapW` (no battery, no generator); this array is passed to `shed()` and used exclusively in `findShiftTarget()`. `ScheduleController.php` lines 161–163, `LoadSheddingService.php` line 104 |
+| 11 | Load Schedule chart — demand line | Chart used original pre-shed `load_optimized[h]` / `load_max[h]` as the demand line even after shedding shifted loads, causing the stacked supply areas and the demand line to diverge | API now returns `load_shed_optimized` and `load_shed_max`; `LoadSchedulePage.jsx` uses these as `demand` in `chartData` with fallback. Lines 579–582 |
+| 12 | Battery age computation (unit bug) | Age was computed in integer days in an earlier version — a 36-day battery would show age = 36 yr instead of 0.10 yr | `Battery::getAgeYearsAttribute()` divides by 365.25 explicitly: `round($days / 365.25, 2)`. `Battery.php` line 72 |
+| 13 | Optimizer improvement check (A.6) | `pickBestIntervals()` compared new interval cost against the best run-hours-wide sub-block within the current interval; skipped update even when the current interval was much wider than required (e.g. 10h wide for a 4h load) | Added `$currentScheduledHours` tracking: skip-update only when width already equals `required_run_hours` AND no better cost found. `ProjectController.php` lines ~273–295 |
+| 14 | Generator daily cost display | Dashboard displayed generator cost using a flat per-kWh rate instead of the affine F(P) model — diverged from `FinancialAnalysisService` | Dashboard cost calculation updated to use the same affine formula as `FinancialAnalysisService`; both now agree |
+
+---
+
+*Document updated 2026-07-06 (v1.2). All formulas and constants verified against file:line citations listed. Items marked ⚠ require independent verification before licensed engineering submission.*

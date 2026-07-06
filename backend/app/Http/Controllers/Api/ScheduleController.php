@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Services\DiversityFactorService;
+use App\Services\LoadSheddingService;
 use App\Services\SolarIrradianceService;
 use App\Services\SourceDispatchService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -27,6 +29,7 @@ class ScheduleController extends Controller
     public function __construct(
         private SolarIrradianceService $solarSvc,
         private SourceDispatchService  $dispatchSvc,
+        private LoadSheddingService    $sheddingSvc,
     ) {}
 
     private const ALL_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -144,19 +147,51 @@ class ScheduleController extends Controller
         $batteries = $project->batteries()->where('is_active', true)->get();
         $battPass  = $batteries->isNotEmpty() ? $batteries : null;
 
+        // ── 4b. Supply capacity estimate for the load-shedding pre-pass ────────
+        // supplyCapW (full cap incl. generator + battery) → deficit detection & restoration.
+        // shiftCapW  (solar + utility only, no battery, no generator) → shift-target selection.
+        //   A shiftable load must only move to an hour where renewable/grid supply alone
+        //   can absorb it.  Including battery or generator here would make dark hours look
+        //   attractive, drain the battery overnight, and force the generator to compensate.
+        $battMaxDischargeW = $batteries->sum(fn($b) => $b->max_discharge_power_kw) * 1000.0;
+        $supplyCapW        = array_map(
+            fn($solar) => $solar + $utilCapW + $genCapW + $battMaxDischargeW,
+            $solarProfile
+        );
+        $shiftCapW         = array_map(
+            fn($solar) => $solar + $utilCapW,   // solar + grid only — no battery, no generator
+            $solarProfile
+        );
+
+        $solarSystemsArg = $solarSystems->isNotEmpty() ? $solarSystems : null;
+
         // ── 5. Per-day profiles: one entry per day of the week ────────────────
         // Each day simulation starts from batteries' stored current_soc.
         $days = [];
         foreach (self::ALL_DAYS as $dayName) {
+            // Build component slots for shedding pre-pass (mode-matched to dispatch)
+            $slotsMax = $this->buildComponentSlots($components, 'max',       $dayName, $month);
+            $slotsOpt = $this->buildComponentSlots($components, 'optimized', $dayName, $month);
+
+            $shedMax = $this->sheddingSvc->shed($slotsMax, $supplyCapW, $shiftCapW);
+            $shedOpt = $this->sheddingSvc->shed($slotsOpt, $supplyCapW, $shiftCapW);
+
+            // Use adjusted profiles for dispatch; original profiles exposed for UI diff
             $loadMax = $this->buildHourlyW($components, 'max',       $dayName, $month, false);
             $loadOpt = $this->buildHourlyW($components, 'optimized', $dayName, $month, true);
 
             $days[$dayName] = [
                 'load_max'           => $loadMax,
                 'load_optimized'     => $loadOpt,
+                // Adjusted profiles (post-shed/shift) exposed so the chart demand line
+                // matches what the dispatch engine actually received.
+                'load_shed_max'      => $shedMax['adjusted_load_w'],
+                'load_shed_optimized'=> $shedOpt['adjusted_load_w'],
                 'hourly_kvar'        => $this->buildHourlyKvar($components, $dayName, $month),
-                'dispatch_max'       => $this->dispatchSvc->dispatch($loadMax, $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystems->isNotEmpty() ? $solarSystems : null),
-                'dispatch_optimized' => $this->dispatchSvc->dispatch($loadOpt, $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystems->isNotEmpty() ? $solarSystems : null),
+                'dispatch_max'       => $this->dispatchSvc->dispatch($shedMax['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg),
+                'dispatch_optimized' => $this->dispatchSvc->dispatch($shedOpt['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg),
+                'shedding_max'       => $this->shedSummary($shedMax),
+                'shedding_optimized' => $this->shedSummary($shedOpt),
             ];
         }
 
@@ -254,19 +289,105 @@ class ScheduleController extends Controller
             $pf = max(0.01, (float) ($c->power_factor ?? 1));
             $va = (float) $c->power * (int) $c->quantity; // S = VA_rated × qty — used for group-max selection
             $out[] = [
-                'va'        => $va,
-                'peak_w'    => $va * $pf,  // undiversified P = S × PF
-                'df'        => $df,
-                'pf'        => $pf,
-                'intervals' => $c->usage_time_intervals ?? [['start' => '08:00', 'end' => '18:00']],
-                'season'    => $c->usage_season  ?? 'all',
-                'day_type'  => $c->usage_day_type ?? 'all',
-                'priority'  => $c->priority,
-                'group_key' => $c->group_name ? ($key . '|' . $c->{$key} . '|' . $c->group_name) : null,
-                'work_days' => $workDays,
-                'seasons'   => $seasons,
+                'va'               => $va,
+                'peak_w'           => $va * $pf,  // undiversified P = S × PF
+                'df'               => $df,
+                'pf'               => $pf,
+                'intervals'        => $c->usage_time_intervals ?? [['start' => '08:00', 'end' => '18:00']],
+                'season'           => $c->usage_season   ?? 'all',
+                'day_type'         => $c->usage_day_type ?? 'all',
+                'priority'         => $c->priority       ?? 'normal',
+                'group_key'        => $c->group_name ? ($key . '|' . $c->{$key} . '|' . $c->group_name) : null,
+                'work_days'        => $workDays,
+                'seasons'          => $seasons,
+                // Demand-side shedding fields
+                'load_flexibility' => $c->load_flexibility     ?? 'fixed',
+                'curtail_min_pct'  => (int) ($c->curtail_min_pct      ?? 0),
+                'earliest_start'   => (int) ($c->earliest_start_hour  ?? 0),
+                'latest_end'       => (int) ($c->latest_end_hour      ?? 24),
+                'required_run_h'   => (int) ($c->required_run_hours   ?? 0),
+                'label'            => "type{$c->component_type_id}/{$c->power}W",
             ];
         }
+    }
+
+    /**
+     * Build per-component slots with pre-computed active_hours[24] arrays.
+     * Used by LoadSheddingService to perform component-level shedding/shifting.
+     *
+     * Applies the same group-max and season/day-type filtering as buildHourlyW()
+     * so the shedding pre-pass sees exactly the same set of loads as dispatch.
+     */
+    private function buildComponentSlots(array $components, string $mode, string $dayName, int $month): array
+    {
+        // Apply group-max in optimized mode (mirrors buildHourlyW logic)
+        if ($mode === 'optimized') {
+            $groups    = [];
+            $ungrouped = [];
+            foreach ($components as $c) {
+                if ($c['group_key'] === null) {
+                    $ungrouped[] = $c;
+                } else {
+                    if (!isset($groups[$c['group_key']]) || $c['va'] > $groups[$c['group_key']]['va']) {
+                        $groups[$c['group_key']] = $c;
+                    }
+                }
+            }
+            $components = array_merge($ungrouped, array_values($groups));
+        }
+
+        $applyDiversity = $mode === 'optimized';
+        $slots          = [];
+
+        foreach ($components as $c) {
+            $isCritical = ($c['priority'] === 'critical');
+
+            // Apply the same season/day-type filters as buildHourlyW
+            if (!$isCritical) {
+                if (!$this->activeInMonth($c['seasons'], $month))                  continue;
+                if (!$this->componentSeasonOk($c['season'], $month))               continue;
+                if (!$this->dayTypeOk($c['work_days'], $c['day_type'], $dayName))  continue;
+            }
+
+            $effectiveDf = ($applyDiversity && !$isCritical) ? (float) $c['df'] : 1.0;
+            $peakW       = $c['peak_w'] * $effectiveDf;
+            if ($peakW <= 0) continue;
+
+            // Compute active_hours using the same interval arithmetic as buildHourlyW
+            $active = array_fill(0, 24, false);
+            if ($isCritical) {
+                $active = array_fill(0, 24, true);
+            } else {
+                foreach ($c['intervals'] as $iv) {
+                    $start = $this->dec($iv['start'] ?? '00:00');
+                    $end   = $this->dec($iv['end']   ?? '23:59');
+                    if ($end <= $start) $end += 24;
+                    for ($h = 0; $h < 24; $h++) {
+                        $mid = $h + 0.5;
+                        if (($mid >= $start && $mid < $end) ||
+                            ($end > 24 && ($mid + 24) >= $start && ($mid + 24) < $end)) {
+                            $active[$h] = true;
+                        }
+                    }
+                }
+            }
+
+            if (!in_array(true, $active, true)) continue;
+
+            $slots[] = [
+                'peak_w'          => $peakW,
+                'priority'        => $c['priority'],
+                'load_flexibility'=> $c['load_flexibility'],
+                'active_hours'    => $active,
+                'curtail_min_pct' => (float) $c['curtail_min_pct'],
+                'earliest_start'  => $c['earliest_start'],
+                'latest_end'      => $c['latest_end'],
+                'required_run_h'  => $c['required_run_h'],
+                'label'           => $c['label'],
+            ];
+        }
+
+        return $slots;
     }
 
     // ── 24-hour profile builder ───────────────────────────────────────────────
@@ -430,5 +551,188 @@ class ScheduleController extends Controller
             $result[] = round($hourlyQ[$h] / 1000, 2);
         }
         return $result;
+    }
+
+    /**
+     * Flatten a LoadSheddingService result into the response shape.
+     * Kept separate so per_load_shed_list is only included when non-empty.
+     */
+    private function shedSummary(array $result): array
+    {
+        $summary = [
+            'shed_curtailable_kwh' => $result['shed_curtailable_kwh'],
+            'shed_normal_kwh'      => $result['shed_normal_kwh'],
+            'shed_essential_kwh'   => $result['shed_essential_kwh'],
+            'critical_unmet_kwh'   => $result['critical_unmet_kwh'],
+            'any_shedding'         => ($result['shed_curtailable_kwh']
+                                       + $result['shed_normal_kwh']
+                                       + $result['shed_essential_kwh']
+                                       + $result['critical_unmet_kwh']) > 0,
+        ];
+
+        if (!empty($result['per_load_shed_list'])) {
+            $summary['per_load_shed_list'] = $result['per_load_shed_list'];
+        }
+
+        return $summary;
+    }
+
+    // ── Chemistry Comparison ──────────────────────────────────────────────────
+
+    /**
+     * GET /api/projects/{project}/battery-chemistry-comparison
+     * Query params: month (1-12), day (1-31), day_type (weekday|weekend)
+     *
+     * Runs the same load + solar profile twice — once with a lead-acid bank
+     * (DoD 50 %, RTE 82 %) and once with LFP (DoD 85 %, RTE 92 %) — both
+     * sharing the project's actual total nominal capacity.
+     * Returns generator kWh, hours, and affine fuel cost so the UI can show
+     * how chemistry choice affects generator usage for the same building.
+     */
+    public function chemistryComparison(Request $request, Project $project)
+    {
+        $this->authorize('view', $project);
+        if (! $project->userRole($request->user()->id)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $month   = max(1, min(12, (int) $request->query('month', now()->month)));
+        $dayNum  = max(1, min(31, (int) $request->query('day', 15)));
+        $dayNum  = min($dayNum, (int) date('t', mktime(0, 0, 0, $month, 1, 2023)));
+        $dayType = $request->query('day_type', 'weekday');
+        $dayName = $dayType === 'weekend' ? 'saturday' : 'monday';
+
+        // Load profile for a representative day
+        $components = $this->collectComponents($project);
+        $loadW      = $this->buildHourlyW($components, 'max', $dayName, $month, false);
+
+        // Solar
+        $solarSystems = $project->solarSystems()->where('is_active', true)->get();
+        $solarMode    = $project->solar_source ?? 'max';
+        if ($solarMode === 'existing') {
+            $solarCapacityW = $solarSystems->isNotEmpty()
+                ? $solarSystems->sum('capacity_kw') * 1000.0
+                : (float) ($project->existing_solar_power ?? 0)
+                    + (float) $project->buildings()->sum('existing_solar_power');
+        } else {
+            $totalAreaM2    = (float) $project->buildings()->sum('area');
+            $solarCapacityW = SolarIrradianceService::estimateCapacityW($totalAreaM2);
+        }
+        $lat = $project->location_lat !== null ? (float) $project->location_lat : null;
+        $lng = $project->location_lng !== null ? (float) $project->location_lng : null;
+        $solarProfile = $this->solarSvc->getHourlyOutputWatts(
+            $lat, $lng, $month, $solarCapacityW / 1000.0, performanceRatio: 0.80, day: $dayNum
+        );
+
+        // Source capacities
+        $utilCapW = (float) $project->utilityLines()->sum('power') * 0.8;
+        $genCapW  = (float) $project->generatorLines()->sum('power') * 0.8;
+
+        // Reference nominal capacity from actual batteries (default 10 kWh for illustration)
+        $batteries  = $project->batteries()->where('is_active', true)->get();
+        $nominalKwh = $batteries->isNotEmpty()
+            ? $batteries->sum(fn($b) => $b->nominal_capacity_kwh)
+            : 10.0;
+        $avgSoc     = $batteries->isNotEmpty()
+            ? round($batteries->avg('current_soc'), 3)
+            : 0.5;
+
+        // Generator fuel params for affine cost (ISO 8528: F(P) = F₀ + (F_rated-F₀)×P/P_rated)
+        $genLine = $project->generatorLines()
+            ->whereNotNull('fuel_cost_per_liter')->whereNotNull('fuel_consumption_lph')
+            ->where('fuel_cost_per_liter', '>', 0)->where('fuel_consumption_lph', '>', 0)
+            ->orderBy('id')->first();
+
+        // Chemistry specs: same nominal, different DoD and RTE
+        $chemSpecs = [
+            'lead_acid' => [
+                'label' => 'Lead-Acid',
+                'dod'   => 0.50,  // ⚠ tunable — matches BatteryChemistryService flooded DoD
+                'rte'   => 0.82,  // ⚠ tunable — matches BatteryChemistryService flooded RTE
+                'c_chg' => 0.10,  // C/10 charge rate
+                'c_dch' => 0.20,  // C/5  discharge rate
+            ],
+            'lithium_lfp' => [
+                'label' => 'Lithium LFP',
+                'dod'   => 0.85,  // ⚠ tunable — matches BatteryChemistryService lithium_lfp DoD
+                'rte'   => 0.92,  // ⚠ tunable — matches BatteryChemistryService lithium_lfp RTE
+                'c_chg' => 0.50,
+                'c_dch' => 1.00,
+            ],
+        ];
+
+        $comparison = [];
+        foreach ($chemSpecs as $key => $spec) {
+            $usableKwh = $nominalKwh * $spec['dod'];
+            $fakeBatt  = new Collection([(object) [
+                'id'                     => 1,
+                'is_active'              => true,
+                'usable_capacity_kwh'    => $usableKwh,
+                'current_soc'            => max(0.0, min(1.0, $avgSoc)),
+                'max_charge_power_kw'    => $nominalKwh * $spec['c_chg'],
+                'max_discharge_power_kw' => $nominalKwh * $spec['c_dch'],
+                'round_trip_efficiency'  => $spec['rte'],
+                'solar_system_id'        => null,
+            ]]);
+
+            $dispatch = $this->dispatchSvc->dispatch(
+                $loadW, $solarProfile, $utilCapW, $genCapW, $fakeBatt, $solarCapacityW,
+                $solarSystems->isNotEmpty() ? $solarSystems : null
+            );
+
+            $stats  = $dispatch['stats'];
+            $genKwh = $stats['generator_kwh'];
+
+            // Affine hourly fuel cost
+            $fuelCost = null;
+            if ($genLine && $genCapW > 0) {
+                $ratedKw = $genCapW / 1000.0;
+                $fRated  = (float) $genLine->fuel_consumption_lph;
+                $f0      = $genLine->no_load_fuel_lph ?? round($fRated * 0.30, 4);
+                $cpL     = (float) $genLine->fuel_cost_per_liter;
+                $litres  = 0.0;
+                foreach ($dispatch['generator_used'] as $watt) {
+                    if ($watt > 0) {
+                        $kw     = $watt / 1000.0;
+                        $litres += $f0 + ($fRated - $f0) * ($kw / $ratedKw);
+                    }
+                }
+                $fuelCost = round($litres * $cpL, 2);
+            }
+
+            $comparison[$key] = [
+                'label'                  => $spec['label'],
+                'dod_pct'                => $spec['dod'] * 100,
+                'rte_pct'                => $spec['rte'] * 100,
+                'nominal_kwh'            => round($nominalKwh, 2),
+                'usable_kwh'             => round($usableKwh, 2),
+                'generator_hours'        => $stats['generator_hours'],
+                'generator_kwh'          => $genKwh,
+                'battery_discharged_kwh' => $stats['battery_discharged_kwh'] ?? 0.0,
+                'unmet_kwh'              => $stats['unmet_kwh'],
+                'fuel_cost'              => $fuelCost,
+            ];
+        }
+
+        // Delta: LFP advantage over lead-acid
+        $la  = $comparison['lead_acid'];
+        $lfp = $comparison['lithium_lfp'];
+        $delta = [
+            'generator_kwh_saved'   => round($la['generator_kwh']   - $lfp['generator_kwh'], 2),
+            'generator_hours_saved' => $la['generator_hours']        - $lfp['generator_hours'],
+            'fuel_cost_saved'       => ($la['fuel_cost'] !== null && $lfp['fuel_cost'] !== null)
+                                        ? round($la['fuel_cost'] - $lfp['fuel_cost'], 2)
+                                        : null,
+        ];
+
+        return response()->json([
+            'nominal_kwh'    => round($nominalKwh, 2),
+            'month'          => $month,
+            'day_type'       => $dayType,
+            'comparison'     => $comparison,
+            'delta'          => $delta,
+            'currency'       => $project->currency_symbol ?? '$',
+            'has_fuel_data'  => $genLine !== null,
+        ]);
     }
 }

@@ -100,6 +100,16 @@ class ElectricalDesignService
     // IEC 60898 / IEC 60947-2 standard MCB current ratings [A]
     private const BREAKER_SIZES = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400];
 
+    // ── Balance / split tuning constants ──────────────────────────────────────
+    // Phase 1 trigger: split when circuit_VA > breaker_a × V_PHASE × LOADING_FACTOR
+    private const LOADING_FACTOR   = 0.80;   // ⚠ tunable — breaker utilisation ceiling
+    // Phase 3 loop: keep re-splitting until imbalance ≤ this fraction (0.15 = 15 %)
+    private const IMBALANCE_TARGET = 0.15;   // ⚠ tunable
+    // Maximum balance-driven re-split iterations per floor
+    private const MAX_ITERS        = 12;     // ⚠ tunable
+    // Minimum VA per sub-circuit after a fixture-level split (avoids micro-circuits)
+    private const MIN_SPLIT_VA     = 150.0;  // ⚠ tunable
+
     // Wet/critical room types: their SOCKET circuits are isolated per-room (not cross-room shared).
     // Their LIGHTING joins the normal floor pool — only sockets/equipment stay isolated.
     private const DEDICATED_ROOM_TYPES = [
@@ -304,7 +314,9 @@ class ElectricalDesignService
         $mdbIncomer     = $this->sizeIncomer($incomerVA, true, $rules);
 
         $floorFeeders   = $this->makeFloorFeeders($floorResults, $rules);
-        $allMdbCircuits = $this->assignPhases(array_merge($buildingOwnCircuits, $floorFeeders));
+        $mdbCircuits    = array_merge($buildingOwnCircuits, $floorFeeders);
+        $mdbCircuits    = $this->splitOversizedCircuits($mdbCircuits, $rules);
+        $allMdbCircuits = $this->assignPhases($mdbCircuits);
         foreach ($allMdbCircuits as $i => &$c) { $c['circuit_no'] = $i + 1; }
         unset($c);
 
@@ -471,7 +483,15 @@ class ElectricalDesignService
             $allCircuits[] = $c;
         }
 
-        $allCircuits = $this->assignPhases($allCircuits);
+        // Phase 1: split circuits that exceed the electrical (breaker) limit so
+        // sub-circuits can land on different phases (IEC 60364-8-1 §6.3).
+        $allCircuits = $this->splitOversizedCircuits($allCircuits, $rules);
+        // Phase 3: iteratively re-split the heaviest-phase circuit until imbalance
+        // drops below IMBALANCE_TARGET or no improving move exists.
+        $allCircuits = $this->balanceDrivenReSplit($allCircuits, $rules);
+        // Final assignment: pure LPT to ensure consistent phase totals; saved hints
+        // are bypassed because balanceDrivenReSplit already ran pure LPT internally.
+        $allCircuits = $this->assignPhases($allCircuits, false);
         foreach ($allCircuits as $i => &$c) { $c['circuit_no'] = $i + 1; }
         unset($c);
 
@@ -549,6 +569,7 @@ class ElectricalDesignService
             'is_motor'     => $isMotor,
             'priority'     => $component->priority ?? 'normal',
             'circuit_type' => $circuitType,
+            'saved_phase'  => $component->phase ?? null,   // DB phase from PhaseBalanceController
         ];
     }
 
@@ -567,11 +588,12 @@ class ElectricalDesignService
             'is3ph'           => $load['is3ph'],
             'room_names'      => [],
             'loads'           => [[
-                'name'     => $load['name'],
-                'qty'      => $load['qty'],
-                'va_each'  => $load['va_each'],
-                'total_va' => $load['va'],
-                'is_motor' => $load['is_motor'],
+                'name'        => $load['name'],
+                'qty'         => $load['qty'],
+                'va_each'     => $load['va_each'],
+                'total_va'    => $load['va'],
+                'is_motor'    => $load['is_motor'],
+                'saved_phase' => $load['saved_phase'] ?? null,
             ]],
             'total_va'        => $load['va'],
             'ib_a'            => $sizing['ib_a'],
@@ -616,10 +638,11 @@ class ElectricalDesignService
             $acc['total_va']     += $load['va'];
             $acc['outlet_count'] += $load['qty'];
             $acc['loads'][]       = [
-                'name'     => $load['name'],
-                'qty'      => $load['qty'],
-                'va_each'  => $load['va_each'],
-                'total_va' => $load['va'],
+                'name'        => $load['name'],
+                'qty'         => $load['qty'],
+                'va_each'     => $load['va_each'],
+                'total_va'    => $load['va'],
+                'saved_phase' => $load['saved_phase'] ?? null,
             ];
             if ($load['priority'] === 'critical') $acc['has_critical'] = true;
         }
@@ -666,11 +689,12 @@ class ElectricalDesignService
 
             $openCircuit['total_va'] += $load['va'];
             $openCircuit['loads'][]   = [
-                'name'     => $load['name'],
-                'qty'      => $load['qty'],
-                'va_each'  => $load['va_each'],
-                'total_va' => $load['va'],
-                'room'     => $roomName,
+                'name'        => $load['name'],
+                'qty'         => $load['qty'],
+                'va_each'     => $load['va_each'],
+                'total_va'    => $load['va'],
+                'room'        => $roomName,
+                'saved_phase' => $load['saved_phase'] ?? null,
             ];
             if ($load['priority'] === 'critical') $openCircuit['has_critical'] = true;
         }
@@ -710,11 +734,12 @@ class ElectricalDesignService
 
             $openCircuit['total_va'] += $load['va'];
             $openCircuit['loads'][]   = [
-                'name'     => $load['name'],
-                'qty'      => $load['qty'],
-                'va_each'  => $load['va_each'],
-                'total_va' => $load['va'],
-                'room'     => $roomName,
+                'name'        => $load['name'],
+                'qty'         => $load['qty'],
+                'va_each'     => $load['va_each'],
+                'total_va'    => $load['va'],
+                'room'        => $roomName,
+                'saved_phase' => $load['saved_phase'] ?? null,
             ];
             if ($load['priority'] === 'critical') $openCircuit['has_critical'] = true;
         }
@@ -781,8 +806,9 @@ class ElectricalDesignService
             if (!empty($small)) {
                 $totalVa  = array_sum(array_column($small, 'va'));
                 $loadsArr = array_map(fn($l) => [
-                    'name'     => $l['name'], 'qty' => $l['qty'],
-                    'va_each'  => $l['va_each'], 'total_va' => $l['va'], 'is_motor' => $l['is_motor'],
+                    'name'        => $l['name'], 'qty' => $l['qty'],
+                    'va_each'     => $l['va_each'], 'total_va' => $l['va'], 'is_motor' => $l['is_motor'],
+                    'saved_phase' => $l['saved_phase'] ?? null,
                 ], $small);
                 $acc = ['total_va' => $totalVa, 'loads' => $loadsArr,
                         'room_names' => ['(Direct)'], 'has_critical' => true];
@@ -1097,7 +1123,268 @@ class ElectricalDesignService
 
     // ── Phase assignment ───────────────────────────────────────────────────────
 
-    private function assignPhases(array $circuits): array
+    /**
+     * Electrical-limit split: split any 1-phase circuit whose VA exceeds the
+     * maximum a breaker can supply at the configured loading factor.
+     *   max_circuit_VA = breaker_a × V_PHASE × LOADING_FACTOR
+     *   n = ceil(circuit_VA / max_circuit_VA)   (no upper-bound cap)
+     */
+    private function splitOversizedCircuits(array $circuits, array $rules): array
+    {
+        $result = [];
+        foreach ($circuits as $c) {
+            $cVa   = (float) ($c['total_va'] ?? 0);
+            $is3ph = (bool) ($c['is3ph'] ?? false);
+
+            $totalFixtures = array_sum(
+                array_map(fn($l) => max(1, (int) ($l['qty'] ?? 1)), $c['loads'] ?? [])
+            );
+
+            // Determine the electrical ceiling for this circuit type
+            $breakerKey  = match (strtoupper($c['type'] ?? '')) {
+                'LIGHTING'  => 'lighting_breaker_a',
+                'SOCKET'    => 'socket_breaker_a',
+                default     => 'auxiliary_breaker_a',
+            };
+            $breakerA    = (float) ($rules[$breakerKey] ?? 10);
+            $loadFactor  = (float) ($rules['breaker_loading_factor'] ?? self::LOADING_FACTOR);
+            $maxCircVA   = $breakerA * self::V_PHASE * $loadFactor;
+
+            // Skip: 3-phase, within electrical limit, too small, or unsplittable
+            if ($is3ph
+                || $cVa <= $maxCircVA
+                || $cVa < self::MIN_SPLIT_VA
+                || $totalFixtures < 2)
+            {
+                $result[] = $c;
+                continue;
+            }
+
+            $n = max(2, (int) ceil($cVa / $maxCircVA));
+
+            foreach ($this->splitCircuitIntoN($c, $n, $rules) as $sub) {
+                $result[] = $sub;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Split a single 1-phase circuit into $n sub-circuits using LPT fixture
+     * bin packing.  Returns an array of $n circuit arrays (fewer if some bins
+     * end up empty after packing).
+     */
+    private function splitCircuitIntoN(array $c, int $n, array $rules): array
+    {
+        // Expand each load entry into individual fixture units
+        $units = [];
+        foreach ($c['loads'] as $load) {
+            $qty    = max(1, (int) ($load['qty'] ?? 1));
+            $vaEach = (float) ($load['va_each'] ?? 0);
+            if ($vaEach <= 0 && $qty > 0) {
+                $vaEach = ((float) ($load['total_va'] ?? 0)) / $qty;
+            }
+            for ($i = 0; $i < $qty; $i++) {
+                $units[] = [
+                    'name'        => $load['name'] ?? 'Load',
+                    'va_each'     => $vaEach,
+                    'is_motor'    => $load['is_motor'] ?? false,
+                    'saved_phase' => $load['saved_phase'] ?? null,
+                    'room'        => $load['room'] ?? null,
+                    'priority'    => $load['priority'] ?? 'normal',
+                ];
+            }
+        }
+
+        // Sort descending so large units are placed first (LPT)
+        usort($units, fn($a, $b) => $b['va_each'] <=> $a['va_each']);
+
+        // Greedy N-way partition into lightest bin
+        $bins  = array_fill(0, $n, []);
+        $binVa = array_fill(0, $n, 0.0);
+        foreach ($units as $unit) {
+            $minIdx          = array_search(min($binVa), $binVa);
+            $bins[$minIdx][] = $unit;
+            $binVa[$minIdx] += $unit['va_each'];
+        }
+
+        $subs = [];
+        foreach ($bins as $binUnits) {
+            if (empty($binUnits)) continue;
+
+            // Reconstruct load entries grouped by (name, va_each)
+            $grouped = [];
+            foreach ($binUnits as $unit) {
+                $key = $unit['name'] . '|' . $unit['va_each'];
+                if (! isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'name'        => $unit['name'],
+                        'qty'         => 0,
+                        'va_each'     => $unit['va_each'],
+                        'total_va'    => 0.0,
+                        'is_motor'    => $unit['is_motor'],
+                        'saved_phase' => $unit['saved_phase'],
+                    ];
+                    if ($unit['room'] !== null) {
+                        $grouped[$key]['room'] = $unit['room'];
+                    }
+                }
+                $grouped[$key]['qty']++;
+                $grouped[$key]['total_va'] = round(
+                    $grouped[$key]['qty'] * $grouped[$key]['va_each'], 2
+                );
+            }
+
+            $reconLoads = array_values($grouped);
+            $sVA        = array_sum(array_column($reconLoads, 'total_va'));
+            $sizing     = $this->sizeCircuit($sVA, false, $c['type'], $rules);
+            $hasCrit    = (bool) ($c['has_critical'] ?? false)
+                || ! empty(array_filter($reconLoads, fn($l) => ($l['priority'] ?? '') === 'critical'));
+
+            $subs[] = [
+                'type'            => $c['type'],
+                'is3ph'           => false,
+                'room_names'      => $c['room_names'] ?? [],
+                'loads'           => $reconLoads,
+                'total_va'        => round($sVA, 1),
+                'ib_a'            => $sizing['ib_a'],
+                'in_a'            => $sizing['in_a'],
+                'curve'           => $sizing['curve'],
+                'cable_mm2'       => $sizing['cable_mm2'],
+                'pe_mm2'          => $sizing['pe_mm2'],
+                'rcd'             => $c['rcd'],
+                'rcd_group'       => $c['rcd_group'],
+                'utilisation_pct' => $this->utilisationPct($sizing['ib_a'], $sizing['in_a']),
+                'mv_a_m'          => $this->mvAmForCable($sizing['cable_mm2']),
+                'vd_limit_pct'    => $c['vd_limit_pct'],
+                'has_critical'    => $hasCrit,
+                'vd_note'         => 'length required',
+                'phase'           => null,
+                'split_sub'       => true,
+            ];
+        }
+
+        return $subs;
+    }
+
+    /**
+     * Compute per-phase VA totals from an already-assigned circuit list.
+     * Used by the balance-driven re-split loop.
+     */
+    private function phaseVAFromCircuits(array $circuits): array
+    {
+        $va = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+        foreach ($circuits as $c) {
+            if ($c['is3ph'] ?? false) {
+                $each = (float) ($c['total_va'] ?? 0) / 3.0;
+                $va['A'] += $each;
+                $va['B'] += $each;
+                $va['C'] += $each;
+            } else {
+                $ph = $c['phase'] ?? null;
+                if ($ph && isset($va[$ph])) {
+                    $va[$ph] += (float) ($c['total_va'] ?? 0);
+                }
+            }
+        }
+        return $va;
+    }
+
+    /**
+     * Balance-driven re-split loop (Phase 3).
+     *
+     * After the electrical-limit split (Phase 1) and initial pure-LPT assignment,
+     * repeatedly try to reduce imbalance by splitting the largest circuit on the
+     * heaviest phase until either the target is met or no improving move exists.
+     *
+     * Uses pure LPT (no saved-phase hints) throughout so saved phases don't
+     * prevent the greedy from finding the best distribution.
+     */
+    private function balanceDrivenReSplit(array $circuits, array $rules): array
+    {
+        for ($iter = 0; $iter < self::MAX_ITERS; $iter++) {
+            $circuits  = $this->assignPhases($circuits, false);
+            $phaseVA   = $this->phaseVAFromCircuits($circuits);
+            $imbalance = $this->imbalancePct($phaseVA);
+
+            if ($imbalance <= self::IMBALANCE_TARGET * 100.0) break;
+
+            // Heaviest phase first
+            arsort($phaseVA);
+            $heaviest = array_key_first($phaseVA);
+
+            // Find the largest splittable circuit on the heaviest phase
+            $bestIdx = null;
+            $bestVa  = 0.0;
+            foreach ($circuits as $i => $c) {
+                if ($c['_no_balance_split'] ?? false) continue;
+                if ($c['is3ph'] ?? false) continue;
+                if (($c['phase'] ?? null) !== $heaviest) continue;
+
+                $cVa = (float) ($c['total_va'] ?? 0);
+                // Each resulting half must be ≥ MIN_SPLIT_VA to avoid micro-circuits
+                if ($cVa < 2.0 * self::MIN_SPLIT_VA) continue;
+
+                $totalFixtures = array_sum(
+                    array_map(fn($l) => max(1, (int) ($l['qty'] ?? 1)), $c['loads'] ?? [])
+                );
+                if ($totalFixtures < 2) continue;
+
+                if ($cVa > $bestVa) {
+                    $bestVa  = $cVa;
+                    $bestIdx = $i;
+                }
+            }
+
+            if ($bestIdx === null) break; // no candidate — local minimum
+
+            // Try splitting the candidate into 2
+            $splits    = $this->splitCircuitIntoN($circuits[$bestIdx], 2, $rules);
+            $candidate = array_values(array_merge(
+                array_slice($circuits, 0, $bestIdx),
+                $splits,
+                array_slice($circuits, $bestIdx + 1)
+            ));
+            $candidate    = $this->assignPhases($candidate, false);
+            $newImbalance = $this->imbalancePct($this->phaseVAFromCircuits($candidate));
+
+            if ($newImbalance < $imbalance) {
+                $circuits = $candidate;
+            } else {
+                // Split did not improve — mark circuit ineligible for this run
+                $circuits[$bestIdx]['_no_balance_split'] = true;
+            }
+        }
+
+        return $circuits;
+    }
+
+    /**
+     * Returns the phase whose loads account for ≥ 50 % of the circuit's total VA,
+     * or null if no single phase dominates or no loads have a saved phase.
+     * Used by assignPhases() to honour the phase-balance page's assignments.
+     */
+    private function dominantSavedPhase(array $loads): ?string
+    {
+        $vaByPhase = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+        $totalVa   = 0.0;
+
+        foreach ($loads as $load) {
+            $ph = $load['saved_phase'] ?? null;
+            $va = (float) ($load['total_va'] ?? $load['va'] ?? 0);
+            if ($ph !== null && isset($vaByPhase[$ph])) {
+                $vaByPhase[$ph] += $va;
+            }
+            $totalVa += $va;
+        }
+
+        if ($totalVa <= 0) return null;
+        $maxPh = array_keys($vaByPhase, max($vaByPhase))[0];
+        return ($vaByPhase[$maxPh] / $totalVa >= 0.50) ? $maxPh : null;
+    }
+
+    private function assignPhases(array $circuits, bool $useSavedHints = true): array
     {
         if (empty($circuits)) return $circuits;
 
@@ -1116,9 +1403,28 @@ class ElectricalDesignService
                 $phaseVA['C'] += $each;
                 continue;
             }
+
+            // Honour the phase already saved in the DB (written by PhaseBalanceController
+            // when the user applies the optimal phase balance). This keeps the panel
+            // schedule consistent with the phase-balance page after "Apply Optimal".
+            // Exception: circuits created by splitOversizedCircuits() must ignore the
+            // saved phase hint — their loads may all share the same saved phase (e.g.
+            // all room lights on 'A'), and we need the greedy to spread them freely.
+            // When $useSavedHints=false (balance-driven re-split loop), skip hints
+            // entirely so pure LPT can redistribute circuits freely.
+            $savedPh = ($useSavedHints && ! ($c['split_sub'] ?? false))
+                ? $this->dominantSavedPhase($c['loads'] ?? [])
+                : null;
+            if ($savedPh !== null) {
+                $result[$i]['phase'] = $savedPh;
+                $phaseVA[$savedPh]  += (float) ($c['total_va'] ?? 0);
+                continue;
+            }
+
+            // Fallback: greedy — assign to the lightest phase so far.
             $ph = array_keys($phaseVA, min($phaseVA))[0];
-            $result[$i]['phase']  = $ph;
-            $phaseVA[$ph]        += (float) ($c['total_va'] ?? 0);
+            $result[$i]['phase'] = $ph;
+            $phaseVA[$ph]       += (float) ($c['total_va'] ?? 0);
         }
 
         return $result;

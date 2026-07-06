@@ -498,10 +498,12 @@ export default function LoadSchedulePage() {
   const navigate = useNavigate();
   const { projectId } = useParams();
 
-  const [project, setProject] = useState(null);
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [project, setProject]             = useState(null);
+  const [data, setData]                   = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState('');
+  const [chemComp, setChemComp]           = useState(null);
+  const [chemCompLoading, setChemCompLoading] = useState(false);
 
   const [year,  setYear]  = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -552,15 +554,32 @@ export default function LoadSchedulePage() {
 
   useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
 
+  const fetchChemComp = useCallback(() => {
+    if (!projectId) return;
+    const isWeekend = ['saturday', 'sunday'].includes(JS_DAY_NAMES[new Date(year, month - 1, day).getDay()]);
+    setChemCompLoading(true);
+    api.get(`/api/projects/${projectId}/battery-chemistry-comparison`, {
+      params: { month, day, day_type: isWeekend ? 'weekend' : 'weekday' },
+    })
+      .then(r => setChemComp(r.data))
+      .catch(() => setChemComp(null))
+      .finally(() => setChemCompLoading(false));
+  }, [projectId, month, day, year]);
+
   // ── Build chart data for the selected day-of-week ──────────────────────────
   const dayData  = data?.days?.[dayName];                          // e.g. data.days.saturday
   const dispatch = mode === 'optimized' ? dayData?.dispatch_optimized : dayData?.dispatch_max;
+  const shedding = mode === 'optimized' ? dayData?.shedding_optimized : dayData?.shedding_max;
 
   const hasBattery = dispatch?.has_battery_storage === true;
 
   const chartData = dayData
     ? Array.from({ length: 24 }, (_, h) => {
-        const demand = mode === 'optimized' ? dayData.load_optimized[h] : dayData.load_max[h];
+        // Use the post-shed/shift profile for demand so the stacked dispatch areas
+        // and the demand line stay in sync. Falls back to the original when absent.
+        const demand = mode === 'optimized'
+          ? (dayData.load_shed_optimized?.[h] ?? dayData.load_optimized[h])
+          : (dayData.load_shed_max?.[h]       ?? dayData.load_max[h]);
         return {
           hour:         h,
           load_max:     dayData.load_max[h],
@@ -652,6 +671,28 @@ export default function LoadSchedulePage() {
 
   return (
     <div className="p-6 space-y-4">
+
+      {/* ── Critical-load unmet alert (highest severity — cannot be resolved by dispatch) ── */}
+      {!loading && (shedding?.critical_unmet_kwh ?? 0) > 0 && (
+        <div className="flex items-start gap-3 bg-red-700 border border-red-900 rounded-xl px-4 py-3">
+          <svg className="w-5 h-5 text-red-100 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-white">
+              CRITICAL LOADS UNMET: {shedding.critical_unmet_kwh.toFixed(2)} kWh cannot be served
+            </p>
+            <p className="text-xs text-red-200 mt-0.5">
+              All non-critical loads were shed but supply is still insufficient.
+              Critical loads ({shedding.shed_normal_kwh > 0 || shedding.shed_essential_kwh > 0
+                ? `after shedding ${((shedding.shed_normal_kwh ?? 0) + (shedding.shed_essential_kwh ?? 0)).toFixed(2)} kWh`
+                : 'with no other loads active'}) could not be fully served.
+              Add generation capacity, battery storage, or reduce critical load.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Capacity shortfall warning banner ── */}
       {(() => {
@@ -1033,14 +1074,32 @@ export default function LoadSchedulePage() {
               }, 0);
             }
 
-            // Generator cost: actual kWh dispatched × rated cost/kWh.
-            // Using the simple flat rate keeps the number consistent — when
-            // optimization shifts loads to solar hours, generator_kwh drops and
-            // this cost drops proportionally. The affine model is reserved for
-            // long-term financial analysis where part-load efficiency matters.
-            const genCost = (hasCosts && rates.generator_cost_per_kwh != null)
-              ? Math.round((stats.generator_kwh ?? 0) * rates.generator_cost_per_kwh * 100) / 100
-              : null;
+            // Generator cost: per-hour affine fuel model (ISO 8528 / CIBSE).
+            // F(P) = F₀ + (F_rated − F₀) × P/P_rated   [L/h]
+            // cost_hour = F(P) × fuel_price_per_litre
+            // F₀ defaults to 30 % of rated if no_load_lph is not stored.
+            // ⚠ tunable constants: GEN_NO_LOAD_FRACTION = 0.30
+            let genCost = null;
+            if (hasCosts && rates.fuel_cost_per_liter != null
+                && rates.generator_rated_kw  != null
+                && rates.generator_rated_lph != null
+                && rates.generator_rated_kw  > 0
+                && rates.generator_rated_lph > 0) {
+              const fRated  = rates.generator_rated_lph;
+              const fNoLoad = rates.generator_no_load_lph ?? fRated * 0.30; // ⚠ tunable
+              const pRated  = rates.generator_rated_kw;
+              const price   = rates.fuel_cost_per_liter;
+              const raw = chartData.reduce((sum, d) => {
+                const kW = (d.gen_used ?? 0) / 1000;
+                if (kW < 0.001) return sum;
+                const frac = Math.max(0, Math.min(1, kW / pRated));
+                return sum + (fNoLoad + (fRated - fNoLoad) * frac) * price;
+              }, 0);
+              genCost = Math.round(raw * 100) / 100;
+            } else if (hasCosts && rates.generator_cost_per_kwh != null) {
+              // Fallback: flat rated-load rate when affine parameters are absent
+              genCost = Math.round((stats.generator_kwh ?? 0) * rates.generator_cost_per_kwh * 100) / 100;
+            }
 
             const totalDailyCost = (gridCost ?? 0) + (genCost ?? 0);
             const showCosts = hasCosts;
@@ -1153,6 +1212,121 @@ export default function LoadSchedulePage() {
               generator covers any remaining demand. Unmet load appears only if all sources are insufficient.
             </p>
           </div>
+
+          {/* Battery chemistry comparison panel */}
+          {hasBattery && (
+            <div className="rounded-xl border border-violet-100 bg-violet-50/40 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-100">
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span className="text-xs font-semibold text-violet-700">Battery Chemistry Comparison</span>
+                  <span className="text-[10px] text-violet-400">— same nominal capacity, same building</span>
+                </div>
+                {!chemComp && !chemCompLoading && (
+                  <button
+                    onClick={fetchChemComp}
+                    className="text-[10px] font-semibold text-violet-600 bg-white border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-50 transition-colors"
+                  >
+                    Run comparison
+                  </button>
+                )}
+                {chemCompLoading && (
+                  <span className="text-[10px] text-violet-400 animate-pulse">Computing…</span>
+                )}
+                {chemComp && !chemCompLoading && (
+                  <button
+                    onClick={fetchChemComp}
+                    className="text-[10px] text-violet-400 hover:text-violet-600 transition-colors"
+                    title="Refresh"
+                  >
+                    ↺ Refresh
+                  </button>
+                )}
+              </div>
+
+              {chemComp && (() => {
+                const la   = chemComp.comparison?.lead_acid;
+                const lfp  = chemComp.comparison?.lithium_lfp;
+                const d    = chemComp.delta;
+                const cur  = chemComp.currency ?? '$';
+
+                if (!la || !lfp) return null;
+
+                const row = (label, laVal, lfpVal, fmt = v => v, highlight = false) => (
+                  <tr key={label} className={highlight ? 'bg-violet-50' : ''}>
+                    <td className="px-3 py-1.5 text-[11px] text-gray-500 font-medium">{label}</td>
+                    <td className="px-3 py-1.5 text-[11px] text-center font-semibold text-amber-700">{fmt(laVal)}</td>
+                    <td className="px-3 py-1.5 text-[11px] text-center font-semibold text-violet-700">{fmt(lfpVal)}</td>
+                    <td className="px-3 py-1.5 text-[11px] text-center text-gray-400 italic">
+                      {d ? (() => {
+                        const diff = laVal - lfpVal;
+                        if (typeof diff !== 'number' || isNaN(diff)) return '—';
+                        const sign = diff > 0 ? '−' : '+';
+                        return diff !== 0
+                          ? <span className={diff > 0 ? 'text-emerald-600 font-semibold' : 'text-red-400'}>
+                              {sign}{fmt(Math.abs(diff))} LFP
+                            </span>
+                          : <span className="text-gray-300">same</span>;
+                      })() : '—'}
+                    </td>
+                  </tr>
+                );
+
+                return (
+                  <div className="px-4 py-3">
+                    <p className="text-[10px] text-gray-400 mb-2">
+                      Nominal capacity: <strong className="text-gray-600">{chemComp.nominal_kwh} kWh</strong>
+                      {' '}· Lead-Acid usable: <strong className="text-amber-600">{la.usable_kwh} kWh</strong>
+                      {' '}· LFP usable: <strong className="text-violet-600">{lfp.usable_kwh} kWh</strong>
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-violet-100">
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-1/3"></th>
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-amber-600 uppercase tracking-wide text-center">
+                              Lead-Acid<br/>
+                              <span className="normal-case font-normal">DoD {la.dod_pct}% · RTE {la.rte_pct}%</span>
+                            </th>
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-violet-600 uppercase tracking-wide text-center">
+                              Lithium LFP<br/>
+                              <span className="normal-case font-normal">DoD {lfp.dod_pct}% · RTE {lfp.rte_pct}%</span>
+                            </th>
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-center">LFP advantage</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {row('Battery delivered', la.battery_discharged_kwh, lfp.battery_discharged_kwh, v => `${Number(v).toFixed(1)} kWh`)}
+                          {row('Generator hours', la.generator_hours, lfp.generator_hours, v => `${v} h`, true)}
+                          {row('Generator kWh', la.generator_kwh, lfp.generator_kwh, v => `${Number(v).toFixed(1)} kWh`)}
+                          {chemComp.has_fuel_data && la.fuel_cost != null && lfp.fuel_cost != null &&
+                            row('Est. fuel cost/day', la.fuel_cost, lfp.fuel_cost, v => `${cur}${Number(v).toFixed(2)}`, true)
+                          }
+                          {row('Unmet load', la.unmet_kwh, lfp.unmet_kwh, v => `${Number(v).toFixed(1)} kWh`)}
+                        </tbody>
+                      </table>
+                    </div>
+                    {d?.fuel_cost_saved != null && d.fuel_cost_saved > 0 && (
+                      <p className="text-[10px] text-emerald-700 mt-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                        LFP saves <strong>{cur}{d.fuel_cost_saved.toFixed(2)}/day</strong> in generator fuel
+                        ({d.generator_hours_saved > 0 ? `${d.generator_hours_saved}h less running, ` : ''}
+                        {d.generator_kwh_saved} kWh less generated) vs same-nominal lead-acid.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {!chemComp && !chemCompLoading && (
+                <p className="text-[10px] text-gray-400 text-center py-3">
+                  Click "Run comparison" to see how battery chemistry affects generator usage.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
