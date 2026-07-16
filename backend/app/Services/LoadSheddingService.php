@@ -6,8 +6,9 @@ namespace App\Services;
  * Priority-based demand-side load shedding / restoration.
  *
  * Operates on pre-built component slots (see ScheduleController::buildComponentSlots)
- * and a 24-element hourly supply-capacity array.  The existing SourceDispatchService
- * is never touched — this service modifies the load profile BEFORE dispatch.
+ * and a 24-element hourly raw-unmet array produced by a pre-pass of SourceDispatchService
+ * on the original, unshed load profile.  This makes shedding energy-aware: it responds to
+ * the battery's real state-of-charge trajectory rather than a peak-discharge-power estimate.
  *
  * Shedding order (per deficit hour):
  *   1. Shift  shiftable loads to a surplus hour within their scheduling window
@@ -17,17 +18,43 @@ namespace App\Services;
  *   5. Never  shed Critical loads → residual reported as critical_unmet_kwh
  *
  * Restoration (reverse order, with hysteresis):
- *   A shed load is not restored in hour H unless hour H-1 had supply >
- *   demand × (1 + RESTORE_MARGIN).  Restoration order: Essential → Normal → Curtailable.
+ *   A shed load is not restored in hour H unless hour H-1 had a remaining deficit of 0.
+ *   Restoration order: Essential → Normal → Curtailable.
+ *
+ * Cost-Priority mode (activated by non-empty $costOpts):
+ *   Withholds restoration of normal/curtailable loads when restoring would place the
+ *   generator in an inefficient low-load zone (avg cost/kWh > 1.2× optimal).
+ *   NEVER proactively sheds currently-served load — shedding is driven solely by
+ *   genuine rawUnmetW deficit.  Essential loads always bypass the cost gate.
  */
 class LoadSheddingService
 {
-    /** Supply-to-demand ratio above which a surplus hour qualifies as the
-     *  hysteresis trigger for restoration.  E.g. 0.05 = 5 % headroom required. */
-    private const RESTORE_MARGIN = 0.05; // ⚠ tunable
-
     /** Tie-break rule when multiple loads of the same tier could be shed/restored. */
     private const TIEBREAK = 'largest_first'; // ⚠ tunable (only 'largest_first' implemented)
+
+    /**
+     * IEC 60034-1 continuous-duty ceiling: generator must not be loaded above 85 % of
+     * rated for sustained periods.  Restoration that would breach this is always blocked,
+     * regardless of mode.
+     */
+    private const MAX_GEN_FRACTION = 0.85;
+
+    /**
+     * Cost-Priority mode: fuel-cost-ratio gate.
+     * Restoration of normal/curtailable loads is withheld when the estimated average
+     * fuel cost per kWh at the post-restoration generator load exceeds this multiple of
+     * the optimal (full-load) cost per kWh.
+     *
+     * k = 1.2 → breakeven load fraction f* = F₀ / (0.2 × F_rated + F₀)
+     *
+     * For a typical diesel generator with F₀/F_rated ≈ 0.30:
+     *   f* = 0.30 × F_rated / (0.2 × F_rated + 0.30 × F_rated) = 0.30 / 0.50 = 0.60 (60 %)
+     *
+     * Below f* the generator is in its inefficient light-load zone; above f* it is in
+     * its efficient 60–85 % operating band.  30 % is the wet-stack FLOOR, not a ceiling
+     * for Cost-Priority — generators must not run BELOW 30 % (Caterpillar guidance).
+     */
+    private const COST_PRIORITY_THRESHOLD_FACTOR = 1.2;
 
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -37,7 +64,13 @@ class LoadSheddingService
      * @param  array  $slots       Component slots built by ScheduleController::buildComponentSlots().
      *                             Each slot: peak_w, priority, load_flexibility, active_hours[24],
      *                             curtail_min_pct, earliest_start, latest_end, required_run_h, label.
-     * @param  array  $supplyCapW  24-element array of maximum available supply (watts) per hour.
+     * @param  array  $rawUnmetW   24-element array of per-hour unmet watts from a pre-pass of
+     *                             SourceDispatchService on the original (unshed) load.  Values > 0
+     *                             signal a genuine energy deficit that shedding must address.
+     * @param  array  $shiftCapW   Optional 24-element array of solar+grid-only supply caps (watts).
+     *                             Used only as headroom guard when choosing shift targets, so loads
+     *                             are not moved to dark generator-backed hours.  When empty, no
+     *                             headroom constraint is applied beyond rawUnmetW = 0.
      *
      * @return array {
      *   adjusted_load_w:      float[24]  — load profile after shedding/shifting,
@@ -49,23 +82,39 @@ class LoadSheddingService
      *   hourly_shed:          array[24]  — per-hour: [deficit_w, critical_unmet_w?],
      * }
      */
-    public function shed(array $slots, array $supplyCapW, array $shiftCapW = []): array
+    /**
+     * @param  array  $costOpts  When non-empty, activates Cost-Priority restoration mode.
+     *                           Required keys: gen_cap_w (W), f_rated_lph, f_no_load_lph,
+     *                           fuel_price, solar_w (float[24]), util_cap_w (W).
+     *                           Restoration of normal/curtailable loads is withheld when the
+     *                           estimated post-restoration generator load would be either:
+     *                             (a) above MAX_GEN_FRACTION (85 % — IEC continuous-duty), or
+     *                             (b) so low that avg fuel cost/kWh > 1.2 × optimal cost/kWh
+     *                                 (i.e. the generator would run in its inefficient zone).
+     *                           Shedding is never affected — Cost-Priority ONLY gates restoration.
+     *                           Essential loads always bypass the cost gate (but not the 85 % ceiling).
+     *                           When empty (default), Service-Priority mode is used.
+     */
+    public function shed(array $slots, array $rawUnmetW, array $shiftCapW = [], array $costOpts = []): array
     {
         $n = count($slots);
 
         // Per-slot mutable state
-        $shedState          = array_fill(0, $n, 'active'); // 'active'|'curtailed'|'shed'
-        $curtailedReductionW = array_fill(0, $n, 0.0);     // watts removed by curtailment
+        $shedState           = array_fill(0, $n, 'active'); // 'active'|'curtailed'|'shed'
+        $curtailedReductionW = array_fill(0, $n, 0.0);      // watts removed by curtailment
 
         // Build initial effective load (sum of all active slots per hour)
         $effectiveLoadW = array_fill(0, 24, 0.0);
-        foreach ($slots as $i => $slot) {
+        foreach ($slots as $slot) {
             for ($h = 0; $h < 24; $h++) {
                 if ($slot['active_hours'][$h]) {
                     $effectiveLoadW[$h] += $slot['peak_w'];
                 }
             }
         }
+
+        // Snapshot of the original (pre-shed) hourly load — used for deficit accounting
+        $initialLoadW = $effectiveLoadW;
 
         $shedCurtailableKwh = 0.0;
         $shedNormalKwh      = 0.0;
@@ -79,14 +128,17 @@ class LoadSheddingService
         for ($h = 0; $h < 24; $h++) {
             // ── Restoration phase (triggered by previous hour's surplus) ──────
             if ($surplusLastHour) {
-                $this->tryRestore($h, $slots, $shedState, $curtailedReductionW, $effectiveLoadW, $supplyCapW);
+                $this->tryRestore($h, $slots, $shedState, $curtailedReductionW, $effectiveLoadW, $rawUnmetW, $initialLoadW, $costOpts);
             }
 
-            $deficit = max(0.0, $effectiveLoadW[$h] - $supplyCapW[$h]);
+            // Deficit = raw dispatch unmet minus load already shed at this hour.
+            // This is energy-aware: rawUnmetW came from a real SOC-tracked dispatch pass.
+            $loadShedSoFar = max(0.0, $initialLoadW[$h] - $effectiveLoadW[$h]);
+            $deficit = max(0.0, (float) ($rawUnmetW[$h] ?? 0.0) - $loadShedSoFar);
 
-            // Evaluate surplus AFTER any restoration, for next iteration's hysteresis
-            $surplusLastHour = $deficit <= 0
-                && ($effectiveLoadW[$h] <= 0 || $supplyCapW[$h] >= $effectiveLoadW[$h] * (1.0 + self::RESTORE_MARGIN));
+            // Surplus trigger: deficit reduced to zero (no hysteresis margin needed because
+            // rawUnmetW already encodes the real headroom from the dispatch pre-pass).
+            $surplusLastHour = $deficit <= 0;
 
             if ($deficit <= 0) {
                 $hourlyDetail[$h] = ['deficit_w' => 0.0];
@@ -99,14 +151,11 @@ class LoadSheddingService
             $shiftables = $this->activeSlotsAtHour($slots, $shedState, $h, null, 'shiftable');
             $this->sortByPeakDesc($shiftables, $slots);
 
-            // Use renewable-only cap for shift targets so generator capacity at night
-            // is never the reason a load gets moved to an off-peak dark hour.
-            $capForShift = empty($shiftCapW) ? $supplyCapW : $shiftCapW;
             foreach ($shiftables as $i) {
                 if ($deficit <= 0) break;
-                $tgt = $this->findShiftTarget($slots[$i], $h, $effectiveLoadW, $capForShift);
+                $tgt = $this->findShiftTarget($slots[$i], $h, $effectiveLoadW, $shiftCapW, $rawUnmetW);
                 if ($tgt !== null) {
-                    $slots[$i]['active_hours'][$h] = false;
+                    $slots[$i]['active_hours'][$h]   = false;
                     $slots[$i]['active_hours'][$tgt] = true;
                     $effectiveLoadW[$h]   -= $slots[$i]['peak_w'];
                     $effectiveLoadW[$tgt] += $slots[$i]['peak_w'];
@@ -202,13 +251,13 @@ class LoadSheddingService
         }
 
         return [
-            'adjusted_load_w'       => array_map(fn($v) => round(max(0.0, $v), 2), $effectiveLoadW),
-            'shed_curtailable_kwh'  => round($shedCurtailableKwh, 3),
-            'shed_normal_kwh'       => round($shedNormalKwh, 3),
-            'shed_essential_kwh'    => round($shedEssentialKwh, 3),
-            'critical_unmet_kwh'    => round($criticalUnmetKwh, 3),
-            'per_load_shed_list'    => $perLoadShedList,
-            'hourly_shed'           => $hourlyDetail,
+            'adjusted_load_w'      => array_map(fn($v) => round(max(0.0, $v), 2), $effectiveLoadW),
+            'shed_curtailable_kwh' => round($shedCurtailableKwh, 3),
+            'shed_normal_kwh'      => round($shedNormalKwh, 3),
+            'shed_essential_kwh'   => round($shedEssentialKwh, 3),
+            'critical_unmet_kwh'   => round($criticalUnmetKwh, 3),
+            'per_load_shed_list'   => $perLoadShedList,
+            'hourly_shed'          => $hourlyDetail,
         ];
     }
 
@@ -244,7 +293,8 @@ class LoadSheddingService
      * Attempt to restore shed/curtailed loads at hour h.
      * Order: Essential → Normal → Curtailable (reverse of shedding order).
      * Within each tier: largest first.
-     * A load is only restored if it fits within available supply headroom at hour h.
+     * A load is only restored if its wattage fits within the headroom still available
+     * above the raw-dispatch deficit for this hour.
      */
     private function tryRestore(
         int $h,
@@ -252,15 +302,16 @@ class LoadSheddingService
         array &$shedState,
         array &$curtailedReductionW,
         array &$effectiveLoadW,
-        array $supplyCapW
+        array $rawUnmetW,
+        array $initialLoadW,
+        array $costOpts = []
     ): void {
-        // Iterate tiers in reverse-of-shedding order
         foreach (['essential', 'normal', 'curtailable'] as $tier) {
             $candidates = [];
 
             foreach ($shedState as $i => $state) {
                 if ($state === 'active') continue;
-                if (!$slots[$i]['active_hours'][$h]) continue; // not scheduled this hour
+                if (!$slots[$i]['active_hours'][$h]) continue;
 
                 $match = match ($tier) {
                     'essential'   => $state === 'shed' && $slots[$i]['priority'] === 'essential',
@@ -270,9 +321,6 @@ class LoadSheddingService
                 };
                 if (!$match) continue;
 
-                // Watts to add back:
-                //   shed slot   → full peak_w (including previously curtailed portion)
-                //   curtailed   → just the curtailed reduction
                 $restoreW = $state === 'shed'
                     ? $slots[$i]['peak_w']
                     : $curtailedReductionW[$i];
@@ -281,19 +329,58 @@ class LoadSheddingService
                 $candidates[] = ['i' => $i, 'restore_w' => $restoreW];
             }
 
-            // Largest restore-watts first
             usort($candidates, fn($a, $b) => $b['restore_w'] <=> $a['restore_w']);
 
             foreach ($candidates as $c) {
                 $i        = $c['i'];
                 $restoreW = $c['restore_w'];
 
-                // Only restore if the additional demand fits within current supply
-                if ($effectiveLoadW[$h] + $restoreW > $supplyCapW[$h]) {
+                // Available headroom = load already shed at this hour minus raw dispatch deficit.
+                // Restoring is only safe if restoreW does not push us back into deficit.
+                $loadShedAtH        = max(0.0, $initialLoadW[$h] - $effectiveLoadW[$h]);
+                $availableToRestore = max(0.0, $loadShedAtH - (float) ($rawUnmetW[$h] ?? 0.0));
+
+                if ($restoreW > $availableToRestore) {
                     continue;
                 }
 
-                // Add restored watts to this hour and all remaining active hours
+                // ── Cost-Priority gate (normal/curtailable only; essential always restores) ──
+                if (!empty($costOpts) && $tier !== 'essential') {
+                    $genCapW = (float) ($costOpts['gen_cap_w'] ?? 0.0);
+                    if ($genCapW > 0.0) {
+                        $estGenLoad = max(0.0,
+                            $effectiveLoadW[$h] + $restoreW
+                            - (float) ($costOpts['solar_w'][$h] ?? 0.0)
+                            - (float) ($costOpts['util_cap_w']  ?? 0.0)
+                        );
+
+                        // Gate 1: IEC 60034-1 continuous-duty ceiling — never exceed 85 % of rated.
+                        if ($estGenLoad > self::MAX_GEN_FRACTION * $genCapW) {
+                            continue;
+                        }
+
+                        // Gate 2: fuel-cost-ratio gate — withhold restoration when the generator
+                        // would run so lightly that avg cost/kWh > 1.2× optimal (full-load) cost/kWh.
+                        // Breakeven fraction: f* = F₀ / (0.2×F_rated + F₀) ≈ 60 % for a typical diesel.
+                        // Below f* is the inefficient light-load zone; above is the efficient 60–85 % band.
+                        // 30 % is the wet-stack FLOOR (must not run BELOW that), not a ceiling here.
+                        $fRated = (float) ($costOpts['f_rated_lph']   ?? 0.0);
+                        $f0     = (float) ($costOpts['f_no_load_lph'] ?? 0.0);
+                        $price  = (float) ($costOpts['fuel_price']    ?? 0.0);
+
+                        if ($estGenLoad > 0.0 && $fRated > 0.0 && $price > 0.0) {
+                            // F(P) = F₀ + (F_rated − F₀) × (P / P_rated)  [linear IEC approximation]
+                            $fEst    = $f0 + ($fRated - $f0) * ($estGenLoad / $genCapW);
+                            $avgCost = $fEst   * $price / ($estGenLoad / 1000.0); // $/kWh at est load
+                            $optCost = $fRated * $price / ($genCapW     / 1000.0); // $/kWh at rated load
+
+                            if ($avgCost > self::COST_PRIORITY_THRESHOLD_FACTOR * $optCost) {
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 for ($f = $h; $f < 24; $f++) {
                     if ($slots[$i]['active_hours'][$f]) {
                         $effectiveLoadW[$f] += $restoreW;
@@ -308,24 +395,44 @@ class LoadSheddingService
 
     /**
      * Find a surplus hour within the shiftable slot's scheduling window that can
-     * absorb the load, excluding the current deficit hour.
-     * Returns null if no feasible target exists.
+     * absorb the load without creating a new deficit.
+     *
+     * Target hour must satisfy:
+     *   1. rawUnmetW[h] = 0  (no existing deficit in the raw dispatch pass)
+     *   2. shiftCapW[h] − effectiveLoadW[h] >= slot.peak_w  (renewable+grid headroom, when provided)
      */
-    private function findShiftTarget(array $slot, int $currentHour, array $effectiveLoadW, array $supplyCapW): ?int
-    {
+    private function findShiftTarget(
+        array $slot,
+        int $currentHour,
+        array $effectiveLoadW,
+        array $shiftCapW,
+        array $rawUnmetW
+    ): ?int {
         $earliest = max(0,  $slot['earliest_start'] ?? 0);
         $latest   = min(24, $slot['latest_end']      ?? 24);
 
-        $bestHour   = null;
+        $bestHour    = null;
         $bestSurplus = -PHP_FLOAT_MAX;
 
         for ($h = $earliest; $h < $latest; $h++) {
-            if ($h === $currentHour) continue;
-            if ($slot['active_hours'][$h]) continue; // already scheduled here
+            if ($h === $currentHour)        continue;
+            if ($slot['active_hours'][$h])  continue; // already scheduled here
 
-            $headroom = $supplyCapW[$h] - $effectiveLoadW[$h] - $slot['peak_w'];
-            if ($headroom >= 0 && ($supplyCapW[$h] - $effectiveLoadW[$h]) > $bestSurplus) {
-                $bestSurplus = $supplyCapW[$h] - $effectiveLoadW[$h];
+            // Only shift to hours the real dispatch could serve without deficit
+            if (($rawUnmetW[$h] ?? 0.0) > 0.0) continue;
+
+            // When shiftCapW is provided, enforce renewable+grid headroom so loads
+            // are not moved to dark generator-backed hours
+            if (!empty($shiftCapW)) {
+                $headroom = $shiftCapW[$h] - $effectiveLoadW[$h] - $slot['peak_w'];
+                if ($headroom < 0) continue;
+                $avail = $shiftCapW[$h] - $effectiveLoadW[$h];
+            } else {
+                $avail = PHP_FLOAT_MAX;
+            }
+
+            if ($avail > $bestSurplus) {
+                $bestSurplus = $avail;
                 $bestHour    = $h;
             }
         }

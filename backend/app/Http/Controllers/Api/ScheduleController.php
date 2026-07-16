@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Services\DiversityFactorService;
+use App\Services\ElectricalDesignService;
 use App\Services\LoadSheddingService;
+use App\Services\SocketDemandService;
 use App\Services\SolarIrradianceService;
 use App\Services\SourceDispatchService;
 use Illuminate\Database\Eloquent\Collection;
@@ -20,6 +22,38 @@ class ScheduleController extends Controller
     // Floor/room-level DFs are now per-building-type via DiversityFactorService.
     private const DF_PROJECT = 0.7;
 
+    // Socket circuit capacity cap: 16 A breaker × 230 V × 0.80 loading factor = 2 944 W.
+    // Matches ElectricalDesignService::packSocketCircuits() sizing (Section 8.5.7).
+    // Controlled socket demand is split into sub-slots of at most this size so that
+    // LoadSheddingService can restore individual circuits instead of an all-or-nothing block.
+    private const SOCKET_CIRCUIT_CAP_W = 2944.0;
+
+    // Fraction of socket-outlet demand that remains energised 24/7, by building type.
+    // Represents standby loads (chargers, idle monitors, clock radios, etc.).
+    // Real always-on equipment (servers, UPS, network gear) is already modelled as
+    // priority=critical RoomComponents and must NOT be double-counted here.
+    // The remainder (1 − fraction) is the controlled portion, active only during
+    // scheduled occupancy hours (ASHRAE 90.1 §8.4.2).
+    //
+    // These are reasoned, standards-referenced estimates — NOT a single universal
+    // published survey table.  Real-world values vary by building and should be
+    // revisited when better locally-monitored sub-metering data becomes available.
+    //   ASHRAE RP-1093/1742 → office/general baseline (0.15)
+    //   ASHRAE 90.1 §8.4.2  → educational automatic receptacle shutoff mandate (0.07)
+    //   NEC 517 / NFPA 99   → hospital essential electrical system 24/7 mandate (0.45)
+    //   CIBSE TM22           → residential overnight occupancy profiles (0.25)
+    private const SOCKET_UNCONTROLLED_FRACTION_BY_TYPE = [
+        'residential_house'      => 0.25, // occupied overnight; CIBSE TM22
+        'residential_apartment'  => 0.25, // occupied overnight; CIBSE TM22
+        'office'                 => 0.15, // ASHRAE RP-1093 general case
+        'educational_school'     => 0.07, // ASHRAE 90.1 §8.4.2 auto-shutoff mandate
+        'educational_university' => 0.07, // ASHRAE 90.1 §8.4.2 minimal overnight presence
+        'hospital'               => 0.45, // NEC 517 / NFPA 99 essential electrical system
+        'retail'                 => 0.10, // closes overnight
+        'industrial'             => 0.15, // default; refine with shift-pattern data if available
+        'default'                => 0.15, // unknown / null type — conservative middle ground
+    ];
+
     private const MONTH_NAMES = [
         1 => 'January',  2 => 'February',  3 => 'March',    4 => 'April',
         5 => 'May',      6 => 'June',       7 => 'July',     8 => 'August',
@@ -27,9 +61,11 @@ class ScheduleController extends Controller
     ];
 
     public function __construct(
-        private SolarIrradianceService $solarSvc,
-        private SourceDispatchService  $dispatchSvc,
-        private LoadSheddingService    $sheddingSvc,
+        private SolarIrradianceService  $solarSvc,
+        private SourceDispatchService   $dispatchSvc,
+        private LoadSheddingService     $sheddingSvc,
+        private SocketDemandService     $socketSvc,
+        private ElectricalDesignService $designSvc,
     ) {}
 
     private const ALL_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -95,6 +131,13 @@ class ScheduleController extends Controller
         $utilCapW  = $utilCapVA * 0.8;
         $genCapW   = $genCapVA  * 0.8;
 
+        // Read per-generator wet-stack floor (Caterpillar: 30 % min to prevent wet-stacking).
+        // Uses the first generator line's min_load_pct; falls back to 30 % when null.
+        $genFloorLine  = $genCapVA > 0 ? $project->generatorLines()->first() : null;
+        $genMinLoadPct = ($genFloorLine && $genFloorLine->min_load_pct !== null)
+            ? (float) $genFloorLine->min_load_pct / 100.0
+            : 0.30;
+
         // Guard: return a structured error if the project has no power sources at all
         $hasSolarSystems = $project->solarSystems()->where('is_active', true)->exists();
         $hasBatteries    = $project->batteries()->where('is_active', true)->exists();
@@ -143,55 +186,117 @@ class ScheduleController extends Controller
             'currency_symbol'          => $project->currency_symbol ?? '$',
         ];
 
+        // ── Cost-Priority restoration opts ────────────────────────────────────
+        // Non-empty only when the project has a generator with fuel data; the shedding
+        // service activates its cost/capacity gates when this array is passed in.
+        $costOpts = ($genLine !== null) ? [
+            'gen_cap_w'     => $genCapW,
+            'f_rated_lph'   => (float) $genLine->fuel_consumption_lph,
+            'f_no_load_lph' => $genLine->no_load_fuel_lph !== null
+                                   ? (float) $genLine->no_load_fuel_lph
+                                   : round((float) $genLine->fuel_consumption_lph * 0.30, 4),
+            'fuel_price'    => (float) $genLine->fuel_cost_per_liter,
+            'solar_w'       => $solarProfile,
+            'util_cap_w'    => $utilCapW,
+        ] : [];
+
         // ── 4. Active batteries (fetched once, used in every day simulation) ───
         $batteries = $project->batteries()->where('is_active', true)->get();
         $battPass  = $batteries->isNotEmpty() ? $batteries : null;
 
-        // ── 4b. Supply capacity estimate for the load-shedding pre-pass ────────
-        // supplyCapW (full cap incl. generator + battery) → deficit detection & restoration.
-        // shiftCapW  (solar + utility only, no battery, no generator) → shift-target selection.
-        //   A shiftable load must only move to an hour where renewable/grid supply alone
-        //   can absorb it.  Including battery or generator here would make dark hours look
-        //   attractive, drain the battery overnight, and force the generator to compensate.
-        $battMaxDischargeW = $batteries->sum(fn($b) => $b->max_discharge_power_kw) * 1000.0;
-        $supplyCapW        = array_map(
-            fn($solar) => $solar + $utilCapW + $genCapW + $battMaxDischargeW,
-            $solarProfile
-        );
-        $shiftCapW         = array_map(
+        // ── 4b. Shift-cap for shedding pre-pass (solar + grid only) ─────────────
+        // shiftCapW prevents shiftable loads from being moved to dark generator/battery-backed
+        // hours.  The per-hour unmet deficit that drives shedding now comes from a real
+        // SOC-tracked dispatch pre-pass instead of a peak-discharge-power estimate.
+        $shiftCapW = array_map(
             fn($solar) => $solar + $utilCapW,   // solar + grid only — no battery, no generator
             $solarProfile
         );
 
         $solarSystemsArg = $solarSystems->isNotEmpty() ? $solarSystems : null;
 
+        // Socket demand queried once here; reused for all 7 days inside the loop.
+        $socketResult = $this->socketSvc->projectResult($project);
+
+        // Real socket-model circuit list — assigns locatable panel IDs to dispatch slots.
+        // Queried once (circuits are day-invariant) and passed into every buildSocketSlots call.
+        $socketCircuits = $this->designSvc->socketCircuitIndex($project);
+
         // ── 5. Per-day profiles: one entry per day of the week ────────────────
-        // Each day simulation starts from batteries' stored current_soc.
+        // Pipeline (two dispatch passes per mode):
+        //   a) Build original load profiles.
+        //   b) Raw dispatch pass on the unshed load — energy-aware, SOC-tracked.
+        //      Its per-hour unmet array is the REAL deficit signal for shedding.
+        //   c) Shedding pass — responds to genuine energy exhaustion, not peak-power estimate.
+        //   d) Post-shed dispatch pass — final result shown in the UI.
+        // Both raw and post-shed results are returned so the UI can show a Before/After toggle.
         $days = [];
         foreach (self::ALL_DAYS as $dayName) {
-            // Build component slots for shedding pre-pass (mode-matched to dispatch)
             $slotsMax = $this->buildComponentSlots($components, 'max',       $dayName, $month);
             $slotsOpt = $this->buildComponentSlots($components, 'optimized', $dayName, $month);
 
-            $shedMax = $this->sheddingSvc->shed($slotsMax, $supplyCapW, $shiftCapW);
-            $shedOpt = $this->sheddingSvc->shed($slotsOpt, $supplyCapW, $shiftCapW);
-
-            // Use adjusted profiles for dispatch; original profiles exposed for UI diff
             $loadMax = $this->buildHourlyW($components, 'max',       $dayName, $month, false);
             $loadOpt = $this->buildHourlyW($components, 'optimized', $dayName, $month, true);
 
+            // Merge socket outlet contributions (NEC 220.14 / ASHRAE 90.1 §8.4.2).
+            // Socket slots use the same max/opt split as the load profiles so that
+            // the shedding pass sees a consistent view of what is sheddable.
+            $socketMax      = $this->buildSocketProfile($socketResult, $project, $dayName, $month, true);
+            $socketOpt      = $this->buildSocketProfile($socketResult, $project, $dayName, $month, false);
+            $socketSlotsMax = $this->buildSocketSlots($socketResult, $project, $dayName, $month, true,  $socketCircuits);
+            $socketSlotsOpt = $this->buildSocketSlots($socketResult, $project, $dayName, $month, false, $socketCircuits);
+            for ($h = 0; $h < 24; $h++) {
+                $loadMax[$h] = round($loadMax[$h] + $socketMax[$h], 2);
+                $loadOpt[$h] = round($loadOpt[$h] + $socketOpt[$h], 2);
+            }
+            $slotsMax = array_merge($slotsMax, $socketSlotsMax);
+            $slotsOpt = array_merge($slotsOpt, $socketSlotsOpt);
+
+            // (b) Raw dispatch — pre-shedding, energy-aware
+            $rawDispatchMax = $this->dispatchSvc->dispatch($loadMax, $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg, $genMinLoadPct);
+            $rawDispatchOpt = $this->dispatchSvc->dispatch($loadOpt, $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg, $genMinLoadPct);
+
+            // (c) Shedding driven by real per-hour unmet from the raw dispatch pass
+            $shedMax = $this->sheddingSvc->shed($slotsMax, $rawDispatchMax['unmet'], $shiftCapW);
+            $shedOpt = $this->sheddingSvc->shed($slotsOpt, $rawDispatchOpt['unmet'], $shiftCapW);
+
+            // (c') Cost-Priority shed pass — withholds restoration of non-essential loads
+            // when restoring would place the generator in its inefficient light-load zone
+            // (avg fuel cost/kWh > 1.2× optimal).  The shedding signal is the same real
+            // rawUnmetW used by the SP pass: Cost-Priority NEVER proactively sheds
+            // currently-served load with zero deficit.  Only restoration is gated.
+            if (!empty($costOpts)) {
+                $shedCostOpt = $this->sheddingSvc->shed($slotsOpt, $rawDispatchOpt['unmet'], $shiftCapW, $costOpts);
+            } else {
+                $shedCostOpt = null;
+            }
+
+            // (d) Post-shed dispatch — the final, shedding-adjusted result
+            $postDispatchMax = $this->dispatchSvc->dispatch($shedMax['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg, $genMinLoadPct);
+            $postDispatchOpt = $this->dispatchSvc->dispatch($shedOpt['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg, $genMinLoadPct);
+
+            // (d') Cost-Priority post-shed dispatch
+            $postDispatchCostOpt = $shedCostOpt !== null
+                ? $this->dispatchSvc->dispatch($shedCostOpt['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg, $genMinLoadPct)
+                : null;
+
             $days[$dayName] = [
-                'load_max'           => $loadMax,
-                'load_optimized'     => $loadOpt,
-                // Adjusted profiles (post-shed/shift) exposed so the chart demand line
-                // matches what the dispatch engine actually received.
-                'load_shed_max'      => $shedMax['adjusted_load_w'],
-                'load_shed_optimized'=> $shedOpt['adjusted_load_w'],
-                'hourly_kvar'        => $this->buildHourlyKvar($components, $dayName, $month),
-                'dispatch_max'       => $this->dispatchSvc->dispatch($shedMax['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg),
-                'dispatch_optimized' => $this->dispatchSvc->dispatch($shedOpt['adjusted_load_w'], $solarProfile, $utilCapW, $genCapW, $battPass, $solarCapacityW, $solarSystemsArg),
-                'shedding_max'       => $this->shedSummary($shedMax),
-                'shedding_optimized' => $this->shedSummary($shedOpt),
+                'load_max'                   => $loadMax,
+                'load_optimized'             => $loadOpt,
+                'load_shed_max'              => $shedMax['adjusted_load_w'],
+                'load_shed_optimized'        => $shedOpt['adjusted_load_w'],
+                'hourly_kvar'                => $this->buildHourlyKvar($components, $dayName, $month),
+                // Raw (pre-shedding) dispatch results
+                'dispatch_raw_max'           => $rawDispatchMax,
+                'dispatch_raw_optimized'     => $rawDispatchOpt,
+                // Post-shedding dispatch results (used for final energy/cost accounting)
+                'dispatch_max'               => $postDispatchMax,
+                'dispatch_optimized'         => $postDispatchOpt,
+                'shedding_max'               => $this->shedSummary($shedMax),
+                'shedding_optimized'         => $this->shedSummary($shedOpt),
+                // Cost-Priority results (null when no generator fuel data)
+                'dispatch_cost_optimized'    => $postDispatchCostOpt,
+                'shedding_cost_optimized'    => $shedCostOpt !== null ? $this->shedSummary($shedCostOpt) : null,
             ];
         }
 
@@ -243,39 +348,47 @@ class ScheduleController extends Controller
         $result   = [];
 
         // Project-own components: no diversity reduction at their own level.
-        $this->extractRaw($result, $project->components, 'project_id', $pDays, $pSeasons, 1.0);
+        $this->extractRaw(
+            $result,
+            $project->components()->with('componentType')->get(),
+            'project_id', $pDays, $pSeasons, 1.0, ''
+        );
 
         // Eager load all project data in one query set to prevent N+1 problems.
         // Without this, a project with 10 buildings × 5 floors × 10 rooms
         // would generate 500+ individual database queries per request.
         $buildings = $project->buildings()->with([
-            'components',
-            'floors.components',
-            'floors.rooms.components',
+            'components.componentType',
+            'floors.components.componentType',
+            'floors.rooms.components.componentType',
         ])->get();
 
         foreach ($buildings as $building) {
             $bDays    = $building->work_days    ?? $pDays;
             $bSeasons = $building->working_season_intervals ?? $pSeasons;
             $bDfs     = DiversityFactorService::buildingDfs($building->type ?? null);
+            $bLabel   = "Bldg {$building->name}";
 
             $this->extractRaw($result, $building->components, 'building_id', $bDays, $bSeasons,
-                self::DF_PROJECT);
+                self::DF_PROJECT, $bLabel);
 
             foreach ($building->getRelation('floors') as $floor) {
                 $fDays    = $floor->work_days    ?? $bDays;
                 $fSeasons = $floor->working_season_intervals ?? $bSeasons;
+                $fLabel   = "Bldg {$building->name}, " . ucfirst($floor->name) . ' floor';
 
                 $this->extractRaw($result, $floor->components, 'floor_id', $fDays, $fSeasons,
-                    $bDfs['floor_to_building'] * self::DF_PROJECT);
+                    $bDfs['floor_to_building'] * self::DF_PROJECT, $fLabel);
 
                 foreach ($floor->rooms as $room) {
                     $rDays    = $room->work_days    ?? $fDays;
                     $rSeasons = $room->working_season_intervals ?? $fSeasons;
                     $roomDf   = DiversityFactorService::roomDf($room->type ?? null);
+                    $rLabel   = "Bldg {$building->name}, " . ucfirst($floor->name) . " floor, {$room->name}";
 
                     $this->extractRaw($result, $room->components, 'room_id', $rDays, $rSeasons,
-                        $roomDf * $bDfs['room_to_floor'] * $bDfs['floor_to_building'] * self::DF_PROJECT);
+                        $roomDf * $bDfs['room_to_floor'] * $bDfs['floor_to_building'] * self::DF_PROJECT,
+                        $rLabel);
                 }
             }
         }
@@ -283,14 +396,19 @@ class ScheduleController extends Controller
         return $result;
     }
 
-    private function extractRaw(array &$out, $components, string $key, ?array $workDays, ?array $seasons, float $df = 1.0): void
+    private function extractRaw(array &$out, $components, string $key, ?array $workDays, ?array $seasons, float $df = 1.0, string $location = ''): void
     {
         foreach ($components as $c) {
-            $pf = max(0.01, (float) ($c->power_factor ?? 1));
-            $va = (float) $c->power * (int) $c->quantity; // S = VA_rated × qty — used for group-max selection
+            $pf       = max(0.01, (float) ($c->power_factor ?? 1));
+            $va       = (float) $c->power * (int) $c->quantity;
+            $typeName = $c->componentType?->name ?? "Component #{$c->component_type_id}";
+            $qty      = (int) $c->quantity;
+            $pwStr    = number_format((float) $c->power) . ' W';
+            $qtyStr   = $qty > 1 ? "{$qty} × {$pwStr}" : $pwStr;
+            $locPart  = $location !== '' ? " — {$location}" : '';
             $out[] = [
                 'va'               => $va,
-                'peak_w'           => $va * $pf,  // undiversified P = S × PF
+                'peak_w'           => $va * $pf,
                 'df'               => $df,
                 'pf'               => $pf,
                 'intervals'        => $c->usage_time_intervals ?? [['start' => '08:00', 'end' => '18:00']],
@@ -306,7 +424,7 @@ class ScheduleController extends Controller
                 'earliest_start'   => (int) ($c->earliest_start_hour  ?? 0),
                 'latest_end'       => (int) ($c->latest_end_hour      ?? 24),
                 'required_run_h'   => (int) ($c->required_run_hours   ?? 0),
-                'label'            => "type{$c->component_type_id}/{$c->power}W",
+                'label'            => "{$typeName}{$locPart} | {$qtyStr}",
             ];
         }
     }
@@ -551,6 +669,263 @@ class ScheduleController extends Controller
             $result[] = round($hourlyQ[$h] / 1000, 2);
         }
         return $result;
+    }
+
+    // ── Socket outlet load profile helpers ───────────────────────────────────
+
+    /**
+     * Return the standby fraction for this project's building type.
+     *
+     * Resolution: project.building_type → first building.type → 'default'.
+     * Matches the same cascade used by DiversityFactorService::buildingDfs().
+     */
+    private function socketUncontrolledFraction(object $project): float
+    {
+        $type = !empty($project->building_type) ? $project->building_type : null;
+        if ($type === null) {
+            foreach (($project->buildings ?? []) as $building) {
+                if (!empty($building->type)) {
+                    $type = $building->type;
+                    break;
+                }
+            }
+        }
+        return self::SOCKET_UNCONTROLLED_FRACTION_BY_TYPE[$type]
+            ?? self::SOCKET_UNCONTROLLED_FRACTION_BY_TYPE['default'];
+    }
+
+    /**
+     * Resolve the effective work-time intervals for socket scheduling.
+     *
+     * Cascade: project.work_time_intervals → first building's work_time_intervals
+     * → default 08:00–17:00.  Full per-building decomposition (applying each
+     * building's schedule to its own socket outlets separately) is a larger refactor
+     * deferred to a follow-up; this project-level fallback covers the common case.
+     *
+     * Default aligns with the frontend constant DEFAULT_TIME_INTERVALS (08:00–17:00).
+     */
+    private function resolveWorkIntervals(object $project): array
+    {
+        if (!empty($project->work_time_intervals)) {
+            return $project->work_time_intervals;
+        }
+        // Check first building with a non-empty value (project → building fallback).
+        // Full per-building cascade (decomposing aggregate socket demand per building)
+        // is deferred as a follow-up.
+        foreach (($project->buildings ?? []) as $building) {
+            if (!empty($building->work_time_intervals)) {
+                return $building->work_time_intervals;
+            }
+        }
+        // Default matches the frontend constant DEFAULT_TIME_INTERVALS (08:00–17:00).
+        return [['start' => '08:00', 'end' => '17:00']];
+    }
+
+    /**
+     * Build a 24-hour socket-outlet load profile for one day.
+     *
+     * PF = 1.0: The Socket model carries no power_factor field, so `power` (VA)
+     * is treated as real power (W) directly. This is conservative and standard for
+     * general-purpose receptacles whose actual PF depends on what is plugged in.
+     *
+     * Partition (fraction varies by building type — see SOCKET_UNCONTROLLED_FRACTION_BY_TYPE):
+     *   Uncontrolled: standby-only baseline, active 24/7.  Real always-on equipment
+     *     (servers, UPS) is already modelled as priority=critical RoomComponents.
+     *   Controlled (remainder): active only during occupancy window
+     *     (resolveWorkIntervals) on work days (ASHRAE 90.1 §8.4.2).
+     *
+     * @param array   $socketResult Pre-computed SocketDemandService::projectResult()
+     * @param bool    $useMax       true → connected_va (MAX mode); false → demand_va (OPTIMIZED)
+     */
+    private function buildSocketProfile(array $socketResult, object $project, string $dayName, int $month, bool $useMax): array
+    {
+        $totalW = $useMax ? (float) $socketResult['connected_va']
+                          : (float) $socketResult['demand_va'];
+
+        if ($totalW <= 0.0) return array_fill(0, 24, 0.0);
+
+        $uncontrolledW = $totalW * $this->socketUncontrolledFraction($project);
+        $controlledW   = $totalW - $uncontrolledW;
+
+        $workDays  = $project->work_days ?? self::DEFAULT_WORK_DAYS;
+        $isWorkDay = in_array($dayName, $workDays, true);
+        $intervals = $this->resolveWorkIntervals($project);
+
+        // Uncontrolled portion: standby baseline, always present
+        $profile = array_fill(0, 24, $uncontrolledW);
+
+        if ($isWorkDay) {
+            foreach ($intervals as $iv) {
+                $start = $this->dec($iv['start'] ?? '08:00');
+                $end   = $this->dec($iv['end']   ?? '17:00');
+                if ($end <= $start) $end += 24;
+                for ($h = 0; $h < 24; $h++) {
+                    $mid = $h + 0.5;
+                    if (($mid >= $start && $mid < $end) ||
+                        ($end > 24 && ($mid + 24) >= $start && ($mid + 24) < $end)) {
+                        $profile[$h] += $controlledW;
+                    }
+                }
+            }
+        }
+
+        return array_map(fn($v) => round($v, 2), $profile);
+    }
+
+    /**
+     * Build LoadSheddingService-compatible slots for socket outlets.
+     *
+     * socket/uncontrolled  priority=essential — protected from routine shedding;
+     *   only shed after all normal loads are exhausted (Step 4 of shedding order).
+     *   Represents standby loads that cannot be switched off automatically.
+     *
+     * socket/controlled    priority=normal — sheds normally with other normal loads
+     *   (Step 3).  Represents receptacles with automatic occupancy-based shutoff
+     *   per ASHRAE 90.1 §8.4.2.
+     */
+    private function buildSocketSlots(
+        array  $socketResult,
+        object $project,
+        string $dayName,
+        int    $month,
+        bool   $useMax,
+        array  $socketCircuits = []
+    ): array {
+        $totalW = $useMax ? (float) $socketResult['connected_va']
+                          : (float) $socketResult['demand_va'];
+
+        if ($totalW <= 0.0) return [];
+
+        $uncontrolledFrac = $this->socketUncontrolledFraction($project);
+        $controlledFrac   = 1.0 - $uncontrolledFrac;
+
+        // Uncontrolled portion: always-on standby load, priority=essential
+        $slots = [[
+            'peak_w'          => round($totalW * $uncontrolledFrac, 2),
+            'priority'        => 'essential',
+            'load_flexibility'=> 'fixed',
+            'active_hours'    => array_fill(0, 24, true),
+            'curtail_min_pct' => 0.0,
+            'earliest_start'  => 0,
+            'latest_end'      => 24,
+            'required_run_h'  => 0,
+            'label'           => 'socket/uncontrolled',
+        ]];
+
+        $workDays  = $project->work_days ?? self::DEFAULT_WORK_DAYS;
+        $isWorkDay = in_array($dayName, $workDays, true);
+
+        if (!$isWorkDay || ($totalW * $controlledFrac) < 0.5) {
+            return $slots;
+        }
+
+        // Build occupancy active-hours array
+        $active    = array_fill(0, 24, false);
+        $intervals = $this->resolveWorkIntervals($project);
+        foreach ($intervals as $iv) {
+            $start = $this->dec($iv['start'] ?? '08:00');
+            $end   = $this->dec($iv['end']   ?? '17:00');
+            if ($end <= $start) $end += 24;
+            for ($h = 0; $h < 24; $h++) {
+                $mid = $h + 0.5;
+                if (($mid >= $start && $mid < $end) ||
+                    ($end > 24 && ($mid + 24) >= $start && ($mid + 24) < $end)) {
+                    $active[$h] = true;
+                }
+            }
+        }
+
+        // ── Real-circuit path ─────────────────────────────────────────────────
+        // One slot per socket-model circuit, labelled with its real panel ID
+        // (e.g. socket/R/first/SM3).  peak_w is scaled so the total controlled
+        // demand exactly matches what SocketDemandService reported.
+        if (!empty($socketCircuits)) {
+            $realConnectedTotal = (float) array_sum(array_column($socketCircuits, 'total_va'));
+            $scale = ($realConnectedTotal > 0.0) ? $totalW / $realConnectedTotal : 1.0;
+
+            foreach ($socketCircuits as $circuit) {
+                $slotW = round((float) $circuit['total_va'] * $scale * $controlledFrac, 2);
+                if ($slotW < 0.5) continue;
+                $slots[] = [
+                    'peak_w'          => $slotW,
+                    'priority'        => 'normal',
+                    'load_flexibility'=> 'fixed',
+                    'active_hours'    => $active,
+                    'curtail_min_pct' => 0.0,
+                    'earliest_start'  => 0,
+                    'latest_end'      => 24,
+                    'required_run_h'  => 0,
+                    'label'           => (string) $circuit['socket_circuit_id'],
+                ];
+            }
+            return $slots;
+        }
+
+        // ── Synthetic fallback path ───────────────────────────────────────────
+        // Used when the project has no Socket model records.  Splits controlled
+        // demand into ≤ SOCKET_CIRCUIT_CAP_W chunks with building attribution tags.
+        $controlledW   = round($totalW * $controlledFrac, 2);
+        $attribution   = [];
+        $bldgBreakdown = $socketResult['buildings_breakdown'] ?? [];
+        if (!empty($bldgBreakdown) && $totalW > 0.0) {
+            usort($bldgBreakdown, fn($a, $b) =>
+                ($useMax ? $b['connected_va'] : $b['demand_va']) <=>
+                ($useMax ? $a['connected_va'] : $a['demand_va'])
+            );
+            foreach ($bldgBreakdown as $b) {
+                $bldgW  = (float) ($useMax ? $b['connected_va'] : $b['demand_va']);
+                $budget = round($controlledW * $bldgW / $totalW, 4);
+                if ($budget > 0.005) {
+                    $attribution[] = ['name' => $b['name'], 'w' => $budget];
+                }
+            }
+        }
+
+        $remaining  = round($controlledW, 2);
+        $circuitNum = 0;
+        $attrIdx    = 0;
+        $attrLeft   = !empty($attribution) ? $attribution[0]['w'] : 0.0;
+
+        while ($remaining > 0.005) {
+            $circuitNum++;
+            $slotW        = round(min($remaining, self::SOCKET_CIRCUIT_CAP_W), 2);
+            $circuitBldgs = [];
+
+            if (!empty($attribution)) {
+                $toConsume = $slotW;
+                while ($toConsume > 0.005 && $attrIdx < count($attribution)) {
+                    $take = min($toConsume, $attrLeft);
+                    if ($take > 0.005) {
+                        $bname = $attribution[$attrIdx]['name'];
+                        if (!in_array($bname, $circuitBldgs, true)) {
+                            $circuitBldgs[] = $bname;
+                        }
+                    }
+                    $attrLeft  -= $take;
+                    $toConsume -= $take;
+                    if ($attrLeft <= 0.005 && $attrIdx + 1 < count($attribution)) {
+                        $attrIdx++;
+                        $attrLeft = $attribution[$attrIdx]['w'];
+                    }
+                }
+            }
+
+            $bldgTag = !empty($circuitBldgs) ? ' [' . implode('+', $circuitBldgs) . ']' : '';
+            $slots[] = [
+                'peak_w'          => $slotW,
+                'priority'        => 'normal',
+                'load_flexibility'=> 'fixed',
+                'active_hours'    => $active,
+                'curtail_min_pct' => 0.0,
+                'earliest_start'  => 0,
+                'latest_end'      => 24,
+                'required_run_h'  => 0,
+                'label'           => "socket/controlled/{$circuitNum}{$bldgTag}",
+            ];
+            $remaining = round($remaining - $slotW, 2);
+        }
+
+        return $slots;
     }
 
     /**

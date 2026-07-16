@@ -28,6 +28,11 @@ class SocketDemandService
     public function roomResult(Room $room): array
     {
         $n = (int) $room->sockets()->sum('quantity');
+        // Outlets already covered by an itemised needs_socket component must not be
+        // double-counted. Socket records should represent spare / unknown capacity only
+        // — not outlets you have already entered as specific RoomComponents.
+        $allocated = (int) $room->components()->where('needs_socket', true)->sum('quantity');
+        $n = max(0, $n - $allocated);
         return [
             'outlets'      => $n,
             'connected_va' => $n * self::OUTLET_VA,
@@ -39,9 +44,27 @@ class SocketDemandService
 
     public function floorResult(Floor $floor): array
     {
-        $roomN = (int) Socket::where('socketable_type', Room::class)
-            ->whereIn('socketable_id', Room::where('floor_id', $floor->id)->pluck('id'))
-            ->sum('quantity');
+        // Per-room socket qty minus needs_socket allocation, floored at zero per room.
+        $roomIds = Room::where('floor_id', $floor->id)->pluck('id')->all();
+
+        $socketByRoom = DB::table('sockets')
+            ->where('socketable_type', Room::class)
+            ->whereIn('socketable_id', $roomIds)
+            ->groupBy('socketable_id')
+            ->selectRaw('socketable_id as room_id, SUM(quantity) as total')
+            ->pluck('total', 'room_id')->all();
+
+        $allocByRoom = DB::table('room_components')
+            ->whereIn('room_id', $roomIds)
+            ->where('needs_socket', true)
+            ->groupBy('room_id')
+            ->selectRaw('room_id, SUM(quantity) as total')
+            ->pluck('total', 'room_id')->all();
+
+        $roomN = 0;
+        foreach ($roomIds as $rid) {
+            $roomN += max(0, (int)($socketByRoom[$rid] ?? 0) - (int)($allocByRoom[$rid] ?? 0));
+        }
 
         $ownN = (int) $floor->sockets()->sum('quantity');
         $n    = $roomN + $ownN;
@@ -73,15 +96,38 @@ class SocketDemandService
             ];
         }
 
-        // Room sockets summed by floor_id (1 query)
-        $roomSocketsByFloor = DB::table('sockets')
-            ->join('rooms', 'sockets.socketable_id', '=', 'rooms.id')
-            ->where('sockets.socketable_type', Room::class)
-            ->whereIn('rooms.floor_id', $floorIds)
-            ->groupBy('rooms.floor_id')
-            ->selectRaw('rooms.floor_id, SUM(sockets.quantity) as total')
-            ->pluck('total', 'floor_id')
-            ->all();
+        // Per-room socket qty minus needs_socket allocation: 2 queries → corrected per-floor map.
+        $roomFloorMap = DB::table('rooms')
+            ->whereIn('floor_id', $floorIds)
+            ->pluck('floor_id', 'id')->all();
+        $allRoomIds = array_keys($roomFloorMap);
+
+        $socketByRoom = [];
+        $allocByRoom  = [];
+        if (!empty($allRoomIds)) {
+            $socketByRoom = DB::table('sockets')
+                ->where('socketable_type', Room::class)
+                ->whereIn('socketable_id', $allRoomIds)
+                ->groupBy('socketable_id')
+                ->selectRaw('socketable_id as room_id, SUM(quantity) as total')
+                ->pluck('total', 'room_id')->all();
+
+            $allocByRoom = DB::table('room_components')
+                ->whereIn('room_id', $allRoomIds)
+                ->where('needs_socket', true)
+                ->groupBy('room_id')
+                ->selectRaw('room_id, SUM(quantity) as total')
+                ->pluck('total', 'room_id')->all();
+        }
+
+        // Corrected socket outlets per floor: per-room floor-at-zero, then sum per floor.
+        $roomSocketsByFloor = [];
+        foreach ($allRoomIds as $rid) {
+            $fid = $roomFloorMap[$rid];
+            $raw = (int)($socketByRoom[$rid] ?? 0);
+            $ns  = (int)($allocByRoom[$rid]  ?? 0);
+            $roomSocketsByFloor[$fid] = ($roomSocketsByFloor[$fid] ?? 0) + max(0, $raw - $ns);
+        }
 
         // Floor own sockets summed by floor (1 query)
         $floorOwnSockets = DB::table('sockets')
@@ -117,7 +163,7 @@ class SocketDemandService
     }
 
     // ── Project ───────────────────────────────────────────────────────────────
-    // Bulk-queries all buildings/floors at once: ~6 queries regardless of size.
+    // Bulk-queries all buildings/floors at once: ~8 queries regardless of size.
 
     public function projectResult(Project $project): array
     {
@@ -137,17 +183,39 @@ class SocketDemandService
         $floorIds         = $floors->pluck('id')->all();
         $floorsByBuilding = $floors->groupBy('building_id');
 
-        // Room sockets summed by floor_id (1 query)
+        // Per-room socket qty minus needs_socket allocation (2 queries), then aggregate by floor.
         $roomSocketsByFloor = [];
         if (!empty($floorIds)) {
-            $roomSocketsByFloor = DB::table('sockets')
-                ->join('rooms', 'sockets.socketable_id', '=', 'rooms.id')
-                ->where('sockets.socketable_type', Room::class)
-                ->whereIn('rooms.floor_id', $floorIds)
-                ->groupBy('rooms.floor_id')
-                ->selectRaw('rooms.floor_id, SUM(sockets.quantity) as total')
-                ->pluck('total', 'floor_id')
-                ->all();
+            $roomFloorMap = DB::table('rooms')
+                ->whereIn('floor_id', $floorIds)
+                ->pluck('floor_id', 'id')->all();
+            $allRoomIds = array_keys($roomFloorMap);
+
+            $socketByRoom = [];
+            $allocByRoom  = [];
+            if (!empty($allRoomIds)) {
+                $socketByRoom = DB::table('sockets')
+                    ->where('socketable_type', Room::class)
+                    ->whereIn('socketable_id', $allRoomIds)
+                    ->groupBy('socketable_id')
+                    ->selectRaw('socketable_id as room_id, SUM(quantity) as total')
+                    ->pluck('total', 'room_id')->all();
+
+                $allocByRoom = DB::table('room_components')
+                    ->whereIn('room_id', $allRoomIds)
+                    ->where('needs_socket', true)
+                    ->groupBy('room_id')
+                    ->selectRaw('room_id, SUM(quantity) as total')
+                    ->pluck('total', 'room_id')->all();
+            }
+
+            // Per-room floor-at-zero, then sum per floor.
+            foreach ($allRoomIds as $rid) {
+                $fid = $roomFloorMap[$rid];
+                $raw = (int)($socketByRoom[$rid] ?? 0);
+                $ns  = (int)($allocByRoom[$rid]  ?? 0);
+                $roomSocketsByFloor[$fid] = ($roomSocketsByFloor[$fid] ?? 0) + max(0, $raw - $ns);
+            }
         }
 
         // Floor own sockets summed by floor (1 query)
@@ -171,8 +239,12 @@ class SocketDemandService
             ->pluck('total', 'socketable_id')
             ->all();
 
-        $bldgDemandVA    = 0.0;
-        $bldgConnectedVA = 0.0;
+        // Building names for attribution labels (1 query)
+        $buildingNames = Building::whereIn('id', $buildingIds)->select('id', 'name')->get()->keyBy('id');
+
+        $bldgDemandVA       = 0.0;
+        $bldgConnectedVA    = 0.0;
+        $buildingsBreakdown = [];
         foreach ($buildingIds as $bid) {
             $floorsForBldg = ($floorsByBuilding[$bid] ?? collect())->pluck('id')->all();
 
@@ -191,6 +263,12 @@ class SocketDemandService
 
             $bldgDemandVA    += $rawDemand * $cf;
             $bldgConnectedVA += $floorConnectedVA + $bldgOwnN * self::OUTLET_VA;
+
+            $buildingsBreakdown[] = [
+                'name'         => $buildingNames->get($bid)?->name ?? "building-{$bid}",
+                'demand_va'    => round($rawDemand * $cf, 2),
+                'connected_va' => round($floorConnectedVA + $bldgOwnN * self::OUTLET_VA, 2),
+            ];
         }
 
         // Project own sockets (1 query)
@@ -198,8 +276,9 @@ class SocketDemandService
         $ownDemandVA = $this->applyFactors($ownN);
 
         return [
-            'demand_va'    => round($bldgDemandVA + $ownDemandVA, 2),
-            'connected_va' => round($bldgConnectedVA + $ownN * self::OUTLET_VA, 2),
+            'demand_va'           => round($bldgDemandVA + $ownDemandVA, 2),
+            'connected_va'        => round($bldgConnectedVA + $ownN * self::OUTLET_VA, 2),
+            'buildings_breakdown' => count($buildingsBreakdown) > 1 ? $buildingsBreakdown : [],
         ];
     }
 

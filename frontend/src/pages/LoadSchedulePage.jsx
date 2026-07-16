@@ -508,8 +508,10 @@ export default function LoadSchedulePage() {
   const [year,  setYear]  = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [day,   setDay]   = useState(new Date().getDate());
-  const [tab,   setTab]   = useState('load');       // load | sources | combined | shiftable
-  const [mode,  setMode]  = useState('optimized');  // optimized | max
+  const [tab,          setTab]          = useState('load');       // load | sources | combined | shiftable
+  const [mode,         setMode]         = useState('optimized');  // optimized | max
+  const [sheddingView, setSheddingView] = useState('shed');       // raw | shed
+  const [restoreMode,  setRestoreMode]  = useState('service');    // service | cost
 
   // Derive the day-of-week name from the selected date so we pick the right profile.
   const dayName = JS_DAY_NAMES[new Date(year, month - 1, day).getDay()];
@@ -568,18 +570,53 @@ export default function LoadSchedulePage() {
 
   // ── Build chart data for the selected day-of-week ──────────────────────────
   const dayData  = data?.days?.[dayName];                          // e.g. data.days.saturday
-  const dispatch = mode === 'optimized' ? dayData?.dispatch_optimized : dayData?.dispatch_max;
-  const shedding = mode === 'optimized' ? dayData?.shedding_optimized : dayData?.shedding_max;
+
+  // Cost-Priority sub-mode: only active for optimized + after-shedding + when gen fuel data exists.
+  const hasCostPriority = sheddingView === 'shed'
+    && mode === 'optimized'
+    && restoreMode === 'cost'
+    && dayData?.dispatch_cost_optimized != null;
+
+  // "After Shedding" (default) = post-shed dispatch; "Before Shedding" = raw dispatch pre-pass.
+  // In Cost-Priority sub-mode, the after-shedding view switches to dispatch_cost_optimized.
+  const dispatch = sheddingView === 'raw'
+    ? (mode === 'optimized' ? dayData?.dispatch_raw_optimized : dayData?.dispatch_raw_max)
+    : hasCostPriority
+      ? dayData.dispatch_cost_optimized
+      : (mode === 'optimized' ? dayData?.dispatch_optimized : dayData?.dispatch_max);
+
+  // dispatchShed always points to the post-shed pass, regardless of the sheddingView toggle.
+  // Used for the "CRITICAL LOADS UNMET" banner so both banners stay physically consistent.
+  const dispatchShed = hasCostPriority
+    ? dayData?.dispatch_cost_optimized
+    : (mode === 'optimized' ? dayData?.dispatch_optimized : dayData?.dispatch_max);
+  const finalUnmetKwh = dispatchShed?.stats?.unmet_kwh ?? 0;
+  const shedding = hasCostPriority
+    ? dayData?.shedding_cost_optimized
+    : (mode === 'optimized' ? dayData?.shedding_optimized : dayData?.shedding_max);
 
   const hasBattery = dispatch?.has_battery_storage === true;
 
   const chartData = dayData
     ? Array.from({ length: 24 }, (_, h) => {
-        // Use the post-shed/shift profile for demand so the stacked dispatch areas
-        // and the demand line stay in sync. Falls back to the original when absent.
-        const demand = mode === 'optimized'
-          ? (dayData.load_shed_optimized?.[h] ?? dayData.load_optimized[h])
-          : (dayData.load_shed_max?.[h]       ?? dayData.load_max[h]);
+        // Compute demand from the same dispatch values shown in the tooltip so it
+        // is always self-consistent regardless of Before/After Shedding view.
+        // Bug fixed: reading the post-shed load array in Before Shedding view caused
+        // Total Demand (20.7 kW) to be far below Solar+Gen+Unmet (46.9 kW).
+        // gen→battery charging (battery_charged_gen) is subtracted from generator_used
+        // because that output goes to storage, not to served load.
+        const demand = dispatch
+          ? Math.max(0,
+              (dispatch.solar_used[h]            ?? 0)
+            + (dispatch.battery_discharged?.[h]  ?? 0)
+            + (dispatch.utility_used[h]           ?? 0)
+            + (dispatch.generator_used[h]         ?? 0)
+            - (dispatch.battery_charged_gen?.[h]  ?? 0)
+            + (dispatch.unmet[h]                  ?? 0)
+            )
+          : (mode === 'optimized'
+              ? (dayData.load_shed_optimized?.[h] ?? dayData.load_optimized[h])
+              : (dayData.load_shed_max?.[h]       ?? dayData.load_max[h]));
         return {
           hour:         h,
           load_max:     dayData.load_max[h],
@@ -673,7 +710,10 @@ export default function LoadSchedulePage() {
     <div className="p-6 space-y-4">
 
       {/* ── Critical-load unmet alert (highest severity — cannot be resolved by dispatch) ── */}
-      {!loading && (shedding?.critical_unmet_kwh ?? 0) > 0 && (
+      {/* Source: dispatchShed.stats.unmet_kwh from the second (post-shed) dispatch pass.
+          This is the same number as the orange "Capacity Shortfall" banner in After Shedding
+          view, so the two can never contradict each other. */}
+      {!loading && finalUnmetKwh > 0 && (
         <div className="flex items-start gap-3 bg-red-700 border border-red-900 rounded-xl px-4 py-3">
           <svg className="w-5 h-5 text-red-100 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -681,13 +721,14 @@ export default function LoadSchedulePage() {
           </svg>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white">
-              CRITICAL LOADS UNMET: {shedding.critical_unmet_kwh.toFixed(2)} kWh cannot be served
+              CRITICAL LOADS UNMET: {finalUnmetKwh.toFixed(2)} kWh cannot be served
             </p>
             <p className="text-xs text-red-200 mt-0.5">
               All non-critical loads were shed but supply is still insufficient.
-              Critical loads ({shedding.shed_normal_kwh > 0 || shedding.shed_essential_kwh > 0
-                ? `after shedding ${((shedding.shed_normal_kwh ?? 0) + (shedding.shed_essential_kwh ?? 0)).toFixed(2)} kWh`
-                : 'with no other loads active'}) could not be fully served.
+              {shedding && (shedding.shed_normal_kwh > 0 || shedding.shed_essential_kwh > 0)
+                ? ` After shedding ${((shedding.shed_normal_kwh ?? 0) + (shedding.shed_essential_kwh ?? 0)).toFixed(2)} kWh of non-critical loads, `
+                : ' With no other loads active, '}
+              the system could not serve {finalUnmetKwh.toFixed(2)} kWh.
               Add generation capacity, battery storage, or reduce critical load.
             </p>
           </div>
@@ -703,20 +744,30 @@ export default function LoadSchedulePage() {
           (dispatch?.unmet?.[h] ?? 0) > (dispatch?.unmet?.[worst] ?? 0) ? h : worst
         , unmetHoursDay[0]) : null;
         if (loading || unmetKwhDay <= 0) return null;
+        const isRawView = sheddingView === 'raw';
         return (
-          <div className="flex items-start gap-3 bg-red-50 border border-red-300 rounded-xl px-4 py-3">
-            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
+            isRawView
+              ? 'bg-orange-50 border-orange-300'
+              : 'bg-red-50 border-red-300'
+          }`}>
+            <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isRawView ? 'text-orange-500' : 'text-red-500'}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </svg>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-red-700">
-                ⚠ Capacity Shortfall: {fmtKwh(unmetKwhDay)} of demand could not be served.
+              <p className={`text-sm font-bold ${isRawView ? 'text-orange-700' : 'text-red-700'}`}>
+                {isRawView ? '⚠ Pre-Shedding Deficit: ' : '⚠ Capacity Shortfall: '}
+                {fmtKwh(unmetKwhDay)} of demand could not be served
+                {isRawView ? ' (before load shedding).' : '.'}
               </p>
               {worstHour !== null && (
-                <p className="text-xs text-red-600 mt-0.5">
+                <p className={`text-xs mt-0.5 ${isRawView ? 'text-orange-600' : 'text-red-600'}`}>
                   Worst hour: {hourLabel(worstHour)} ({maxUnmetKwDay.toFixed(1)} kW unmet).
-                  Consider adding utility capacity or a generator.
+                  {isRawView
+                    ? ' Switch to "After Shedding" to see how much the shedding algorithm resolved.'
+                    : ' Consider adding utility capacity or a generator.'}
                 </p>
               )}
             </div>
@@ -816,7 +867,54 @@ export default function LoadSchedulePage() {
             Max Load
           </button>
         </div>
+
+        {/* Before / After Shedding toggle — shows raw vs post-shed dispatch */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-xs font-semibold">
+          <button onClick={() => setSheddingView('shed')}
+            className={`px-3 py-1.5 transition-colors ${
+              sheddingView === 'shed' ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+            }`}>
+            After Shedding
+          </button>
+          <button onClick={() => setSheddingView('raw')}
+            className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${
+              sheddingView === 'raw' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'
+            }`}>
+            Before Shedding
+          </button>
+        </div>
+
       </div>
+
+      {/* ── Restoration-mode bar — visible below controls when After Shedding + generator fuel data ── */}
+      {sheddingView === 'shed' && mode === 'optimized' && data?.cost_rates?.generator_rated_lph != null && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
+          <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs font-semibold text-emerald-700 flex-shrink-0">Restoration mode:</span>
+          <div className="flex rounded-lg border border-emerald-300 overflow-hidden shadow-sm text-xs font-semibold">
+            <button onClick={() => setRestoreMode('service')}
+              className={`px-3 py-1.5 transition-colors ${
+                restoreMode === 'service' ? 'bg-emerald-600 text-white' : 'text-emerald-700 hover:bg-emerald-100'
+              }`}>
+              Service-Priority
+            </button>
+            <button onClick={() => setRestoreMode('cost')}
+              className={`px-3 py-1.5 border-l border-emerald-300 transition-colors ${
+                restoreMode === 'cost' ? 'bg-emerald-700 text-white' : 'text-emerald-700 hover:bg-emerald-100'
+              }`}>
+              Cost-Priority
+            </button>
+          </div>
+          <span className="text-[10px] text-emerald-500 hidden sm:block">
+            {restoreMode === 'cost'
+              ? 'Keeps generator ≤ 30% load — sheds more to minimise fuel consumption'
+              : 'Restores shed loads whenever supply headroom permits'}
+          </span>
+        </div>
+      )}
 
       {/* ── Chart area ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -1048,6 +1146,12 @@ export default function LoadSchedulePage() {
       {/* ── Stats cards (shown in combined tab when data is ready) ── */}
       {tab === 'combined' && stats && !loading && (
         <div className="space-y-3">
+
+          {/* Shed Loads panel — at the top so it's immediately visible in After Shedding view */}
+          {sheddingView === 'shed' && (shedding?.per_load_shed_list?.length ?? 0) > 0 && (
+            <ShedLoadsPanel shedding={shedding} />
+          )}
+
           <h2 className="text-sm font-semibold text-gray-700">
             Daily Energy Breakdown
             <span className="ml-2 text-xs font-normal text-gray-400">
@@ -1327,6 +1431,7 @@ export default function LoadSchedulePage() {
               )}
             </div>
           )}
+
         </div>
       )}
 
@@ -1340,6 +1445,182 @@ export default function LoadSchedulePage() {
         />
       )}
 
+    </div>
+  );
+}
+
+// ── Part E: Shed Loads Panel ──────────────────────────────────────────────────
+
+// Converts a raw socket circuit ID into a human-readable location string.
+//   socket/uncontrolled          → "Socket outlets — standby (always-on)"
+//   socket/R/first/SM3           → "Socket outlets — Bldg R, first floor, Circuit SM3"
+//   socket/R/(MDB)/SM1           → "Socket outlets — Bldg R, MDB, Circuit SM1"
+//   socket/controlled/2 [R]      → unchanged (old synthetic fallback)
+//   anything else                → unchanged
+function decodeCircuitLabel(label) {
+  if (!label) return label;
+  if (label === 'socket/uncontrolled') return 'Socket outlets — standby (always-on)';
+  if (!label.startsWith('socket/')) return label;
+  const parts = label.split('/');
+  // Real-circuit format: socket/{bldg}/{floor}/SM{n}
+  if (parts.length === 4 && /^SM\d+$/.test(parts[3])) {
+    const [, bldg, floor, smNum] = parts;
+    const floorLabel = floor === '(MDB)' ? 'MDB'
+      : floor.charAt(0).toUpperCase() + floor.slice(1) + ' floor';
+    return `Socket outlets — Bldg ${bldg}, ${floorLabel}, Circuit ${smNum}`;
+  }
+  return label;
+}
+
+function ShedLoadsPanel({ shedding }) {
+  const [expanded, setExpanded] = useState({});
+  const [open, setOpen]         = useState(true);
+  const events = shedding?.per_load_shed_list ?? [];
+  if (events.length === 0) return null;
+
+  // Group events by circuit label
+  const circuitMap = {};
+  events.forEach(e => {
+    if (!circuitMap[e.label]) circuitMap[e.label] = { label: e.label, evts: [] };
+    circuitMap[e.label].evts.push({ ...e });
+  });
+
+  const circuits = Object.values(circuitMap).map(({ label, evts }) => {
+    evts.sort((a, b) => a.hour - b.hour);
+    const totalKwh   = evts.reduce((s, e) => s + (e.kwh ?? 0), 0);
+    const actionTypes = new Set(evts.map(e => e.action));
+    // Build timeline; infer restorations between consecutive shed events
+    const timeline = [];
+    evts.forEach((e, i) => {
+      timeline.push({ kind: 'action', ...e });
+      if (i < evts.length - 1) {
+        timeline.push({ kind: 'restored', fromHour: e.hour, untilHour: evts[i + 1].hour });
+      }
+    });
+    return { label, totalKwh, actionTypes, wasRestored: evts.length > 1, timeline };
+  });
+
+  // Sort: essential-shed first, then normal-shed, curtailed, shifted; alpha within tier
+  const tierOrder = { shed_essential: 0, shed_normal: 1, curtailed: 2 };
+  circuits.sort((a, b) => {
+    const ta = Math.min(...[...a.actionTypes].map(t => tierOrder[t] ?? 9));
+    const tb = Math.min(...[...b.actionTypes].map(t => tierOrder[t] ?? 9));
+    return ta - tb || a.label.localeCompare(b.label);
+  });
+
+  function toggle(lbl) {
+    setExpanded(p => ({ ...p, [lbl]: !p[lbl] }));
+  }
+
+  function actionBadge(action) {
+    if (action === 'shed_essential')
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">Essential Shed</span>;
+    if (action === 'shed_normal')
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">Shed</span>;
+    if (action === 'curtailed')
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-800">Curtailed</span>;
+    if (action?.startsWith('shifted_to_h')) {
+      const h = action.replace('shifted_to_h', '');
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">Shifted → {h}:00</span>;
+    }
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600">{action}</span>;
+  }
+
+  const totalShedKwh = circuits.reduce((s, c) => s + c.totalKwh, 0);
+  const numRestored  = circuits.filter(c => c.wasRestored).length;
+
+  return (
+    <div className="rounded-xl border border-orange-100 bg-orange-50/30 overflow-hidden">
+      {/* Header — click to fold/unfold the list */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-orange-50/60 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <svg
+            className={`w-3 h-3 text-orange-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+          <span className="text-xs font-semibold text-orange-700">Shed Loads</span>
+          <span className="text-[10px] text-orange-400 hidden sm:inline">— circuits removed by load shedding this day</span>
+        </div>
+        <div className="flex items-center gap-3 text-[10px]">
+          <span className="text-orange-500">{circuits.length} circuit{circuits.length !== 1 ? 's' : ''}</span>
+          <span className="font-semibold text-orange-600">{totalShedKwh.toFixed(2)} kWh shed</span>
+          {numRestored > 0 && (
+            <span className="text-emerald-600 font-semibold">{numRestored} restored mid-day</span>
+          )}
+        </div>
+      </button>
+
+      {/* Per-circuit rows — only when expanded */}
+      {open && <div className="border-t border-orange-100 divide-y divide-orange-50">
+        {circuits.map(circuit => (
+          <div key={circuit.label}>
+            <button
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/60 transition-colors text-left"
+              onClick={() => toggle(circuit.label)}
+            >
+              <svg
+                className={`w-3 h-3 text-orange-400 flex-shrink-0 transition-transform ${expanded[circuit.label] ? 'rotate-90' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <span className="text-[11px] font-medium text-gray-700 flex-1 min-w-0 truncate" title={circuit.label}>
+                {decodeCircuitLabel(circuit.label)}
+              </span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {[...circuit.actionTypes].map(a => <span key={a}>{actionBadge(a)}</span>)}
+              </div>
+              {circuit.wasRestored && (
+                <span className="text-[10px] text-emerald-600 font-medium flex-shrink-0 ml-1">↩ restored</span>
+              )}
+              <span className="text-[11px] font-semibold text-gray-500 w-16 text-right flex-shrink-0 tabular-nums">
+                {circuit.totalKwh.toFixed(3)} kWh
+              </span>
+            </button>
+
+            {expanded[circuit.label] && (
+              <div className="px-6 pb-3 pt-1">
+                <div className="border-l-2 border-orange-200 pl-3 space-y-1.5">
+                  {circuit.timeline.map((item, i) => (
+                    item.kind === 'restored' ? (
+                      <div key={i} className="flex items-center gap-2 text-[10px] text-emerald-600">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Restored between {hourLabel(item.fromHour)} and {hourLabel(item.untilHour)}
+                      </div>
+                    ) : (
+                      <div key={i} className="flex items-center gap-2 text-[10px]">
+                        <span className="text-gray-400 w-12 flex-shrink-0 font-mono tabular-nums">{hourLabel(item.hour)}</span>
+                        {actionBadge(item.action)}
+                        <span className="text-gray-400 ml-auto tabular-nums">{(item.kwh ?? 0).toFixed(3)} kWh</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>}
+
+      {/* Footer note — only when list is open */}
+      {open && <div className="px-4 py-2 border-t border-orange-100">
+        <p className="text-[10px] text-orange-300">
+          Restoration times are inferred from consecutive shed events — exact hour not logged.
+          Loads are shed in priority order: Normal → Essential. Critical loads are never shed.
+        </p>
+      </div>}
     </div>
   );
 }

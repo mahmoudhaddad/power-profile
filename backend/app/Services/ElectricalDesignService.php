@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Project;
+use Illuminate\Support\Facades\DB;
 
 /**
  * IEC 60364 panel-schedule / electrical design service.
@@ -47,6 +48,9 @@ class ElectricalDesignService
     private const V_LINE    = 400.0;
     private const SQRT3     = 1.7320508;
     private const AMBIENT_C = 40;
+
+    // VA per outlet used for socket-model circuits — matches SocketDemandService::OUTLET_VA.
+    private const SOCKET_MODEL_OUTLET_VA = 200.0;
 
     // IEC 60364-5-52 Table B.52.14 — PVC at 40 °C / 70 °C conductor limit
     // Cf = sqrt((70−40)/(70−30)) = sqrt(0.75) ≈ 0.866 → tabled as 0.87
@@ -267,6 +271,9 @@ class ElectricalDesignService
             'components.componentType',
             'floors.components.componentType',
             'floors.rooms.components.componentType',
+            'floors.rooms.sockets',
+            'floors.sockets',
+            'sockets',
         ])->get();
 
         $buildingResults = [];
@@ -298,12 +305,36 @@ class ElectricalDesignService
         $buildingOwnCircuits = $this->buildDirectCircuits($buildingOwnLoads, $rules);
         $buildingOwnVA       = array_sum(array_column($buildingOwnLoads, 'va'));
 
+        // Building-level Socket model outlets (outlet boxes with no floor or room association)
+        if ($building instanceof \Illuminate\Database\Eloquent\Model && $building->relationLoaded('sockets')) {
+            $bldgSMQty = (int) $building->getRelation('sockets')->sum('quantity');
+            if ($bldgSMQty > 0) {
+                $buildingOwnVA += $bldgSMQty * self::SOCKET_MODEL_OUTLET_VA;
+                $bSmNo = 0;
+                foreach ($this->packSocketCircuits($this->socketModelLoads($bldgSMQty), '(' . $building->name . ' MDB)', $rules) as $c) {
+                    $bSmNo++;
+                    $c['socket_source']     = 'socket_model';
+                    $c['sm_circuit_no']     = $bSmNo;
+                    $c['socket_circuit_id'] = "socket/{$building->name}/(MDB)/SM{$bSmNo}";
+                    $c['_no_balance_split'] = true;
+                    $buildingOwnCircuits[]  = $c;
+                }
+            }
+        }
+
         $floorResults   = [];
         $floorDivVAs    = [];
         $nameplateTotal = $buildingOwnVA;
 
         foreach ($building->getRelation('floors') as $floor) {
-            $floorResult     = $this->analyzeFloor($floor, $rules, $bDfs);
+            $floorResult = $this->analyzeFloor($floor, $rules, $bDfs);
+            // Annotate socket-model circuits with real locatable IDs (building name known here)
+            foreach ($floorResult['circuits'] as &$c) {
+                if (($c['socket_source'] ?? null) === 'socket_model') {
+                    $c['socket_circuit_id'] = "socket/{$building->name}/{$floorResult['name']}/SM{$c['sm_circuit_no']}";
+                }
+            }
+            unset($c);
             $floorResults[]  = $floorResult;
             $floorDivVAs[]   = $floorResult['db']['total_va_diversified'];
             $nameplateTotal += $floorResult['db']['total_va_nameplate'];
@@ -367,10 +398,11 @@ class ElectricalDesignService
         $groupSmall     = $rules['group_small_critical'] ?? false;
         $motorThreshold = $rules['motor_dedicated_threshold_va'] ?? 750;
 
-        $rooms     = $floor->rooms;
-        $roomCount = count($rooms);
-        $midRoom   = (int) ceil($roomCount / 2);
-        $roomIdx   = 0;
+        $rooms        = $floor->rooms;
+        $roomCount    = count($rooms);
+        $midRoom      = (int) ceil($roomCount / 2);
+        $roomIdx      = 0;
+        $smCircuitNo  = 0;  // sequential index across all socket-model circuits on this floor
 
         foreach ($rooms as $room) {
             $roomIdx++;
@@ -429,6 +461,27 @@ class ElectricalDesignService
                 }
             }
 
+            // Socket model outlets: real outlet-box records, net of needs_socket-allocated
+            // components to avoid double-counting with appliances already packed above.
+            // Uses SOCKET_MODEL_OUTLET_VA=200 to match SocketDemandService::OUTLET_VA.
+            if ($room instanceof \Illuminate\Database\Eloquent\Model && $room->relationLoaded('sockets')) {
+                $smQty    = (int) $room->getRelation('sockets')->sum('quantity');
+                $allocQty = array_sum(array_column($sockets, 'qty'));
+                $netQty   = max(0, $smQty - $allocQty);
+                if ($netQty > 0) {
+                    $smVA = $netQty * self::SOCKET_MODEL_OUTLET_VA;
+                    $nameplateSum += $smVA;
+                    $roomDivVASum += $smVA * $roomDf * $bDfs['room_to_floor'];
+                    foreach ($this->packSocketCircuits($this->socketModelLoads($netQty), $room->name, $rules) as $c) {
+                        $smCircuitNo++;
+                        $c['socket_source']     = 'socket_model';
+                        $c['sm_circuit_no']     = $smCircuitNo;
+                        $c['_no_balance_split'] = true;  // SM IDs must stay stable; balance handled by room distribution
+                        $allCircuits[] = $c;
+                    }
+                }
+            }
+
             // AUXILIARY: always cross-room for all rooms
             [$allCircuits, $openAuxiliary] = $this->packAuxiliaryLoads(
                 $auxLoads, $room->name, $allCircuits, $openAuxiliary, $rules
@@ -481,6 +534,23 @@ class ElectricalDesignService
         foreach ($this->buildDirectCircuits($floorOwnLoads, $rules) as $c) {
             $c['room_names'] = ['(Floor direct)'];
             $allCircuits[] = $c;
+        }
+
+        // Floor-level Socket model outlets (outlet boxes in common areas, no room association)
+        if ($floor instanceof \Illuminate\Database\Eloquent\Model && $floor->relationLoaded('sockets')) {
+            $floorSMQty = (int) $floor->getRelation('sockets')->sum('quantity');
+            if ($floorSMQty > 0) {
+                $floorSMVA = $floorSMQty * self::SOCKET_MODEL_OUTLET_VA;
+                $nameplateSum += $floorSMVA;
+                $floorOwnVA  += $floorSMVA;
+                foreach ($this->packSocketCircuits($this->socketModelLoads($floorSMQty), '(' . $floor->name . ' common)', $rules) as $c) {
+                    $smCircuitNo++;
+                    $c['socket_source']     = 'socket_model';
+                    $c['sm_circuit_no']     = $smCircuitNo;
+                    $c['_no_balance_split'] = true;
+                    $allCircuits[] = $c;
+                }
+            }
         }
 
         // Phase 1: split circuits that exceed the electrical (breaker) limit so
@@ -1242,7 +1312,7 @@ class ElectricalDesignService
             $hasCrit    = (bool) ($c['has_critical'] ?? false)
                 || ! empty(array_filter($reconLoads, fn($l) => ($l['priority'] ?? '') === 'critical'));
 
-            $subs[] = [
+            $sub = [
                 'type'            => $c['type'],
                 'is3ph'           => false,
                 'room_names'      => $c['room_names'] ?? [],
@@ -1263,6 +1333,11 @@ class ElectricalDesignService
                 'phase'           => null,
                 'split_sub'       => true,
             ];
+            // Propagate socket-model identity so split sub-circuits remain locatable.
+            if (isset($c['socket_source']))   $sub['socket_source']   = $c['socket_source'];
+            if (isset($c['sm_circuit_no']))   $sub['sm_circuit_no']   = $c['sm_circuit_no'];
+            if (isset($c['socket_circuit_id'])) $sub['socket_circuit_id'] = $c['socket_circuit_id'];
+            $subs[] = $sub;
         }
 
         return $subs;
@@ -1498,6 +1573,120 @@ class ElectricalDesignService
             ];
         }
         return $feeders;
+    }
+
+    /**
+     * Creates an array of individual 200 VA outlet loads for use with packSocketCircuits().
+     * Passing qty=1 per element ensures the outlet-count cap (socket_outlets_per_circuit)
+     * is respected — a single bulk load with qty>8 would not be split by the packer.
+     */
+    private function socketModelLoads(int $netQty): array
+    {
+        if ($netQty <= 0) return [];
+        return array_fill(0, $netQty, [
+            'name'         => 'Socket Outlet',
+            'qty'          => 1,
+            'va'           => self::SOCKET_MODEL_OUTLET_VA,
+            'va_each'      => self::SOCKET_MODEL_OUTLET_VA,
+            'is3ph'        => false,
+            'is_motor'     => false,
+            'priority'     => 'normal',
+            'circuit_type' => 'SOCKET',
+            'saved_phase'  => null,
+        ]);
+    }
+
+    /**
+     * Returns a flat list of real socket-model circuits for all buildings in a project.
+     * Used by ScheduleController to label dispatch slots with real, locatable circuit IDs
+     * instead of synthetic socket/controlled/N labels.
+     *
+     * Applies the same needs_socket deduction as SocketDemandService::projectResult() so
+     * outlets already counted as specific RoomComponent appliances are not double-packed.
+     *
+     * Each element includes: socket_circuit_id, total_va, building_name, floor_name, room_names,
+     * plus the standard circuit sizing fields (ib_a, in_a, cable_mm2, etc.).
+     */
+    public function socketCircuitIndex(Project $project): array
+    {
+        $buildings = $project->buildings()->with([
+            'floors.rooms.sockets',
+            'floors.sockets',
+            'sockets',
+        ])->get();
+
+        // needs_socket allocation per room (same deduction as SocketDemandService)
+        $allRoomIds = [];
+        foreach ($buildings as $bldg) {
+            foreach ($bldg->getRelation('floors') as $floor) {
+                foreach ($floor->rooms as $room) {
+                    $allRoomIds[] = $room->id;
+                }
+            }
+        }
+        $allocByRoom = [];
+        if (!empty($allRoomIds)) {
+            $allocByRoom = DB::table('room_components')
+                ->whereIn('room_id', $allRoomIds)
+                ->where('needs_socket', true)
+                ->groupBy('room_id')
+                ->selectRaw('room_id, SUM(quantity) as total')
+                ->pluck('total', 'room_id')
+                ->all();
+        }
+
+        $circuits = [];
+        foreach ($buildings as $bldg) {
+            $bType = $bldg->type ?? $project->building_type ?? null;
+            $rules = self::DESIGN_RULES[$bType] ?? self::DEFAULT_RULES;
+
+            foreach ($bldg->getRelation('floors') as $floor) {
+                $smCircuitNo = 0;
+
+                // Room-level — same iteration order as analyzeFloor() guarantees matching SM numbers
+                foreach ($floor->rooms as $room) {
+                    $smQty    = (int) $room->getRelation('sockets')->sum('quantity');
+                    $allocQty = (int) ($allocByRoom[$room->id] ?? 0);
+                    $netQty   = max(0, $smQty - $allocQty);
+                    if ($netQty <= 0) continue;
+
+                    foreach ($this->packSocketCircuits($this->socketModelLoads($netQty), $room->name, $rules) as $c) {
+                        $smCircuitNo++;
+                        $c['socket_circuit_id'] = "socket/{$bldg->name}/{$floor->name}/SM{$smCircuitNo}";
+                        $c['building_name']     = $bldg->name;
+                        $c['floor_name']        = $floor->name;
+                        $circuits[]             = $c;
+                    }
+                }
+
+                // Floor-level sockets
+                $floorSMQty = (int) $floor->getRelation('sockets')->sum('quantity');
+                if ($floorSMQty > 0) {
+                    foreach ($this->packSocketCircuits($this->socketModelLoads($floorSMQty), '(' . $floor->name . ' common)', $rules) as $c) {
+                        $smCircuitNo++;
+                        $c['socket_circuit_id'] = "socket/{$bldg->name}/{$floor->name}/SM{$smCircuitNo}";
+                        $c['building_name']     = $bldg->name;
+                        $c['floor_name']        = $floor->name;
+                        $circuits[]             = $c;
+                    }
+                }
+            }
+
+            // Building-level sockets
+            $bldgSMQty = (int) $bldg->getRelation('sockets')->sum('quantity');
+            if ($bldgSMQty > 0) {
+                $bSmNo = 0;
+                foreach ($this->packSocketCircuits($this->socketModelLoads($bldgSMQty), '(' . $bldg->name . ' MDB)', $rules) as $c) {
+                    $bSmNo++;
+                    $c['socket_circuit_id'] = "socket/{$bldg->name}/(MDB)/SM{$bSmNo}";
+                    $c['building_name']     = $bldg->name;
+                    $c['floor_name']        = '(MDB)';
+                    $circuits[]             = $c;
+                }
+            }
+        }
+
+        return $circuits;
     }
 
     private function extractEssentialPanel(array $floorResults, array $rules): ?array

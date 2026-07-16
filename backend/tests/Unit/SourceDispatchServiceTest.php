@@ -179,60 +179,105 @@ class SourceDispatchServiceTest extends TestCase
     // ── Test 3b ──────────────────────────────────────────────────────────────────
 
     /**
-     * Generator charging is blocked when load fraction < 60 %.
-     * The SFC penalty at low load outweighs the value of stored energy.
+     * Case B generator-charging guard: gen < 60 % in daylight with abundant remaining
+     * solar is suppressed — charging the battery via the generator is wasteful when
+     * solar will fill it naturally within a few hours.
+     *
+     * Setup: h=6 has a 5 kW load but only 100 W of solar → generator runs at 49 %
+     * (below the 60 % efficient threshold).  Hours h=7-17 each deliver 20 kW surplus
+     * solar — vastly more than needed to fill the 7.3 kWh battery target.
+     * $solarStillCoversTarget must be TRUE at h=6 → Case B suppressed.
+     *
+     * Note: Case C (night boost) is intentional new behaviour.  This test uses
+     * daytime solar to isolate the Case B gate that prevents wasteful round-trip losses
+     * when solar can cover the gap naturally.
      */
     public function test_gen_does_not_charge_battery_when_load_fraction_below_60_pct(): void
     {
         $batt = $this->col([$this->battery([
-            'current_soc'         => 0.0,
+            'current_soc'         => 0.0,  // depleted — full headroom for charging
             'max_charge_power_kw' => 5.0,
         ])]);
 
+        // h=6: 5 kW load, 100 W solar → gen at 49 % (< 60 %)
+        // h=7-17: 20 kW solar, 0 load → solar fills battery naturally
+        // h=18-23: 1 kW night load — battery (charged by solar) covers it; gen stays off
+        $load  = array_fill(0, 24, 0.0);
+        $solar = array_fill(0, 24, 0.0);
+        $load[6]  = 5_000.0;
+        $solar[6] = 100.0;
+        for ($h = 7; $h <= 17; $h++) {
+            $solar[$h] = 20_000.0;
+        }
+        for ($h = 18; $h < 24; $h++) {
+            $load[$h] = 1_000.0;
+        }
+
         $result = $this->svc->dispatch(
-            $this->flat(2_000.0),  // 2 kW → 20 % of 10 kW rated
-            $this->flat(0.0),
+            $load, $solar,
             0.0,
             10_000.0,
             $batt,
-            0.0
+            20_000.0  // solar capacity
         );
 
+        // h=6: gen at 49 % but solarStillCoversTarget=true → Case B suppressed → no gen→batt
+        $this->assertSame(
+            0.0,
+            $result['battery_charged_gen'][6],
+            'Case B must suppress gen→battery charging when remaining solar can fill the battery target'
+        );
+
+        // No other hour has the generator running → full array must be zero
         $this->assertSame(
             array_fill(0, 24, 0.0),
             $result['battery_charged_gen'],
-            'Generator must not charge battery when running below 60 % of rated capacity'
+            'battery_charged_gen must be all-zero: gen never runs above 60 % and Case B blocks h=6'
         );
     }
 
     // ── Test 4 ───────────────────────────────────────────────────────────────────
 
     /**
-     * When the guard blocks charging, total generator kWh equals load-serving only.
+     * When Case B blocks charging, total generator kWh equals load-serving only.
+     *
+     * Uses the same solar-rich scenario as Test 3b: generator runs only at h=6
+     * for load-serving (4.9 kWh) and the charging overhead is zero.
      */
     public function test_generator_kwh_excludes_charging_overhead_when_guard_fires(): void
     {
         $batt = $this->col([$this->battery(['current_soc' => 0.0])]);
 
+        $load  = array_fill(0, 24, 0.0);
+        $solar = array_fill(0, 24, 0.0);
+        $load[6]  = 5_000.0;
+        $solar[6] = 100.0;
+        for ($h = 7; $h <= 17; $h++) {
+            $solar[$h] = 20_000.0;
+        }
+        for ($h = 18; $h < 24; $h++) {
+            $load[$h] = 1_000.0;
+        }
+
         $result = $this->svc->dispatch(
-            $this->flat(2_000.0),
-            $this->flat(0.0),
+            $load, $solar,
             0.0,
             10_000.0,
             $batt,
-            0.0
+            20_000.0
         );
 
         $this->assertSame(
             array_fill(0, 24, 0.0),
             $result['battery_charged_gen'],
-            'Charging overhead array must be zero when guard blocks Step 7'
+            'Charging overhead array must be zero when Case B blocks Step 7'
         );
+        // Generator runs only at h=6: (5000 - 100) W = 4.9 kW × 1 h = 4.9 kWh
         $this->assertEqualsWithDelta(
-            48.0,
+            4.9,
             $result['stats']['generator_kwh'],
-            0.5,
-            'Generator kWh should equal load only — no charging overhead below threshold'
+            0.3,
+            'Generator kWh must equal load-serving output only — no charging overhead when Case B fires'
         );
     }
 
