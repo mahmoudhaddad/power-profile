@@ -52,6 +52,11 @@ class BatteryController extends Controller
             $validated['current_soc'] = 0.50;
         }
 
+        // Default installation_date to today so age_factor starts at 1.0 for new batteries.
+        if (! isset($validated['installation_date']) || $validated['installation_date'] === null) {
+            $validated['installation_date'] = now()->toDateString();
+        }
+
         $battery = $project->batteries()->create($validated);
 
         return response()->json(['data' => $battery], 201);
@@ -80,14 +85,14 @@ class BatteryController extends Controller
 
         $validated = $request->validated();
 
-        // When chemistry is being changed, re-derive operating parameters from the new
-        // chemistry's defaults for any field not explicitly included in this request.
-        // This mirrors the store() logic and prevents stale DoD/efficiency from
-        // a previous chemistry carrying over silently.
+        // When chemistry changes, ALWAYS overwrite the chemistry-derived fields
+        // from the new preset — ignore any stale values the form may have sent.
+        // The old condition (!array_key_exists) was wrong: the edit form always
+        // sends the current stored values, so the preset would never apply.
         if (isset($validated['chemistry'])) {
             $defaults = BatteryChemistryService::getDefaults($validated['chemistry']) ?? [];
             foreach (['depth_of_discharge', 'round_trip_efficiency', 'c_rate_charge', 'c_rate_discharge', 'rated_cycle_life'] as $field) {
-                if (! array_key_exists($field, $validated) && isset($defaults[$field])) {
+                if (isset($defaults[$field])) {
                     $validated[$field] = $defaults[$field];
                 }
             }
