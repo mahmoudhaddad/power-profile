@@ -7,21 +7,29 @@ use App\Models\Building;
 use App\Models\Floor;
 use App\Models\Project;
 use App\Models\Room;
+use App\Services\ElectricalDesignService;
 use App\Services\SocketDemandService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PhaseBalanceController extends Controller
 {
-    private const VOLT             = 230;
-    private const WARN_PCT         = 10;
-    private const CRIT_PCT         = 20;
+    private const VOLT              = 230;
+    private const WARN_PCT          = 10;
+    private const CRIT_PCT          = 20;
     private const SOCKET_ASSUMED_PF = 0.95;
+
+    // Room splitting (IEC 60364-8-1 balanced loading; CIBSE ±10 % target):
+    // A room is split when its 1-ph VA exceeds one equal share of the floor total
+    // (floor_total / 3).  Minimum VA guard prevents splitting tiny rooms.
+    private const PHASE_SPLIT_MIN_VA = 1500.0;
 
     // IEC phase voltage angles in radians (positive-sequence ABC)
     private const PHASE_ANGLE_A = 0.0;
     private const PHASE_ANGLE_B = M_PI * 2 / 3;   // 120°
     private const PHASE_ANGLE_C = M_PI * 4 / 3;   // 240°
+
+    public function __construct(private readonly ElectricalDesignService $edService) {}
 
     // ── Project: all buildings ────────────────────────────────────────────────
 
@@ -38,8 +46,13 @@ class PhaseBalanceController extends Controller
             'floors.rooms.components.componentType',
         ])->get();
 
+        $edResult  = $this->edService->analyzeProject($project);
+        $edByBldId = collect($edResult['buildings'])->keyBy('id')->all();
+
         return response()->json([
-            'buildings' => $buildings->map(fn($b) => $this->buildingReport($b, $sockets))->values(),
+            'buildings' => $buildings->map(
+                fn($b) => $this->buildingReport($b, $sockets, $edByBldId[$b->id] ?? null)
+            )->values(),
         ]);
     }
 
@@ -58,7 +71,10 @@ class PhaseBalanceController extends Controller
             'floors.rooms.components.componentType',
         ]);
 
-        return response()->json($this->buildingReport($building, new SocketDemandService()));
+        $edResult   = $this->edService->analyzeProject($building->project);
+        $edBuilding = collect($edResult['buildings'])->firstWhere('id', $building->id);
+
+        return response()->json($this->buildingReport($building, new SocketDemandService(), $edBuilding));
     }
 
     // ── Floor: simple greedy (unchanged behaviour) ────────────────────────────
@@ -124,7 +140,9 @@ class PhaseBalanceController extends Controller
             'floors.rooms.components.componentType',
         ]);
 
-        $report = $this->buildingReport($building, new SocketDemandService());
+        $edResult   = $this->edService->analyzeProject($building->project);
+        $edBuilding = collect($edResult['buildings'])->firstWhere('id', $building->id);
+        $report     = $this->buildingReport($building, new SocketDemandService(), $edBuilding);
 
         foreach ($report['block_assignments'] as $ba) {
             $ph = $ba['optimal_phase'];
@@ -134,6 +152,23 @@ class PhaseBalanceController extends Controller
                     foreach ($floor->rooms as $room) {
                         if ($room->id === $ba['room_id']) {
                             $room->components()->where('phases', '1phase')->update(['phase' => $ph]);
+                            break 2;
+                        }
+                    }
+                }
+            } elseif ($ba['type'] === 'room_section' && $ba['room_id'] !== null && ! empty($ba['component_ids'])) {
+                // Split room: apply phase only to the specific component IDs in this section.
+                // Each section covers a distinct circuit type (SOCKET/LIGHTING/AUXILIARY),
+                // so different sections of the same room can land on different phases.
+                if ($ph === null) continue;
+                foreach ($building->getRelation('floors') as $floor) {
+                    if ($floor->id !== $ba['floor_id']) continue;
+                    foreach ($floor->rooms as $room) {
+                        if ($room->id === $ba['room_id']) {
+                            $room->components()
+                                ->whereIn('id', $ba['component_ids'])
+                                ->where('phases', '1phase')
+                                ->update(['phase' => $ph]);
                             break 2;
                         }
                     }
@@ -148,116 +183,223 @@ class PhaseBalanceController extends Controller
             } elseif ($ba['type'] === 'building') {
                 $building->components()->where('phases', '1phase')->update(['phase' => $ph]);
             }
-            // 'socket' blocks are not DB records — skip
+            // 'socket' blocks are virtual (no DB record) — skip
         }
 
         return response()->json(['message' => 'Optimal phase assignment applied.']);
     }
 
     // ── Core building report ──────────────────────────────────────────────────
+    //
+    // Derives the "optimal" phase distribution directly from ElectricalDesignService
+    // circuit-level phase assignments so that both pages show the same per-phase VA
+    // totals and imbalance %.  The "actual" distribution is still read from the saved
+    // DB phase column (unchanged behaviour).
 
-    private function buildingReport(Building $building, SocketDemandService $sockets): array
-    {
-        $blocks     = [];   // VA blocks used for greedy (no individual load detail)
-        $blockLoads = [];   // parallel array: per-block individual loads ['va','pf']
-        $floorsOut  = [];
-
-        // Building-level own 1ph components
-        $bOwn = $this->extract1ph($building->components);
-        $bVa  = array_sum(array_column($bOwn, 'va'));
-        if ($bVa > 0) {
-            $blocks[]     = ['type' => 'building', 'name' => 'Building components',
-                             'va' => $bVa, 'floor_id' => null, 'room_id' => null];
-            $blockLoads[] = $bOwn;
+    private function buildingReport(
+        Building $building,
+        SocketDemandService $sockets,
+        ?array $edBuilding = null
+    ): array {
+        // Index ED floors by ID for fast lookup.
+        $edFloorById = [];
+        if ($edBuilding) {
+            foreach ($edBuilding['floors'] as $f) {
+                $edFloorById[$f['id']] = $f;
+            }
         }
 
+        $blockAssign = [];
+        $floorsOut   = [];
+        $optVa       = ['A' => 0.0, 'B' => 0.0, 'C' => 0.0];
+
         foreach ($building->getRelation('floors') as $floor) {
-            // Floor own
-            $fOwn = $this->extract1ph($floor->components);
-            $fVa  = array_sum(array_column($fOwn, 'va'));
-            if ($fVa > 0) {
-                $blocks[]     = ['type' => 'floor_own', 'name' => 'Floor components – ' . $floor->name,
-                                 'va' => $fVa, 'floor_id' => $floor->id, 'room_id' => null];
-                $blockLoads[] = $fOwn;
+            $edFloor = $edFloorById[$floor->id] ?? null;
+
+            // Accumulate building-level phase VA from the ED floor totals.
+            // These ARE the circuit-level phase totals shown on the Electrical Design page.
+            if ($edFloor) {
+                foreach (['A', 'B', 'C'] as $ph) {
+                    $optVa[$ph] += (float) ($edFloor['db']['phase_balance_va'][$ph] ?? 0);
+                }
             }
 
-            // Socket demand for the floor panel
-            $sd = $sockets->floorResult($floor);
-            if ($sd['demand_va'] > 0) {
-                $blocks[]     = ['type' => 'socket', 'name' => 'Sockets – ' . $floor->name,
-                                 'va' => (float) $sd['demand_va'], 'floor_id' => $floor->id, 'room_id' => null];
-                $blockLoads[] = [['va' => (float) $sd['demand_va'], 'pf' => self::SOCKET_ASSUMED_PF]];
+            // Map room name → Room model for this floor (name is unique within a floor).
+            $nameToRoom = [];
+            foreach ($floor->rooms as $room) {
+                $nameToRoom[$room->name] = $room;
             }
 
-            // Rooms
+            // Index 1-phase circuits from ED by room_id and circuit type.
+            // roomCircuits[room_id][circuit_type][] = circuit
+            $roomCircuits = [];
+            if ($edFloor) {
+                foreach ($edFloor['circuits'] as $circuit) {
+                    if ($circuit['is3ph'] ?? false) continue;
+                    $ph = $circuit['phase'] ?? null;
+                    if (! $ph || $ph === '3PH') continue;
+                    $ct = $circuit['type'];
+                    foreach ($circuit['room_names'] ?? [] as $rName) {
+                        if (! isset($nameToRoom[$rName])) continue;
+                        $rId = $nameToRoom[$rName]->id;
+                        $roomCircuits[$rId][$ct][] = $circuit;
+                    }
+                }
+
+                // Floor-own block (for Apply Optimal on floor-direct components).
+                $fownPhaseVa = [];
+                foreach ($edFloor['circuits'] as $circuit) {
+                    if ($circuit['is3ph'] ?? false) continue;
+                    if (! in_array('(Floor direct)', $circuit['room_names'] ?? [])) continue;
+                    $ph = $circuit['phase'] ?? null;
+                    if ($ph && $ph !== '3PH') {
+                        $fownPhaseVa[$ph] = ($fownPhaseVa[$ph] ?? 0.0) + (float) ($circuit['total_va'] ?? 0);
+                    }
+                }
+                if (! empty($fownPhaseVa)) {
+                    arsort($fownPhaseVa);
+                    $blockAssign[] = [
+                        'type'          => 'floor_own',
+                        'name'          => 'Floor components – ' . $floor->name,
+                        'va'            => round(array_sum($fownPhaseVa), 2),
+                        'floor_id'      => $floor->id,
+                        'room_id'       => null,
+                        'optimal_phase' => array_key_first($fownPhaseVa),
+                    ];
+                }
+            }
+
+            // Build per-room display data and block_assignments.
             $roomsOut = [];
             foreach ($floor->rooms as $room) {
                 $r1ph = $this->extract1ph($room->components);
                 $rVa  = array_sum(array_column($r1ph, 'va'));
 
-                $roomsOut[] = [
-                    'id'            => $room->id,
-                    'name'          => $room->name,
-                    'va_1ph'        => round($rVa, 2),
-                    'actual_phase'  => $this->consensusPhase($room->components),
-                    'optimal_phase' => null,  // filled after greedy
-                ];
-
-                if ($rVa > 0) {
-                    $blocks[]     = ['type' => 'room', 'name' => $room->name . ' (' . $floor->name . ')',
-                                     'va' => $rVa, 'floor_id' => $floor->id, 'room_id' => $room->id];
-                    $blockLoads[] = $r1ph;
+                // Room's own VA by circuit type (from its component list).
+                $roomVaByType = [];
+                foreach ($r1ph as $item) {
+                    $ct = $item['circuit_type'] ?? 'AUXILIARY';
+                    $roomVaByType[$ct] = ($roomVaByType[$ct] ?? 0.0) + $item['va'];
                 }
+
+                $compIdsByType = $this->getComponentIdsByType($room->components);
+
+                // For each circuit type, derive phase breakdown using circuit VA proportions.
+                // roomCTPhases[circuit_type][phase] = room's proportional VA on that phase.
+                $roomCTPhases = [];
+                $sectionIdx   = 0;
+                foreach (['SOCKET', 'LIGHTING', 'AUXILIARY'] as $ct) {
+                    $circuits = $roomCircuits[$room->id][$ct] ?? [];
+                    if (empty($circuits)) continue;
+
+                    $circPhaseVa    = [];
+                    $totalCircuitVa = 0.0;
+                    foreach ($circuits as $c) {
+                        $ph  = $c['phase'];
+                        $cva = (float) ($c['total_va'] ?? 0);
+                        $circPhaseVa[$ph] = ($circPhaseVa[$ph] ?? 0.0) + $cva;
+                        $totalCircuitVa  += $cva;
+                    }
+                    if ($totalCircuitVa <= 0) continue;
+
+                    // Split the room's own VA for this type proportionally across phases.
+                    $roomTypeVa  = $roomVaByType[$ct] ?? 0.0;
+                    $roomVaPerPh = [];
+                    foreach ($circPhaseVa as $ph => $cva) {
+                        $roomVaPerPh[$ph] = round($roomTypeVa * ($cva / $totalCircuitVa), 2);
+                    }
+                    $roomCTPhases[$ct] = $roomVaPerPh;
+
+                    // Dominant phase for Apply Optimal (highest circuit VA share).
+                    arsort($circPhaseVa);
+                    $domPhase = array_key_first($circPhaseVa);
+
+                    if (! empty($compIdsByType[$ct])) {
+                        $blockAssign[] = [
+                            'type'          => 'room_section',
+                            'name'          => $room->name . ' – ' . $ct . ' (' . $floor->name . ')',
+                            'va'            => round(array_sum($roomVaPerPh), 2),
+                            'floor_id'      => $floor->id,
+                            'room_id'       => $room->id,
+                            'section_idx'   => $sectionIdx++,
+                            'circuit_types' => [$ct],
+                            'component_ids' => array_values($compIdsByType[$ct]),
+                            'optimal_phase' => $domPhase,
+                        ];
+                    }
+                }
+
+                // Aggregate per-phase VA for the room across all circuit types.
+                $allRoomPhaseVa = [];
+                foreach ($roomCTPhases as $phaseVas) {
+                    foreach ($phaseVas as $ph => $va) {
+                        $allRoomPhaseVa[$ph] = ($allRoomPhaseVa[$ph] ?? 0.0) + $va;
+                    }
+                }
+                ksort($allRoomPhaseVa);  // A → B → C
+
+                $isSplit    = count($allRoomPhaseVa) > 1;
+                $optPhase   = (! $isSplit && ! empty($allRoomPhaseVa)) ? array_key_first($allRoomPhaseVa) : null;
+                $splitSects = [];
+
+                if ($isSplit) {
+                    $si = 1;
+                    foreach ($allRoomPhaseVa as $ph => $va) {
+                        $splitSects[] = ['section' => $si++, 'phase' => $ph, 'va' => round($va, 2)];
+                    }
+                }
+
+                $roomsOut[] = [
+                    'id'             => $room->id,
+                    'name'           => $room->name,
+                    'va_1ph'         => round($rVa, 2),
+                    'actual_phase'   => $this->consensusPhase($room->components),
+                    'optimal_phase'  => $optPhase,
+                    'is_split'       => $isSplit,
+                    'split_sections' => $splitSects,
+                ];
             }
 
             $floorsOut[] = ['id' => $floor->id, 'name' => $floor->name, 'rooms' => $roomsOut];
         }
 
-        // ── Greedy on blocks (largest first) ──────────────────────────────────
-        // Sort blocks and keep blockLoads in sync.
-        $order = array_keys($blocks);
-        usort($order, fn($a, $b) => $blocks[$b]['va'] <=> $blocks[$a]['va']);
-
-        $optVa       = ['A' => 0.0,  'B' => 0.0,  'C' => 0.0];
-        $phaseLoads  = ['A' => [],   'B' => [],    'C' => []];
-        $blockAssign = [];
-
-        foreach ($order as $idx) {
-            $blk = $blocks[$idx];
-            $ph  = array_keys($optVa, min($optVa))[0];
-            $optVa[$ph] += $blk['va'];
-            foreach ($blockLoads[$idx] as $load) {
-                $phaseLoads[$ph][] = ['va' => (float) $load['va'], 'pf' => (float) ($load['pf'] ?? 1.0)];
-            }
-            $blockAssign[] = $blk + ['optimal_phase' => $ph];
+        // Building-own 1-phase components: assign greedily against the accumulated floor totals.
+        $bOwn = $this->extract1ph($building->components);
+        usort($bOwn, fn($a, $b) => $b['va'] <=> $a['va']);
+        foreach ($bOwn as $load) {
+            $ph = array_keys($optVa, min($optVa))[0];
+            $optVa[$ph] += $load['va'];
+            $blockAssign[] = [
+                'type'          => 'building',
+                'name'          => 'Building components',
+                'va'            => round($load['va'], 2),
+                'floor_id'      => null,
+                'room_id'       => null,
+                'optimal_phase' => $ph,
+            ];
         }
 
-        // Fill optimal_phase back into floor rooms
-        foreach ($floorsOut as &$floorOut) {
-            foreach ($floorOut['rooms'] as &$roomOut) {
-                foreach ($blockAssign as $ba) {
-                    if ($ba['type'] === 'room' && $ba['room_id'] === $roomOut['id']) {
-                        $roomOut['optimal_phase'] = $ba['optimal_phase'];
-                        break;
-                    }
-                }
-            }
+        // ── Optimal distribution ───────────────────────────────────────────────
+        $total1phVa = array_sum($optVa);
+        $optDist    = [];
+        foreach (['A', 'B', 'C'] as $ph) {
+            $pct = $total1phVa > 0 ? ($optVa[$ph] / $total1phVa) * 100 : 0.0;
+            $optDist[$ph] = [
+                'va'                  => round($optVa[$ph], 2),
+                'current_a'           => round($optVa[$ph] / self::VOLT, 2),
+                'percentage_of_total' => round($pct, 1),
+            ];
         }
-        unset($floorOut, $roomOut);
+        [$optSt, $optImb] = $this->imbalanceStatus($optVa);
 
-        // ── Distributions ─────────────────────────────────────────────────────
-        $actual     = $this->actualDistribution($building);
-        $total1phVa = array_sum(array_column($blocks, 'va'));
+        // Neutral current: phasor sum assuming PF=1 (approximation; PF data not in circuit totals).
+        $optN = $this->computeNeutralCurrent([
+            'A' => [['va' => $optVa['A'], 'pf' => 1.0]],
+            'B' => [['va' => $optVa['B'], 'pf' => 1.0]],
+            'C' => [['va' => $optVa['C'], 'pf' => 1.0]],
+        ]);
 
-        // Phasor currents per phase for the optimal assignment
-        $optPhasorCurrents = [
-            'A' => $this->computePhaseCurrent($phaseLoads['A'], self::PHASE_ANGLE_A)['magnitude'],
-            'B' => $this->computePhaseCurrent($phaseLoads['B'], self::PHASE_ANGLE_B)['magnitude'],
-            'C' => $this->computePhaseCurrent($phaseLoads['C'], self::PHASE_ANGLE_C)['magnitude'],
-        ];
-        $optDist           = $this->phaseDistribution($optVa, $total1phVa, $optPhasorCurrents);
-        [$optSt, $optImb]  = $this->imbalanceStatus($optVa);
-        $optN              = $this->computeNeutralCurrent($phaseLoads);
+        $actual = $this->actualDistribution($building);
 
         return [
             'id'     => $building->id,
@@ -322,7 +464,7 @@ class PhaseBalanceController extends Controller
         return sqrt($real ** 2 + $imag ** 2);
     }
 
-    /** 1-phase loads [{name, va, pf, phase}] with group-max dedup. */
+    /** 1-phase loads [{name, va, pf, phase, circuit_type}] with group-max dedup. */
     private function extract1ph($components): array
     {
         $groups    = [];
@@ -332,8 +474,13 @@ class PhaseBalanceController extends Controller
             if ($c->phases === '3phase') continue;
             $va   = (float) $c->power * (int) $c->quantity;
             $pf   = max(0.01, min(1.0, (float) ($c->power_factor ?? 1.0)));
-            $item = ['name' => $c->componentType->name ?? 'Component',
-                     'va' => $va, 'pf' => $pf, 'phase' => $c->phase];
+            $item = [
+                'name'         => $c->componentType->name ?? 'Component',
+                'va'           => $va,
+                'pf'           => $pf,
+                'phase'        => $c->phase,
+                'circuit_type' => $this->classifyComponent($c),
+            ];
 
             if (! $c->group_name) {
                 $ungrouped[] = $item;
@@ -345,6 +492,87 @@ class PhaseBalanceController extends Controller
         }
 
         return array_merge($ungrouped, array_values($groups));
+    }
+
+    /**
+     * Maps a 1-phase component to the circuit type its load would be packed into
+     * by ElectricalDesignService, so room-split sections align with panel circuits.
+     * Mirrors the SOCKET → LIGHTING → AUXILIARY priority order in formatLoad().
+     */
+    private function classifyComponent(object $c): string
+    {
+        if ($c->needs_socket ?? false) return 'SOCKET';
+        $name = strtolower($c->componentType->name ?? '');
+        $lightKeywords = [
+            'light', 'lamp', 'led strip', 'chandelier', 'luminaire',
+            'lantern', 'sconce', 'bulb', 'pendant', 'downlight',
+            'spotlight', 'fluorescent', 'fixture',
+        ];
+        foreach ($lightKeywords as $kw) {
+            if (str_contains($name, $kw)) return 'LIGHTING';
+        }
+        return 'AUXILIARY';
+    }
+
+    /**
+     * Returns all 1-phase component IDs in a component collection, grouped by
+     * circuit type.  Used to build targeted DB update lists for split sections.
+     * Unlike extract1ph(), this does NOT deduplicate by group_name — every
+     * component in the section must get its phase updated.
+     */
+    private function getComponentIdsByType($components): array
+    {
+        $byType = ['SOCKET' => [], 'LIGHTING' => [], 'AUXILIARY' => []];
+        foreach ($components as $c) {
+            if ($c->phases === '3phase') continue;
+            $t = $this->classifyComponent($c);
+            $byType[$t][] = $c->id;
+        }
+        return $byType;
+    }
+
+    /**
+     * Splits a room's 1-phase load list into N sections by grouping circuit types.
+     * Circuit type groups (SOCKET, LIGHTING, AUXILIARY) are assigned to sections
+     * greedily (smallest-VA section first) so sections have similar VA totals.
+     * This mirrors how ElectricalDesignService creates separate circuit types,
+     * ensuring each section maps cleanly to identifiable circuits in the panel.
+     *
+     * Returns array of sections, each with ['loads' => [...], 'va' => float,
+     * 'circuit_types' => string[]].
+     */
+    private function splitRoomBySections(array $loads, int $n): array
+    {
+        // Aggregate loads by circuit type
+        $byType = [];
+        foreach ($loads as $load) {
+            $t = $load['circuit_type'] ?? 'AUXILIARY';
+            if (! isset($byType[$t])) {
+                $byType[$t] = ['loads' => [], 'va' => 0.0];
+            }
+            $byType[$t]['loads'][] = $load;
+            $byType[$t]['va']     += $load['va'];
+        }
+
+        // Sort circuit-type groups by VA descending so large groups are placed first
+        uasort($byType, fn($a, $b) => $b['va'] <=> $a['va']);
+
+        // Initialise N empty sections
+        $sections = array_fill(0, $n, ['loads' => [], 'va' => 0.0, 'circuit_types' => []]);
+
+        // Greedy: assign each circuit-type group to the section with the least VA
+        foreach ($byType as $typeName => $typeData) {
+            $minVa  = PHP_FLOAT_MAX;
+            $minIdx = 0;
+            foreach ($sections as $k => $s) {
+                if ($s['va'] < $minVa) { $minVa = $s['va']; $minIdx = $k; }
+            }
+            $sections[$minIdx]['loads']         = array_merge($sections[$minIdx]['loads'], $typeData['loads']);
+            $sections[$minIdx]['va']           += $typeData['va'];
+            $sections[$minIdx]['circuit_types'][] = $typeName;
+        }
+
+        return array_values(array_filter($sections, fn($s) => ! empty($s['loads'])));
     }
 
     /** Consensus saved phase across 1-phase components (A|B|C|mixed|null). */

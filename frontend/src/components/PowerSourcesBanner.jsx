@@ -1054,7 +1054,12 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
                               </span>
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-gray-800 truncate">{bank.name}</p>
-                                <p className="text-[10px] text-gray-400">{CHEM_LABELS[bank.chemistry] ?? bank.chemistry}</p>
+                                <p className="text-[10px] text-gray-400">
+                                  {CHEM_LABELS[bank.chemistry] ?? bank.chemistry}
+                                  {bank.depth_of_discharge != null && (
+                                    <span className="ml-1 text-gray-300">· {Math.round(bank.depth_of_discharge * 100)}% DoD</span>
+                                  )}
+                                </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover/bank:opacity-100 flex-shrink-0 ml-2">
@@ -1083,7 +1088,7 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
                             </span>
                             <span className="text-[10px] text-gray-400 ml-auto">{Number(bank.age_years ?? 0).toFixed(1)} yr</span>
                           </div>
-                          <div className="flex items-center gap-1 mt-0.5 ml-7">
+                          <div className="flex items-center gap-1 mt-0.5 ml-7 flex-wrap">
                             <span className="text-[10px] text-gray-400">{fmtKwh(bank.usable_capacity_kwh)} usable</span>
                             <span className="text-[10px] text-gray-300">·</span>
                             <span className="text-[10px] text-gray-400">{fmtKwh(bank.nominal_capacity_kwh)} nominal</span>

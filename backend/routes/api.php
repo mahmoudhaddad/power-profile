@@ -129,6 +129,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
 
     Route::get('/projects/{project}/load-profile',  [LoadProfileController::class, 'project'])->middleware('throttle:api-heavy');
     Route::get('/projects/{project}/schedule',      [ScheduleController::class, 'project'])->middleware('throttle:api-heavy');
+    Route::get('/projects/{project}/battery-chemistry-comparison', [ScheduleController::class, 'chemistryComparison'])->middleware('throttle:20,1');
     Route::get('/projects/{project}/cost-signal',        [CostSignalController::class, 'show'])->middleware('throttle:30,1');
     Route::get('/projects/{project}/financial-analysis',  [FinancialController::class,       'show'])->middleware('throttle:20,1');
     Route::get('/projects/{project}/electrical-design',   [ElectricalDesignController::class, 'show'])->middleware('throttle:api-heavy');

@@ -242,14 +242,42 @@ function BuildingDetail({ building, onAssignRoom, onApplyOptimal, assigningRooms
               <tbody className="divide-y divide-gray-50">
                 {floor.rooms.map(room => (
                   <tr key={room.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 font-medium text-gray-800">{room.name}</td>
+                    {/* Room name — badge if it was split into sections */}
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-800">{room.name}</span>
+                        {room.is_split && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                            Split ×{room.split_sections.length}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right text-xs text-gray-500">
                       {room.va_1ph > 0 ? room.va_1ph.toLocaleString() : '—'}
                     </td>
+                    {/* Saved phase — "Mixed" for split rooms after Apply Optimal */}
                     <td className="px-4 py-3 text-center"><PhasePill phase={room.actual_phase} /></td>
+                    {/* Optimal phase — per-phase pills for split rooms */}
                     <td className="px-4 py-3 text-center">
-                      {room.va_1ph > 0 ? <PhasePill phase={room.optimal_phase} /> : <span className="text-xs text-gray-300">—</span>}
+                      {room.is_split ? (
+                        room.split_sections.length > 0 ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            {room.split_sections.map(s => (
+                              <div key={s.phase} className="flex items-center gap-1.5">
+                                <PhasePill phase={s.phase} />
+                                <span className="text-[10px] text-gray-400 tabular-nums">{s.va.toLocaleString()} VA</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : <span className="text-xs text-gray-300">—</span>
+                      ) : room.va_1ph > 0 ? (
+                        <PhasePill phase={room.optimal_phase} />
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </td>
+                    {/* Manual assign still works — overrides the split */}
                     <td className="px-5 py-3 text-center">
                       {room.va_1ph > 0
                         ? <PhaseAssignButtons roomId={room.id} current={room.actual_phase}
@@ -264,20 +292,22 @@ function BuildingDetail({ building, onAssignRoom, onApplyOptimal, assigningRooms
         </div>
       ))}
 
-      {/* Non-room blocks */}
-      {building.block_assignments.filter(b => b.type !== 'room').length > 0 && (
+      {/* Non-room blocks (floor-own, socket demand, building-level) */}
+      {building.block_assignments.filter(b => b.type !== 'room' && b.type !== 'room_section').length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Other loads</p>
           <div className="space-y-1.5">
-            {building.block_assignments.filter(b => b.type !== 'room').map((b, i) => (
-              <div key={i} className="flex items-center justify-between text-xs px-3 py-2 bg-gray-50 rounded-lg">
-                <span className="text-gray-600">{b.name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">{b.va.toLocaleString()} VA</span>
-                  <PhasePill phase={b.optimal_phase} />
+            {building.block_assignments
+              .filter(b => b.type !== 'room' && b.type !== 'room_section')
+              .map((b, i) => (
+                <div key={i} className="flex items-center justify-between text-xs px-3 py-2 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600">{b.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">{b.va.toLocaleString()} VA</span>
+                    <PhasePill phase={b.optimal_phase} />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       )}
@@ -427,19 +457,27 @@ export default function PhaseBalancePage() {
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-gray-600">
                 <div className="flex items-start gap-1.5">
                   <span className="font-semibold text-violet-600 flex-shrink-0 mt-px">Optimal</span>
-                  <span>Greedy simulation assigns each room's 1-phase VA to the lightest phase to minimise imbalance.</span>
+                  <span>Derived directly from the Electrical Design panel schedule — the same circuit-level LPT phase assignment that the panel shows. Per-phase VA totals and imbalance % are identical on both pages.</span>
                 </div>
                 <div className="flex items-start gap-1.5">
                   <span className="font-semibold text-gray-700 flex-shrink-0 mt-px">Actual</span>
-                  <span>Distribution computed from the saved phase field on each component.</span>
+                  <span>Distribution computed from the saved phase field on each component (set by Apply Optimal or manual assignment).</span>
                 </div>
                 <div className="flex items-start gap-1.5">
                   <span className="font-semibold text-emerald-700 flex-shrink-0 mt-px">Apply Optimal</span>
-                  <span>Writes the simulated assignment to all 1-phase components in the building at once.</span>
+                  <span>Writes the circuit-level phase assignment to every 1-phase component — sockets, lighting, and auxiliary separately so each circuit type in a room can land on its correct phase.</span>
                 </div>
                 <div className="flex items-start gap-1.5">
                   <span className="font-semibold text-gray-700 flex-shrink-0 mt-px">A / B / C / —</span>
                   <span>Manually assign all 1-phase components in a room to a phase. — clears it.</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="font-semibold text-violet-600 flex-shrink-0 mt-px">Split rooms</span>
+                  <span>A room whose circuits land on more than one phase shows a split indicator with each phase and its VA share (e.g. A: 432 VA · B: 432 VA · C: 300 VA) — panels are wired per circuit, not per room.</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="font-semibold text-gray-700 flex-shrink-0 mt-px">Source of truth</span>
+                  <span>The Electrical Design page is the single source of truth. Phase Balance derives from it — there is no separate room-level phase calculation.</span>
                 </div>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import PanelScheduleTable from '../components/PanelScheduleTable';
 
@@ -170,6 +170,7 @@ function BuildingSection({ building, vdTable }) {
 
 export default function ElectricalDesignPage() {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
@@ -221,6 +222,15 @@ export default function ElectricalDesignPage() {
 
       {/* Page header */}
       <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors shadow-sm"
+          title="Go back"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
         <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow">
           <IconBolt />
         </div>

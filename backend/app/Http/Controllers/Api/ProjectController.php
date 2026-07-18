@@ -264,17 +264,21 @@ class ProjectController extends Controller
             $intervals = $this->pickBestIntervals($comp, $costSignal);
             if (! $intervals) continue;
 
-            // A.6 — Only save if there is genuine improvement.
-            // Compare the best consecutive runHours block within the current intervals
-            // against the new intervals (fair apples-to-apples comparison on runHours basis).
+            // A.6 — Only save if there is genuine improvement OR the current interval
+            // is the wrong width (wider or narrower than runHours).
+            // A wide interval (e.g. 08:00–18:00 for a 4h load) makes buildHourlyW() count
+            // the component as active for 10 hours instead of 4, inflating the load profile.
+            // Always tighten such intervals; only skip if already exactly runHours wide.
             $currentIvs = $comp->usage_time_intervals;
             if (is_string($currentIvs)) $currentIvs = json_decode($currentIvs, true) ?? [];
 
+            $currentScheduledHours = 0;
             $currentBestCost = PHP_FLOAT_MAX;
             foreach (($currentIvs ?: []) as $iv) {
                 $ivS = (int) explode(':', $iv['start'] ?? '00:00')[0];
                 $ivE = (int) explode(':', $iv['end']   ?? '23:59')[0];
                 if ($ivE <= $ivS) continue;
+                $currentScheduledHours += $ivE - $ivS;
                 for ($s2 = $ivS; $s2 + $runHours <= $ivE && $s2 < 24; $s2++) {
                     $c2 = 0.0;
                     for ($h = $s2; $h < $s2 + $runHours; $h++) $c2 += $costSignal[$h] ?? 1.0;
@@ -289,8 +293,11 @@ class ProjectController extends Controller
                 for ($h = $s; $h < $e && $h < 24; $h++) $newCost += $costSignal[$h] ?? 1.0;
             }
 
-            // Skip if current schedule already contains an equally good or better window
-            if ($currentBestCost < PHP_FLOAT_MAX && $newCost >= $currentBestCost - 0.0001) {
+            // Skip only when current interval is already the exact right width AND
+            // has an equally good or better placement (genuine no-improvement case).
+            if ($currentScheduledHours === $runHours
+                && $currentBestCost < PHP_FLOAT_MAX
+                && $newCost >= $currentBestCost - 0.0001) {
                 continue;
             }
 

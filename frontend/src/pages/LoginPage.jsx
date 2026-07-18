@@ -55,7 +55,7 @@ export default function LoginPage() {
             <span className="font-semibold text-gray-800">Made by:</span> Mahmoud Emad ALHaddad &amp; Ahmed Zoher Abu Awad
           </p>
           <p className="text-base text-gray-600">
-            <span className="font-semibold text-gray-800">Supervisor:</span> Dr. Muayad ALMubayed
+            <span className="font-semibold text-gray-800">Supervisor:</span> Dr. Moayed Almobaied
           </p>
         </div>
 
