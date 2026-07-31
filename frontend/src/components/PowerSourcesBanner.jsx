@@ -11,10 +11,10 @@ const CHEM_LABELS = {
 };
 
 const HEALTH = {
-  good:     { cls: 'bg-emerald-100 text-emerald-700', label: 'Good' },
-  fair:     { cls: 'bg-yellow-100  text-yellow-700',  label: 'Fair' },
-  degraded: { cls: 'bg-orange-100  text-orange-700',  label: 'Degraded' },
-  replace:  { cls: 'bg-red-100     text-red-600',     label: 'Replace' },
+  good:     { cls: 'bg-success-soft text-success', label: 'Good' },
+  fair:     { cls: 'bg-accent-soft  text-accent',       label: 'Fair' },
+  degraded: { cls: 'bg-accent-tint  text-accent-light', label: 'Degraded' },
+  replace:  { cls: 'bg-danger-soft  text-danger',       label: 'Replace' },
 };
 
 function fmtKwh(v) {
@@ -55,15 +55,15 @@ function CoverageBadge({ label, available, load }) {
   const ok  = available >= load;
   return (
     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-      ok ? 'bg-emerald-400/20 border-emerald-400/40' : 'bg-red-400/25 border-red-400/40'
+      ok ? 'bg-success-soft border-success-border' : 'bg-danger-soft border-danger-border'
     }`}>
-      <span className={`text-[10px] uppercase tracking-wide ${ok ? 'text-emerald-200' : 'text-red-300'}`}>{label}</span>
-      <span className={ok ? 'text-white' : 'text-red-200'}>{pct}%</span>
+      <span className={`text-[10px] uppercase tracking-wide ${ok ? 'text-success' : 'text-danger'}`}>{label}</span>
+      <span className={ok ? 'text-ink-heading' : 'text-danger'}>{pct}%</span>
       {ok
-        ? <svg className="w-3 h-3 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        ? <svg className="w-3 h-3 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
-        : <svg className="w-3 h-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        : <svg className="w-3 h-3 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v4m0 4h.01" />
           </svg>
       }
@@ -79,19 +79,19 @@ function CoverageCard({ label, available, load }) {
   const ok     = available >= load;
   const diff   = available - load;
   return (
-    <div className="bg-white/10 hover:bg-white/15 rounded-xl p-3 transition-colors">
+    <div className="bg-surface-inset/60 hover:bg-surface-inset rounded-xl p-3 transition-colors">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold">{label}</span>
-        <span className={`text-xs font-bold ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>
+        <span className="text-xs font-semibold text-ink-heading2">{label}</span>
+        <span className={`text-xs font-bold ${ok ? 'text-success' : 'text-accent-light'}`}>
           {Math.round(ratio * 100)}%
         </span>
       </div>
-      <p className="text-[10px] text-emerald-200 mb-2">{fmt(load)} needed</p>
-      <div className="h-1.5 rounded-full bg-white/20 mb-2">
-        <div className={`h-full rounded-full transition-all ${ok ? 'bg-emerald-400' : 'bg-amber-400'}`}
+      <p className="text-[10px] text-ink-muted mb-2">{fmt(load)} needed</p>
+      <div className="h-1.5 rounded-full bg-surface-inset2 mb-2">
+        <div className={`h-full rounded-full transition-all ${ok ? 'bg-success' : 'bg-accent'}`}
           style={{ width: `${barPct}%` }} />
       </div>
-      <p className={`text-xs font-bold ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>
+      <p className={`text-xs font-bold ${ok ? 'text-success' : 'text-accent-light'}`}>
         {ok ? '✓' : '⚠'} {fmtDiff(diff)} {ok ? 'surplus' : 'gap'}
       </p>
     </div>
@@ -103,33 +103,33 @@ function SourceCard({ label, dot, capacity, maxLoad, optLoad, fmtFn = fmt }) {
   const maxPct = maxLoad > 0 ? Math.min(capacity / maxLoad, 1) * 100 : 0;
   const optPct = optLoad > 0 ? Math.min(capacity / optLoad, 1) * 100 : 0;
   return (
-    <div className="bg-white/10 hover:bg-white/15 rounded-xl p-3 transition-colors">
+    <div className="bg-surface-inset/60 hover:bg-surface-inset rounded-xl p-3 transition-colors">
       <div className="flex items-center gap-2 mb-2">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-        <span className="text-xs font-semibold">{label}</span>
+        <span className="text-xs font-semibold text-ink-heading2">{label}</span>
       </div>
-      <p className="text-sm font-bold mb-2">{fmtFn(capacity)}</p>
+      <p className="text-sm font-bold mb-2 text-ink-data">{fmtFn(capacity)}</p>
       {(maxLoad > 0 || optLoad > 0) && (
         <div className="space-y-1.5">
           {maxLoad > 0 && (
             <div>
-              <div className="flex justify-between text-[10px] text-emerald-200 mb-0.5">
+              <div className="flex justify-between text-[10px] text-ink-muted mb-0.5">
                 <span>of max</span>
                 <span>{Math.round(capacity / maxLoad * 100)}%</span>
               </div>
-              <div className="h-1 rounded-full bg-white/20">
-                <div className="h-full rounded-full bg-blue-300 transition-all" style={{ width: `${maxPct}%` }} />
+              <div className="h-1 rounded-full bg-surface-inset2">
+                <div className="h-full rounded-full bg-ink-muted3 transition-all" style={{ width: `${maxPct}%` }} />
               </div>
             </div>
           )}
           {optLoad > 0 && (
             <div>
-              <div className="flex justify-between text-[10px] text-emerald-200 mb-0.5">
+              <div className="flex justify-between text-[10px] text-ink-muted mb-0.5">
                 <span>of opt</span>
                 <span>{Math.round(capacity / optLoad * 100)}%</span>
               </div>
-              <div className="h-1 rounded-full bg-white/20">
-                <div className="h-full rounded-full bg-emerald-300 transition-all" style={{ width: `${optPct}%` }} />
+              <div className="h-1 rounded-full bg-surface-inset2">
+                <div className="h-full rounded-full bg-accent-light transition-all" style={{ width: `${optPct}%` }} />
               </div>
             </div>
           )}
@@ -208,34 +208,34 @@ function SolarSystemsDropdown({ endpoint, onTotalChange, onSystemsChange }) {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 group">
-        <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <svg className="w-4 h-4 text-yellow-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-7 h-7 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
         <div className="text-left">
-          <p className="text-xs text-emerald-100 leading-none mb-0.5">Solar</p>
-          <p className="text-sm font-semibold leading-none">{totalKw > 0 ? `${totalKw.toFixed(1)} kW` : '—'}</p>
-          <p className="text-xs text-emerald-200 leading-none mt-0.5">
+          <p className="text-xs text-ink-muted leading-none mb-0.5">Solar</p>
+          <p className="text-sm font-semibold leading-none text-ink-heading">{totalKw > 0 ? `${totalKw.toFixed(1)} kW` : '—'}</p>
+          <p className="text-xs text-ink-muted leading-none mt-0.5">
             {systems.length > 0 ? `${systems.length} system${systems.length !== 1 ? 's' : ''}` : 'no systems'}
           </p>
         </div>
-        <svg className={`w-3.5 h-3.5 text-emerald-200 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        <svg className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-          <div className="bg-gradient-to-r from-yellow-500 to-amber-400 px-4 py-3">
+        <div className="absolute right-0 top-full mt-2 w-72 bg-surface-card rounded-2xl shadow-2xl border border-line z-50 overflow-hidden">
+          <div className="bg-gradient-to-r from-accent-from to-accent-to px-4 py-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70 leading-none mb-0.5">Solar Systems</p>
-                <p className="text-base font-bold text-white leading-none">{totalKw.toFixed(1)} kW total</p>
+                <p className="text-xs text-base/70 leading-none mb-0.5">Solar Systems</p>
+                <p className="text-base font-bold text-base leading-none">{totalKw.toFixed(1)} kW total</p>
               </div>
-              <span className="text-xs bg-white/25 text-white px-2.5 py-1 rounded-full font-medium">
+              <span className="text-xs bg-base/20 text-base px-2.5 py-1 rounded-full font-medium">
                 {systems.length} system{systems.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -243,27 +243,27 @@ function SolarSystemsDropdown({ endpoint, onTotalChange, onSystemsChange }) {
 
           <div className="max-h-52 overflow-y-auto">
             {systems.length === 0 ? (
-              <div className="py-6 text-center"><p className="text-xs text-gray-400">No solar systems yet</p></div>
+              <div className="py-6 text-center"><p className="text-xs text-ink-muted">No solar systems yet</p></div>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="divide-y divide-line-subtle">
                 {systems.map((sys, i) => (
-                  <li key={sys.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group/sys">
+                  <li key={sys.id} className="px-4 py-2.5 hover:bg-surface-inset transition-colors group/sys">
                     {editingId === sys.id ? (
                       <div className="flex flex-col gap-1.5">
                         <input type="text" value={editName} onChange={e => setEditName(e.target.value)} autoFocus
-                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                          className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset" />
                         <div className="flex gap-2">
                           <div className="relative flex-1">
                             <input type="number" min="0.01" step="0.1" value={editCap} onChange={e => setEditCap(e.target.value)}
-                              className="w-full border border-gray-200 rounded-lg pl-3 pr-7 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">kW</span>
+                              className="w-full border border-line rounded-lg pl-3 pr-7 py-1.5 text-xs text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset" />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">kW</span>
                           </div>
                           <button onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editCap}
-                            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg">
+                            className="px-3 py-1.5 text-xs font-semibold bg-accent-gradient disabled:opacity-40 text-base rounded-lg">
                             {saving ? '…' : 'Save'}
                           </button>
                           <button onClick={() => setEditingId(null)}
-                            className="px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg">
+                            className="px-3 py-1.5 text-xs font-semibold border border-line hover:border-line-strong hover:bg-surface-inset text-ink-body2 rounded-lg">
                             ✕
                           </button>
                         </div>
@@ -271,22 +271,22 @@ function SolarSystemsDropdown({ endpoint, onTotalChange, onSystemsChange }) {
                     ) : (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                          <span className="w-5 h-5 rounded-full bg-accent-soft text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">{sys.name}</p>
-                            <p className="text-xs font-semibold text-amber-600">{Number(sys.capacity_kw).toFixed(1)} kW</p>
+                            <p className="text-sm font-medium text-ink-heading truncate">{sys.name}</p>
+                            <p className="text-xs font-semibold text-accent">{Number(sys.capacity_kw).toFixed(1)} kW</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover/sys:opacity-100 transition-all ml-2">
                           <button onClick={() => startEdit(sys)}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition-all">
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-ink-muted2 hover:text-accent hover:bg-accent-soft transition-all">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
                           <button onClick={() => handleDelete(sys.id)}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all">
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-ink-muted2 hover:text-danger hover:bg-danger-soft transition-all">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -301,26 +301,26 @@ function SolarSystemsDropdown({ endpoint, onTotalChange, onSystemsChange }) {
             )}
           </div>
 
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Add Solar System</p>
+          <div className="px-4 py-3 border-t border-line-subtle bg-surface-inset">
+            <p className="text-xs font-semibold text-ink-muted mb-2 uppercase tracking-wide">Add Solar System</p>
             <div className="flex flex-col gap-2">
               <input type="text" value={name} onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 placeholder="System name (e.g. Rooftop Array A)"
-                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-heading placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <input type="number" min="0.01" step="0.1" value={capKw}
                     onChange={e => setCapKw(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
                     placeholder="Capacity"
-                    className="w-full border border-gray-200 rounded-lg pl-3 pr-7 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">kW</span>
+                    className="w-full border border-line rounded-lg pl-3 pr-7 py-1.5 text-xs text-ink-heading placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-muted">kW</span>
                 </div>
                 <button onClick={handleAdd} disabled={!name.trim() || !capKw || adding}
-                  className="w-8 h-8 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 rounded-lg flex items-center justify-center text-white transition-colors flex-shrink-0">
+                  className="w-8 h-8 bg-accent-gradient disabled:opacity-40 rounded-lg flex items-center justify-center text-base transition-colors flex-shrink-0">
                   {adding
-                    ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ? <div className="w-3.5 h-3.5 border-2 border-base/40 border-t-base rounded-full animate-spin" />
                     : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
@@ -364,8 +364,8 @@ function SysEditRow({ sys, onSave, onCancel, saving, currency = '$' }) {
           placeholder="System name"
           autoFocus
           onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-          className="flex-1 min-w-0 border border-amber-300 rounded px-2 py-1.5 text-xs text-gray-800
-            focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+          className="flex-1 min-w-0 border border-accent-border rounded px-2 py-1.5 text-xs text-ink-heading
+            focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2"
         />
         <div className="relative w-24 flex-shrink-0">
           <input
@@ -374,48 +374,48 @@ function SysEditRow({ sys, onSave, onCancel, saving, currency = '$' }) {
             defaultValue={sys.capacity_kw}
             placeholder="kW"
             onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-            className="w-full border border-amber-300 rounded pl-2 pr-7 py-1.5 text-xs text-gray-800
-              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+            className="w-full border border-accent-border rounded pl-2 pr-7 py-1.5 text-xs text-ink-heading
+              focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2"
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">kW</span>
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-ink-muted">kW</span>
         </div>
       </div>
       {/* ── Cost fields ── */}
-      <div className="border-t border-amber-100 pt-1.5 flex flex-col gap-1">
+      <div className="border-t border-line-subtle pt-1.5 flex flex-col gap-1">
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
           <input type="number" min="0" step="0.01" value={installCost}
             onChange={e => setInstallCost(e.target.value)}
             placeholder="Installation cost"
-            className="w-full border border-gray-200 rounded pl-5 pr-3 py-1 text-xs text-gray-800
-              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+            className="w-full border border-line rounded pl-5 pr-3 py-1 text-xs text-ink-heading
+              focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
         </div>
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
           <input type="number" min="0" step="0.01" value={maintCost}
             onChange={e => setMaintCost(e.target.value)}
             placeholder="Annual maintenance cost"
-            className="w-full border border-gray-200 rounded pl-5 pr-3 py-1 text-xs text-gray-800
-              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+            className="w-full border border-line rounded pl-5 pr-3 py-1 text-xs text-ink-heading
+              focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
         </div>
         <div className="relative">
           <input type="number" min="1" max="100" value={lifetime}
             onChange={e => setLifetime(e.target.value)}
             placeholder="Panel lifetime (years)"
-            className="w-full border border-gray-200 rounded pl-3 pr-10 py-1 text-xs text-gray-800
-              focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">yrs</span>
+            className="w-full border border-line rounded pl-3 pr-10 py-1 text-xs text-ink-heading
+              focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">yrs</span>
         </div>
       </div>
       <div className="flex gap-1.5">
         <button onClick={save} disabled={saving}
-          className="flex-1 px-2.5 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600
-            text-white rounded disabled:opacity-40 transition-colors">
+          className="flex-1 px-2.5 py-1.5 text-xs font-semibold bg-accent-gradient
+            text-base rounded disabled:opacity-40 transition-colors">
           {saving ? '…' : 'Save'}
         </button>
         <button onClick={onCancel}
-          className="flex-1 px-2.5 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200
-            text-gray-600 rounded transition-colors">
+          className="flex-1 px-2.5 py-1.5 text-xs font-semibold border border-line hover:border-line-strong hover:bg-surface-inset
+            text-ink-body2 rounded transition-colors">
           Cancel
         </button>
       </div>
@@ -521,52 +521,52 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 group">
-        <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-          <svg className="w-4 h-4 text-yellow-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-7 h-7 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
         <div className="text-left">
-          <p className="text-xs text-emerald-100 leading-none mb-0.5">Solar</p>
-          <p className="text-sm font-semibold leading-none">{fmtW(solar)}</p>
-          <p className="text-xs text-emerald-200 leading-none mt-0.5">{modeLabel}</p>
+          <p className="text-xs text-ink-muted leading-none mb-0.5">Solar</p>
+          <p className="text-sm font-semibold leading-none text-ink-heading">{fmtW(solar)}</p>
+          <p className="text-xs text-ink-muted leading-none mt-0.5">{modeLabel}</p>
         </div>
-        <svg className={`w-3.5 h-3.5 text-emerald-200 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        <svg className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-72 bg-surface-card rounded-2xl shadow-2xl border border-line z-50 overflow-hidden">
 
           {/* Header */}
-          <div className="bg-gradient-to-r from-yellow-500 to-amber-400 px-4 py-3">
+          <div className="bg-gradient-to-r from-accent-from to-accent-to px-4 py-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70 leading-none mb-0.5">Solar Power</p>
-                <p className="text-base font-bold text-white leading-none">{fmtW(solar)}</p>
+                <p className="text-xs text-base/70 leading-none mb-0.5">Solar Power</p>
+                <p className="text-base font-bold text-base leading-none">{fmtW(solar)}</p>
               </div>
-              <span className="text-xs bg-white/25 text-white px-2.5 py-1 rounded-full font-medium">{modeLabel}</span>
+              <span className="text-xs bg-base/20 text-base px-2.5 py-1 rounded-full font-medium">{modeLabel}</span>
             </div>
           </div>
 
           {/* Mode toggle */}
-          <div className="px-4 py-3 border-b border-gray-100">
-            <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wide">Use in Calculations</p>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+          <div className="px-4 py-3 border-b border-line-subtle">
+            <p className="text-[10px] font-semibold text-ink-muted mb-2 uppercase tracking-wide">Use in Calculations</p>
+            <div className="flex rounded-lg border border-line overflow-hidden text-xs font-semibold">
               <button
                 onClick={() => solarMode !== 'max' && saveField({ solar_source: 'max' })}
                 className={`flex-1 px-3 py-2 transition-colors ${
-                  solarMode === 'max' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                  solarMode === 'max' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                 }`}>
                 Max Available
               </button>
               <button
                 onClick={() => solarMode !== 'existing' && saveField({ solar_source: 'existing' })}
-                className={`flex-1 px-3 py-2 border-l border-gray-200 transition-colors ${
-                  solarMode === 'existing' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                className={`flex-1 px-3 py-2 border-l border-line transition-colors ${
+                  solarMode === 'existing' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                 }`}>
                 Existing System
               </button>
@@ -574,17 +574,17 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
           </div>
 
           {/* Existing / installed system section — only shown when mode = existing */}
-          {solarMode === 'existing' && <div className="px-4 py-3 bg-gray-50">
-            <p className="text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Installed System Output</p>
+          {solarMode === 'existing' && <div className="px-4 py-3 bg-surface-inset">
+            <p className="text-[10px] font-semibold text-ink-muted mb-1.5 uppercase tracking-wide">Installed System Output</p>
 
             {solarSystemsEndpoint ? (
               /* ── Named solar systems mode ── */
               <>
                 {/* System list */}
                 {solarSystems.length > 0 && (
-                  <ul className="divide-y divide-amber-100 mb-2 bg-white rounded-lg border border-amber-100 overflow-hidden">
+                  <ul className="divide-y divide-line-subtle mb-2 bg-surface-inset2 rounded-lg border border-line overflow-hidden">
                     {solarSystems.map((sys, i) => (
-                      <li key={sys.id} className="group/sys px-3 py-2 hover:bg-amber-50 transition-colors">
+                      <li key={sys.id} className="group/sys px-3 py-2 hover:bg-surface-inset transition-colors">
                         {sysEditId === sys.id ? (
                           <SysEditRow
                             sys={sys}
@@ -596,20 +596,20 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                         ) : (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                              <span className="text-xs font-medium text-gray-800 truncate">{sys.name}</span>
-                              <span className="text-xs font-semibold text-amber-600 flex-shrink-0">{Number(sys.capacity_kw).toFixed(1)} kW</span>
+                              <span className="w-4 h-4 rounded-full bg-accent-soft text-accent text-[9px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                              <span className="text-xs font-medium text-ink-heading truncate">{sys.name}</span>
+                              <span className="text-xs font-semibold text-accent-light flex-shrink-0">{Number(sys.capacity_kw).toFixed(1)} kW</span>
                             </div>
                             <div className="flex gap-1 opacity-0 group-hover/sys:opacity-100 transition-all">
                               <button onClick={() => setSysEditId(sys.id)}
-                                className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-amber-500 transition-colors">
+                                className="w-5 h-5 flex items-center justify-center text-ink-muted2 hover:text-accent transition-colors">
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                               </button>
                               <button onClick={() => handleSysDelete(sys.id)}
-                                className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors">
+                                className="w-5 h-5 flex items-center justify-center text-ink-muted2 hover:text-danger transition-colors">
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -625,9 +625,9 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
 
                 {/* Total */}
                 {solarSystems.length > 0 && (
-                  <div className="flex items-center justify-between mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
-                    <span className="text-[10px] font-semibold text-amber-700">Total installed</span>
-                    <span className="text-xs font-bold text-amber-700">
+                  <div className="flex items-center justify-between mb-2 px-2 py-1 bg-accent-soft border border-accent-border rounded-lg">
+                    <span className="text-[10px] font-semibold text-accent">Total installed</span>
+                    <span className="text-xs font-bold text-accent">
                       {fmtKwh(solarSystems.reduce((s, x) => s + Number(x.capacity_kw), 0))}
                     </span>
                   </div>
@@ -639,20 +639,20 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                     <input type="text" placeholder="System name" value={sysAddName}
                       onChange={e => setSysAddName(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSysAdd()}
-                      className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                      className="flex-1 min-w-0 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                     <div className="relative w-20 flex-shrink-0">
                       <input type="number" min="0.01" step="0.1" placeholder="kW" value={sysAddKw}
                         onChange={e => setSysAddKw(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleSysAdd()}
-                        className="w-full border border-gray-200 rounded-lg pl-2 pr-6 py-1.5 text-xs text-gray-800
-                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">kW</span>
+                        className="w-full border border-line rounded-lg pl-2 pr-6 py-1.5 text-xs text-ink-heading
+                          placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-ink-muted">kW</span>
                     </div>
                     <button onClick={handleSysAdd} disabled={!sysAddName.trim() || !sysAddKw || sysAdding}
-                      className="w-8 h-8 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 rounded-lg flex items-center justify-center text-white flex-shrink-0 transition-colors">
+                      className="w-8 h-8 bg-accent-gradient disabled:opacity-40 rounded-lg flex items-center justify-center text-base flex-shrink-0 transition-colors">
                       {sysAdding
-                        ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ? <div className="w-3 h-3 border-2 border-base/40 border-t-base rounded-full animate-spin" />
                         : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
@@ -660,52 +660,52 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                     </button>
                   </div>
                   {/* ── Solar cost fields (add) ── */}
-                  <div className="border-t border-amber-100 pt-1.5 flex flex-col gap-1">
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Cost (optional)</p>
+                  <div className="border-t border-line-subtle pt-1.5 flex flex-col gap-1">
+                    <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">Cost (optional)</p>
                     <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{entity?.currency_symbol ?? '$'}</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{entity?.currency_symbol ?? '$'}</span>
                       <input type="number" min="0" step="0.01" value={sysAddInstall}
                         onChange={e => setSysAddInstall(e.target.value)}
                         placeholder="Installation cost"
-                        className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1 text-xs text-gray-800
-                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                        className="w-full border border-line rounded-lg pl-5 pr-3 py-1 text-xs text-ink-heading
+                          placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                     </div>
                     <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{entity?.currency_symbol ?? '$'}</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{entity?.currency_symbol ?? '$'}</span>
                       <input type="number" min="0" step="0.01" value={sysAddMaint}
                         onChange={e => setSysAddMaint(e.target.value)}
                         placeholder="Annual maintenance cost"
-                        className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1 text-xs text-gray-800
-                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                        className="w-full border border-line rounded-lg pl-5 pr-3 py-1 text-xs text-ink-heading
+                          placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                     </div>
                     <div className="relative">
                       <input type="number" min="1" max="100" value={sysAddLifetime}
                         onChange={e => setSysAddLifetime(e.target.value)}
                         placeholder="Panel lifetime (years)"
-                        className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1 text-xs text-gray-800
-                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">yrs</span>
+                        className="w-full border border-line rounded-lg pl-3 pr-10 py-1 text-xs text-ink-heading
+                          placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">yrs</span>
                     </div>
                   </div>
                 </div>
 
                 {solarMode === 'existing' && solarSystems.length > 0 && (
-                  <p className="text-[10px] text-amber-600 font-medium mt-1.5">Currently used in calculations</p>
+                  <p className="text-[10px] text-accent font-medium mt-1.5">Currently used in calculations</p>
                 )}
               </>
             ) : (
               /* ── Legacy single watt input ── */
               <>
                 {buildingsSolarSum > 0 && (
-                  <div className="flex items-center justify-between mb-2 px-2.5 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+                  <div className="flex items-center justify-between mb-2 px-2.5 py-1.5 bg-accent-soft border border-accent-border rounded-lg">
                     <div className="flex items-center gap-1.5">
-                      <svg className="w-3 h-3 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                           d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9" />
                       </svg>
-                      <span className="text-[10px] text-amber-700 font-medium">From buildings</span>
+                      <span className="text-[10px] text-accent font-medium">From buildings</span>
                     </div>
-                    <span className="text-xs font-bold text-amber-700">{fmtW(buildingsSolarSum)}</span>
+                    <span className="text-xs font-bold text-accent">{fmtW(buildingsSolarSum)}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
@@ -715,15 +715,15 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                       onChange={e => setExistingInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && saveField({ existing_solar_power: Number(existingInput) })}
                       placeholder={buildingsSolarSum > 0 ? 'Additional standalone W' : 'Enter installed solar W'}
-                      className="w-full border border-gray-200 rounded-lg pl-3 pr-7 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">W</span>
+                      className="w-full border border-line rounded-lg pl-3 pr-7 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-muted">W</span>
                   </div>
                   <button onClick={() => saveField({ existing_solar_power: Number(existingInput) })} disabled={saving}
-                    className="w-8 h-8 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed
-                      rounded-lg flex items-center justify-center text-white flex-shrink-0 transition-colors">
+                    className="w-8 h-8 bg-accent-gradient disabled:opacity-40 disabled:cursor-not-allowed
+                      rounded-lg flex items-center justify-center text-base flex-shrink-0 transition-colors">
                     {saving
-                      ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ? <div className="w-3.5 h-3.5 border-2 border-base/40 border-t-base rounded-full animate-spin" />
                       : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
@@ -731,7 +731,7 @@ function SolarDropdown({ solar, solarMaxAvailable, solarComputed, entity, update
                   </button>
                 </div>
                 {solarMode === 'existing' && (solarExisting > 0 || buildingsSolarSum > 0) && (
-                  <p className="text-[10px] text-amber-600 font-medium mt-1.5">
+                  <p className="text-[10px] text-accent font-medium mt-1.5">
                     {buildingsSolarSum > 0 && solarExisting > 0
                       ? `Total: ${fmtW(solarExisting + buildingsSolarSum)} — currently used`
                       : 'Currently used in calculations'}
@@ -772,11 +772,11 @@ function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel,
     <div className="flex flex-col gap-1.5 py-2">
       <input type="text" placeholder="Bank name" value={form.name}
         onChange={e => set('name', e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800
-          focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
+        className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-heading
+          focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
       <select value={form.chemistry} onChange={e => set('chemistry', e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700
-          focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+        className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-body
+          focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2">
         {chemOptions}
       </select>
       <div className="grid grid-cols-2 gap-1.5">
@@ -784,9 +784,9 @@ function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel,
           <div key={k} className="relative">
             <input type="number" placeholder={ph} min="1" value={form[k]}
               onChange={e => set(k, e.target.value)}
-              className="w-full border border-gray-200 rounded-lg pl-2 pr-7 py-1.5 text-xs text-gray-800
-                focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
-            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{unit}</span>
+              className="w-full border border-line rounded-lg pl-2 pr-7 py-1.5 text-xs text-ink-heading
+                focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{unit}</span>
           </div>
         ))}
       </div>
@@ -794,29 +794,29 @@ function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel,
         <div className="relative flex-1">
           <input type="number" placeholder="Series" min="1" value={form.series_count}
             onChange={e => set('series_count', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg pl-2 pr-5 py-1.5 text-xs text-gray-800
-              focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
-          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">S</span>
+            className="w-full border border-line rounded-lg pl-2 pr-5 py-1.5 text-xs text-ink-heading
+              focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">S</span>
         </div>
-        <span className="text-xs text-gray-400 flex-shrink-0">×</span>
+        <span className="text-xs text-ink-muted flex-shrink-0">×</span>
         <div className="relative flex-1">
           <input type="number" placeholder="Parallel" min="1" value={form.parallel_count}
             onChange={e => set('parallel_count', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg pl-2 pr-5 py-1.5 text-xs text-gray-800
-              focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
-          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">P</span>
+            className="w-full border border-line rounded-lg pl-2 pr-5 py-1.5 text-xs text-ink-heading
+              focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">P</span>
         </div>
-        <span className="text-xs font-semibold text-violet-600 flex-shrink-0">= {computedQty} batteries</span>
+        <span className="text-xs font-semibold text-accent flex-shrink-0">= {computedQty} batteries</span>
       </div>
       <input type="date" value={form.installation_date}
         max={new Date().toISOString().split('T')[0]}
         onChange={e => set('installation_date', e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800
-          focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
+        className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-heading
+          focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
       {solarSystems.length > 0 && (
         <select value={form.solar_system_id} onChange={e => set('solar_system_id', e.target.value)}
-          className="w-full border border-amber-200 rounded-lg px-3 py-1.5 text-xs text-gray-700
-            focus:outline-none focus:ring-2 focus:ring-amber-400 bg-amber-50/50">
+          className="w-full border border-accent-border rounded-lg px-3 py-1.5 text-xs text-ink-body
+            focus:outline-none focus:ring-2 focus:ring-accent/40 bg-accent-soft">
           <option value="">☀ No dedicated solar system</option>
           {solarSystems.map(s => (
             <option key={s.id} value={s.id}>☀ {s.name} ({Number(s.capacity_kw).toFixed(1)} kW)</option>
@@ -824,34 +824,34 @@ function BatteryBankForm({ initialValues, solarSystems = [], onSubmit, onCancel,
         </select>
       )}
       {/* ── Cost fields ── */}
-      <div className="border-t border-gray-100 pt-1.5 flex flex-col gap-1.5">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Cost (optional)</p>
+      <div className="border-t border-line-subtle pt-1.5 flex flex-col gap-1.5">
+        <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">Cost (optional)</p>
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
           <input type="number" min="0" step="0.01" value={form.purchase_cost}
             onChange={e => set('purchase_cost', e.target.value)}
             placeholder="Purchase cost (e.g. 5000)"
-            className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1.5 text-xs text-gray-800
-              placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
+            className="w-full border border-line rounded-lg pl-5 pr-3 py-1.5 text-xs text-ink-heading
+              placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
         </div>
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
           <input type="number" min="0" step="0.01" value={form.replacement_cost}
             onChange={e => set('replacement_cost', e.target.value)}
             placeholder="Replacement cost (e.g. 4500)"
-            className="w-full border border-gray-200 rounded-lg pl-5 pr-3 py-1.5 text-xs text-gray-800
-              placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white" />
+            className="w-full border border-line rounded-lg pl-5 pr-3 py-1.5 text-xs text-ink-heading
+              placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
         </div>
       </div>
       <div className="flex gap-1.5">
         <button onClick={handleSubmit} disabled={busy || !isValid}
-          className="flex-1 py-1.5 text-xs font-semibold bg-violet-500 hover:bg-violet-600
-            disabled:opacity-40 text-white rounded-lg transition-colors">
+          className="flex-1 py-1.5 text-xs font-semibold bg-accent-gradient
+            disabled:opacity-40 text-base rounded-lg transition-colors">
           {busy ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
           <button onClick={onCancel}
-            className="flex-1 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg">
+            className="flex-1 py-1.5 text-xs font-semibold border border-line hover:border-line-strong hover:bg-surface-inset text-ink-body2 rounded-lg">
             Cancel
           </button>
         )}
@@ -982,39 +982,39 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 group">
-        <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+        <div className="w-7 h-7 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0">
           {/* Battery icon */}
-          <svg className="w-4 h-4 text-violet-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M3 7h13a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V8a1 1 0 011-1zM20 10v4" />
           </svg>
         </div>
         <div className="text-left">
-          <p className="text-xs text-emerald-100 leading-none mb-0.5">Battery</p>
-          <p className="text-sm font-semibold leading-none">{fmtKwh(totalKwh)}</p>
-          <p className="text-xs text-emerald-200 leading-none mt-0.5">
+          <p className="text-xs text-ink-muted leading-none mb-0.5">Battery</p>
+          <p className="text-sm font-semibold leading-none text-ink-heading">{fmtKwh(totalKwh)}</p>
+          <p className="text-xs text-ink-muted leading-none mt-0.5">
             {banks.length > 0 ? `${banks.length} bank${banks.length !== 1 ? 's' : ''}` : 'usable'}
           </p>
         </div>
         {banks.some(b => b.health_status === 'replace' || b.health_status === 'degraded') && (
-          <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-danger flex-shrink-0" />
         )}
-        <svg className={`w-3.5 h-3.5 text-emerald-200 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        <svg className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-surface-card rounded-2xl shadow-2xl border border-line z-50 overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-3">
+          <div className="bg-gradient-to-r from-accent-from to-accent-to px-4 py-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70 leading-none mb-0.5">Battery Storage</p>
-                <p className="text-base font-bold text-white leading-none">{fmtKwh(totalKwh)} usable</p>
+                <p className="text-xs text-base/70 leading-none mb-0.5">Battery Storage</p>
+                <p className="text-base font-bold text-base leading-none">{fmtKwh(totalKwh)} usable</p>
               </div>
-              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-base/20 text-base px-2 py-0.5 rounded-full">
                 {banks.length} bank{banks.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -1024,17 +1024,17 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
           <div className="max-h-64 overflow-y-auto">
             {banks.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-xs text-gray-400">No battery banks yet</p>
+                <p className="text-xs text-ink-muted">No battery banks yet</p>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="divide-y divide-line-subtle">
                 {banks.map((bank, i) => {
                   const health    = HEALTH[bank.health_status] ?? HEALTH.good;
                   const socPct    = Math.round((bank.current_soc ?? 0) * 100);
                   // stored = usable × current_soc — always consistent with the SOC bar below
                   const storedKwh = (bank.usable_capacity_kwh ?? 0) * (bank.current_soc ?? 0);
                   return (
-                    <li key={bank.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group/bank">
+                    <li key={bank.id} className="px-4 py-2.5 hover:bg-surface-inset transition-colors group/bank">
                       {editingId === bank.id && editInitial ? (
                         <BatteryBankForm
                           key={`edit-${bank.id}`}
@@ -1049,29 +1049,29 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
                         <div>
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                              <span className="w-5 h-5 rounded-full bg-accent-soft text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
                                 {i + 1}
                               </span>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{bank.name}</p>
-                                <p className="text-[10px] text-gray-400">
+                                <p className="text-sm font-medium text-ink-heading truncate">{bank.name}</p>
+                                <p className="text-[10px] text-ink-muted">
                                   {CHEM_LABELS[bank.chemistry] ?? bank.chemistry}
                                   {bank.depth_of_discharge != null && (
-                                    <span className="ml-1 text-gray-300">· {Math.round(bank.depth_of_discharge * 100)}% DoD</span>
+                                    <span className="ml-1 text-ink-muted2">· {Math.round(bank.depth_of_discharge * 100)}% DoD</span>
                                   )}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover/bank:opacity-100 flex-shrink-0 ml-2">
                               <button onClick={() => startEdit(bank)}
-                                className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-violet-500 hover:bg-violet-50 transition-all">
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-ink-muted2 hover:text-accent hover:bg-accent-soft transition-all">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                               </button>
                               <button onClick={() => handleDelete(bank.id)}
-                                className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all">
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-ink-muted2 hover:text-danger hover:bg-danger-soft transition-all">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1082,24 +1082,24 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
                           {/* Capacity rows — stored energy is derived from usable × current_soc,
                               so it always agrees with the SOC bar below. */}
                           <div className="flex items-center gap-2 mt-1.5 ml-7">
-                            <span className="text-xs font-semibold text-violet-600">{fmtKwh(storedKwh)} stored</span>
+                            <span className="text-xs font-semibold text-accent">{fmtKwh(storedKwh)} stored</span>
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${health.cls}`}>
                               {health.label}
                             </span>
-                            <span className="text-[10px] text-gray-400 ml-auto">{Number(bank.age_years ?? 0).toFixed(1)} yr</span>
+                            <span className="text-[10px] text-ink-muted ml-auto">{Number(bank.age_years ?? 0).toFixed(1)} yr</span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5 ml-7 flex-wrap">
-                            <span className="text-[10px] text-gray-400">{fmtKwh(bank.usable_capacity_kwh)} usable</span>
-                            <span className="text-[10px] text-gray-300">·</span>
-                            <span className="text-[10px] text-gray-400">{fmtKwh(bank.nominal_capacity_kwh)} nominal</span>
+                            <span className="text-[10px] text-ink-muted">{fmtKwh(bank.usable_capacity_kwh)} usable</span>
+                            <span className="text-[10px] text-ink-muted2">·</span>
+                            <span className="text-[10px] text-ink-muted">{fmtKwh(bank.nominal_capacity_kwh)} nominal</span>
                           </div>
                               {/* Solar system pairing badge */}
                           {bank.solar_system_id && (() => {
                             const sys = solarSystems.find(s => s.id === bank.solar_system_id);
                             return sys ? (
                               <div className="flex items-center gap-1 mt-1 ml-7">
-                                <span className="text-yellow-500 text-xs">☀</span>
-                                <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                                <span className="text-accent text-xs">☀</span>
+                                <span className="text-[10px] font-semibold text-accent bg-accent-soft border border-accent-border px-1.5 py-0.5 rounded-full">
                                   {sys.name} ({Number(sys.capacity_kw).toFixed(1)} kW)
                                 </span>
                               </div>
@@ -1108,17 +1108,17 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
                           {/* SOC bar */}
                           <div className="ml-7 mt-1.5">
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[10px] text-gray-400">SOC</span>
-                              <span className="text-[10px] font-semibold text-gray-600">{socPct}%</span>
+                              <span className="text-[10px] text-ink-muted">SOC</span>
+                              <span className="text-[10px] font-semibold text-ink-body2">{socPct}%</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-gray-100 relative">
-                              <div className="h-full rounded-full bg-violet-400 transition-all"
+                            <div className="h-1.5 rounded-full bg-surface-inset2 relative">
+                              <div className="h-full rounded-full bg-accent transition-all"
                                 style={{ width: `${socPct}%` }} />
                             </div>
                             <div className="flex gap-1 mt-1">
                               {[0, 25, 50, 75, 100].map(v => (
                                 <button key={v} onClick={() => handleResetSoc(bank.id, v / 100)}
-                                  className="flex-1 py-0.5 text-[9px] font-semibold text-gray-400 hover:bg-violet-50 hover:text-violet-600 rounded transition-colors">
+                                  className="flex-1 py-0.5 text-[9px] font-semibold text-ink-muted hover:bg-accent-soft hover:text-accent rounded transition-colors">
                                   {v}%
                                 </button>
                               ))}
@@ -1134,9 +1134,9 @@ function BatteryDropdown({ endpoint, onTotalChange, solarSystems = [], currency 
           </div>
 
           {/* Add form */}
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Add Battery Bank</p>
-            {addError && <p className="text-xs text-red-500 mb-1">{addError}</p>}
+          <div className="px-4 py-3 border-t border-line-subtle bg-surface-inset">
+            <p className="text-xs font-semibold text-ink-muted mb-1 uppercase tracking-wide">Add Battery Bank</p>
+            {addError && <p className="text-xs text-danger mb-1">{addError}</p>}
             <BatteryBankForm
               initialValues={EMPTY_ADD()}
               onSubmit={handleAdd}
@@ -1303,38 +1303,38 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 group">
-        <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">{icon}</div>
+        <div className="w-7 h-7 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0">{icon}</div>
         <div className="text-left">
-          <p className="text-xs text-emerald-100 leading-none mb-0.5">{label}</p>
-          <p className="text-sm font-semibold leading-none">
+          <p className="text-xs text-ink-muted leading-none mb-0.5">{label}</p>
+          <p className="text-sm font-semibold leading-none text-ink-heading">
             {generatorMode === 'needed' ? fmt(genNeeded) : fmt(total)}
           </p>
-          <p className="text-xs text-emerald-200 leading-none mt-0.5">
+          <p className="text-xs text-ink-muted leading-none mt-0.5">
             {generatorMode === 'needed'
               ? 'sized for load'
               : lines.length > 0 ? `${lines.length} unit${lines.length !== 1 ? 's' : ''}` : ''}
           </p>
         </div>
-        <svg className={`w-3.5 h-3.5 text-emerald-200 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        <svg className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-surface-card rounded-2xl shadow-2xl border border-line z-50 overflow-hidden">
           <div className={`bg-gradient-to-r ${accentFrom} ${accentTo} px-4 py-3`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70 leading-none mb-0.5">{label} Lines</p>
-                <p className="text-base font-bold text-white leading-none">
+                <p className="text-xs text-base/70 leading-none mb-0.5">{label} Lines</p>
+                <p className="text-base font-bold text-base leading-none">
                   {generatorMode === 'needed' ? fmt(genNeeded) : fmt(total)}
                 </p>
                 {generatorMode === 'needed' && (
-                  <p className="text-xs text-white/60 leading-none mt-0.5">sized for load</p>
+                  <p className="text-xs text-base/60 leading-none mt-0.5">sized for load</p>
                 )}
               </div>
-              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-base/20 text-base px-2 py-0.5 rounded-full">
                 {lines.length} unit{lines.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -1342,32 +1342,32 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
 
           {/* Generator mode toggle — only for generator (not utility) */}
           {generatorMode !== undefined && (
-            <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-wide">Capacity in Calculations</p>
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+            <div className="px-4 py-3 border-b border-line-subtle">
+              <p className="text-[10px] font-semibold text-ink-muted mb-2 uppercase tracking-wide">Capacity in Calculations</p>
+              <div className="flex rounded-lg border border-line overflow-hidden text-xs font-semibold">
                 <button
                   onClick={() => generatorMode !== 'existing' && onGeneratorModeChange?.('existing')}
                   className={`flex-1 px-3 py-2 transition-colors ${
-                    generatorMode === 'existing' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                    generatorMode === 'existing' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                   }`}>
                   Existing
                 </button>
                 <button
                   onClick={() => generatorMode !== 'needed' && onGeneratorModeChange?.('needed')}
-                  className={`flex-1 px-3 py-2 border-l border-gray-200 transition-colors ${
-                    generatorMode === 'needed' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                  className={`flex-1 px-3 py-2 border-l border-line transition-colors ${
+                    generatorMode === 'needed' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                   }`}>
                   Needed ×1.25
                 </button>
               </div>
               {genNeeded > 0 && (
                 <div className="flex items-center justify-between mt-2 px-1">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-wide">Required for loads</span>
-                  <span className="text-xs font-bold text-orange-600">{fmt(genNeeded)}</span>
+                  <span className="text-[10px] text-ink-muted uppercase tracking-wide">Required for loads</span>
+                  <span className="text-xs font-bold text-accent">{fmt(genNeeded)}</span>
                 </div>
               )}
               {generatorMode === 'existing' && total > 0 && genNeeded > 0 && (
-                <p className={`text-[10px] font-medium mt-1.5 px-1 ${total >= genNeeded ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <p className={`text-[10px] font-medium mt-1.5 px-1 ${total >= genNeeded ? 'text-success' : 'text-accent-light'}`}>
                   {total >= genNeeded
                     ? `✓ Your generators cover the load (${fmt(total - genNeeded)} surplus)`
                     : `⚠ ${fmt(genNeeded - total)} short of required capacity`}
@@ -1379,130 +1379,130 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
           <div className="max-h-52 overflow-y-auto">
             {lines.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-xs text-gray-400">No {label.toLowerCase()} units yet</p>
+                <p className="text-xs text-ink-muted">No {label.toLowerCase()} units yet</p>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="divide-y divide-line-subtle">
                 {lines.map((line, i) => (
-                  <li key={line.id} className="px-4 py-2.5 hover:bg-gray-50 transition-colors group/line">
+                  <li key={line.id} className="px-4 py-2.5 hover:bg-surface-inset transition-colors group/line">
                     {editingId === line.id ? (
                       /* ── Inline edit form ── */
                       <div className="flex flex-col gap-2">
                         <input type="text" value={editName} onChange={e => setEditName(e.target.value)}
                           autoFocus
-                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800
-                            focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                          className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-heading
+                            focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                         <div className="flex gap-2 items-center">
                           <div className="relative flex-1 min-w-0">
                             <input type="number" value={editPower} onChange={e => setEditPower(e.target.value)}
                               min="0"
-                              className="w-full border border-gray-200 rounded-lg pl-3 pr-7 py-1.5 text-xs text-gray-800
-                                focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">VA</span>
+                              className="w-full border border-line rounded-lg pl-3 pr-7 py-1.5 text-xs text-ink-heading
+                                focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-muted">VA</span>
                           </div>
-                          <div className="flex rounded-lg border border-gray-200 overflow-hidden flex-shrink-0 bg-white">
+                          <div className="flex rounded-lg border border-line overflow-hidden flex-shrink-0 bg-surface-inset2">
                             <button type="button" onClick={() => setEditPhases('1phase')}
                               className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                                editPhases === '1phase' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                                editPhases === '1phase' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                               }`}>1Φ</button>
                             <button type="button" onClick={() => setEditPhases('3phase')}
-                              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors border-l border-gray-200 ${
-                                editPhases === '3phase' ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors border-l border-line ${
+                                editPhases === '3phase' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                               }`}>3Φ</button>
                           </div>
                         </div>
                         {/* ── Utility cost fields (edit) ── */}
                         {lineType === 'utility' && (
-                          <div className="border-t border-gray-100 pt-2 flex flex-col gap-1.5">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tariff</p>
+                          <div className="border-t border-line-subtle pt-2 flex flex-col gap-1.5">
+                            <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">Tariff</p>
                             <div className="relative">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
                               <input type="number" min="0" step="0.0001" value={editTariff}
                                 onChange={e => setEditTariff(e.target.value)}
                                 placeholder="e.g. 0.12"
-                                className="w-full border border-gray-200 rounded-lg pl-5 pr-12 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/kWh</span>
+                                className="w-full border border-line rounded-lg pl-5 pr-12 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">/kWh</span>
                             </div>
                             <div className="relative">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
                               <input type="number" min="0" step="0.0001" value={editPeakTariff}
                                 onChange={e => setEditPeakTariff(e.target.value)}
                                 placeholder="Peak tariff (optional)"
-                                className="w-full border border-gray-200 rounded-lg pl-5 pr-12 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">peak/kWh</span>
+                                className="w-full border border-line rounded-lg pl-5 pr-12 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">peak/kWh</span>
                             </div>
                             <div className="flex gap-1.5">
                               <input type="number" min="0" max="23" value={editPeakStart}
                                 onChange={e => setEditPeakStart(e.target.value)}
                                 placeholder="Peak start (0–23)"
-                                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                                className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                               <input type="number" min="0" max="23" value={editPeakEnd}
                                 onChange={e => setEditPeakEnd(e.target.value)}
                                 placeholder="Peak end (0–23)"
-                                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+                                className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                             </div>
                           </div>
                         )}
                         {/* ── Generator cost fields (edit) ── */}
                         {lineType === 'generator' && (
-                          <div className="border-t border-gray-100 pt-2 flex flex-col gap-1.5">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fuel Cost</p>
+                          <div className="border-t border-line-subtle pt-2 flex flex-col gap-1.5">
+                            <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">Fuel Cost</p>
                             <div className="relative">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
                               <input type="number" min="0" step="0.01" value={editFuelCost}
                                 onChange={e => setEditFuelCost(e.target.value)}
                                 placeholder="e.g. 1.50"
-                                className="w-full border border-gray-200 rounded-lg pl-5 pr-14 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/liter</span>
+                                className="w-full border border-line rounded-lg pl-5 pr-14 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">/liter</span>
                             </div>
                             <div className="relative">
                               <input type="number" min="0" step="0.01" value={editFuelLph}
                                 onChange={e => setEditFuelLph(e.target.value)}
                                 placeholder="Fuel consumption at full load (L/h)"
-                                className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                                className="w-full border border-line rounded-lg pl-3 pr-10 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">L/h</span>
                             </div>
                             {editFuelCost && editFuelLph && editPower && (
-                              <p className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1">
+                              <p className="text-[10px] font-semibold text-accent bg-accent-soft border border-accent-border rounded px-2 py-1">
                                 Rated: {currency}{((Number(editFuelCost) * Number(editFuelLph)) / (Number(editPower) / 1000)).toFixed(4)}/kWh at 100 % load
                               </p>
                             )}
                             {/* ── Affine model fields ── */}
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">Efficiency Profile (optional)</p>
+                            <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide mt-1">Efficiency Profile (optional)</p>
                             <div className="relative">
                               <input type="number" min="0" step="0.01" value={editNoLoadFuel}
                                 onChange={e => setEditNoLoadFuel(e.target.value)}
                                 placeholder={editFuelLph ? `No-load fuel (default ${(Number(editFuelLph)*0.3).toFixed(2)} L/h = 30%)` : 'No-load fuel (L/h at idle)'}
-                                className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
-                                  focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                                className="w-full border border-line rounded-lg pl-3 pr-10 py-1.5 text-xs text-ink-heading
+                                  focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">L/h</span>
                             </div>
                             <div className="flex gap-1.5">
                               <div className="relative flex-1">
                                 <input type="number" min="0" max="100" step="1" value={editMinLoadPct}
                                   onChange={e => setEditMinLoadPct(e.target.value)}
                                   placeholder="Min load %"
-                                  className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
-                                    focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                                  className="w-full border border-line rounded-lg pl-3 pr-6 py-1.5 text-xs text-ink-heading
+                                    focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">%</span>
                               </div>
                               <div className="relative flex-1">
                                 <input type="number" min="0" max="100" step="1" value={editOptimalLoadPct}
                                   onChange={e => setEditOptimalLoadPct(e.target.value)}
                                   placeholder="Optimal load %"
-                                  className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
-                                    focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                                  className="w-full border border-line rounded-lg pl-3 pr-6 py-1.5 text-xs text-ink-heading
+                                    focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">%</span>
                               </div>
                             </div>
                             {editFuelCost && editFuelLph && editPower && editNoLoadFuel && (
-                              <div className="text-[10px] bg-orange-50 border border-orange-100 rounded px-2 py-1.5 space-y-0.5">
+                              <div className="text-[10px] bg-accent-soft border border-accent-border rounded px-2 py-1.5 space-y-0.5">
                                 {[100, 75, 50].map(pct => {
                                   const kw  = Number(editPower) / 1000 * pct / 100;
                                   const f0  = Number(editNoLoadFuel);
@@ -1510,7 +1510,7 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
                                   const fuel = f0 + (fr - f0) * (pct / 100);
                                   const cpk  = kw > 0 ? (Number(editFuelCost) * fuel / kw).toFixed(4) : '—';
                                   return (
-                                    <p key={pct} className={pct === 75 ? 'font-bold text-orange-700' : 'text-orange-600'}>
+                                    <p key={pct} className={pct === 75 ? 'font-bold text-accent' : 'text-accent-light'}>
                                       {pct} % load → {fuel.toFixed(2)} L/h → {currency}{cpk}/kWh{pct === 75 ? ' ★ optimal' : ''}
                                     </p>
                                   );
@@ -1521,13 +1521,13 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
                         )}
                         <div className="flex gap-2">
                           <button onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editPower}
-                            className="flex-1 py-1.5 text-xs font-semibold bg-indigo-500 hover:bg-indigo-600
-                              disabled:opacity-40 text-white rounded-lg transition-colors">
+                            className="flex-1 py-1.5 text-xs font-semibold bg-accent-gradient
+                              disabled:opacity-40 text-base rounded-lg transition-colors">
                             {saving ? 'Saving…' : 'Save'}
                           </button>
                           <button onClick={() => setEditingId(null)}
-                            className="flex-1 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200
-                              text-gray-600 rounded-lg transition-colors">
+                            className="flex-1 py-1.5 text-xs font-semibold border border-line hover:border-line-strong hover:bg-surface-inset
+                              text-ink-body2 rounded-lg transition-colors">
                             Cancel
                           </button>
                         </div>
@@ -1541,28 +1541,26 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-medium text-gray-800 truncate">{line.name}</p>
-                              <span className={`flex-shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                                line.phases === '3phase' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'
-                              }`}>
+                              <p className="text-sm font-medium text-ink-heading truncate">{line.name}</p>
+                              <span className="flex-shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-surface-inset text-ink-body2 border border-line">
                                 {line.phases === '3phase' ? '3Φ' : '1Φ'}
                               </span>
                             </div>
-                            <p className="text-xs text-emerald-600 font-semibold">{fmt(line.power)} max</p>
+                            <p className="text-xs text-accent-light font-semibold">{fmt(line.power)} max</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover/line:opacity-100 transition-all ml-2">
                           <button onClick={() => startEdit(line)}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300
-                              hover:text-indigo-500 hover:bg-indigo-50 transition-all">
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-ink-muted2
+                              hover:text-accent hover:bg-accent-soft transition-all">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
                           <button onClick={() => handleDelete(line.id)}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300
-                              hover:text-red-500 hover:bg-red-50 transition-all">
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-ink-muted2
+                              hover:text-danger hover:bg-danger-soft transition-all">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1577,39 +1575,39 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
             )}
           </div>
 
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Add {label}</p>
-            {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+          <div className="px-4 py-3 border-t border-line-subtle bg-surface-inset">
+            <p className="text-xs font-semibold text-ink-muted mb-2 uppercase tracking-wide">Add {label}</p>
+            {error && <p className="text-xs text-danger mb-2">{error}</p>}
             <div className="flex flex-col gap-2">
               <input type="text" value={name} onChange={e => setName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 placeholder={`${label} name`}
-                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800
-                  placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-white" />
+                className="w-full border border-line rounded-lg px-3 py-1.5 text-xs text-ink-heading
+                  placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-transparent bg-surface-inset2" />
               <div className="flex gap-2 items-center">
                 <div className="relative flex-1 min-w-0">
                   <input type="number" value={power} onChange={e => setPower(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAdd()}
                     placeholder="Max power" min="0"
-                    className="w-full border border-gray-200 rounded-lg pl-3 pr-7 py-1.5 text-xs text-gray-800
-                      placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent bg-white" />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">VA</span>
+                    className="w-full border border-line rounded-lg pl-3 pr-7 py-1.5 text-xs text-ink-heading
+                      placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-transparent bg-surface-inset2" />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ink-muted">VA</span>
                 </div>
-                <div className="flex rounded-lg border border-gray-200 overflow-hidden flex-shrink-0 bg-white">
+                <div className="flex rounded-lg border border-line overflow-hidden flex-shrink-0 bg-surface-inset2">
                   <button type="button" onClick={() => setPhases('1phase')}
                     className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      phases === '1phase' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                      phases === '1phase' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                     }`}>1Φ</button>
                   <button type="button" onClick={() => setPhases('3phase')}
-                    className={`px-2.5 py-1.5 text-xs font-semibold transition-colors border-l border-gray-200 ${
-                      phases === '3phase' ? 'bg-violet-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                    className={`px-2.5 py-1.5 text-xs font-semibold transition-colors border-l border-line ${
+                      phases === '3phase' ? 'bg-accent-gradient text-base' : 'text-ink-body2 hover:bg-surface-inset'
                     }`}>3Φ</button>
                 </div>
                 <button onClick={handleAdd} disabled={!name.trim() || !power || adding}
-                  className="w-8 h-8 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40
-                    disabled:cursor-not-allowed rounded-lg flex items-center justify-center text-white transition-colors flex-shrink-0">
+                  className="w-8 h-8 bg-accent-gradient disabled:opacity-40
+                    disabled:cursor-not-allowed rounded-lg flex items-center justify-center text-base transition-colors flex-shrink-0">
                   {adding
-                    ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ? <div className="w-3.5 h-3.5 border-2 border-base/40 border-t-base rounded-full animate-spin" />
                     : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
@@ -1619,92 +1617,92 @@ function LinesDropdown({ label, icon, iconColor, accentFrom, accentTo, endpoint,
 
               {/* ── Utility cost fields (add) ── */}
               {lineType === 'utility' && (
-                <div className="border-t border-gray-200 pt-2 flex flex-col gap-1.5">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tariff (optional)</p>
+                <div className="border-t border-line pt-2 flex flex-col gap-1.5">
+                  <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">Tariff (optional)</p>
                   <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
                     <input type="number" min="0" step="0.0001" value={tariff}
                       onChange={e => setTariff(e.target.value)}
                       placeholder="e.g. 0.12"
-                      className="w-full border border-gray-200 rounded-lg pl-5 pr-12 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/kWh</span>
+                      className="w-full border border-line rounded-lg pl-5 pr-12 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">/kWh</span>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
                     <input type="number" min="0" step="0.0001" value={peakTariff}
                       onChange={e => setPeakTariff(e.target.value)}
                       placeholder="Peak tariff (optional)"
-                      className="w-full border border-gray-200 rounded-lg pl-5 pr-16 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">peak/kWh</span>
+                      className="w-full border border-line rounded-lg pl-5 pr-16 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">peak/kWh</span>
                   </div>
                   <div className="flex gap-1.5">
                     <input type="number" min="0" max="23" value={peakStart}
                       onChange={e => setPeakStart(e.target.value)}
                       placeholder="Peak start hr (0–23)"
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                      className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                     <input type="number" min="0" max="23" value={peakEnd}
                       onChange={e => setPeakEnd(e.target.value)}
                       placeholder="Peak end hr (0–23)"
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
+                      className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
                   </div>
                 </div>
               )}
 
               {/* ── Generator cost fields (add) ── */}
               {lineType === 'generator' && (
-                <div className="border-t border-gray-200 pt-2 flex flex-col gap-1.5">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Fuel Cost (optional)</p>
+                <div className="border-t border-line pt-2 flex flex-col gap-1.5">
+                  <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide">Fuel Cost (optional)</p>
                   <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">{currency}</span>
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">{currency}</span>
                     <input type="number" min="0" step="0.01" value={fuelCost}
                       onChange={e => setFuelCost(e.target.value)}
                       placeholder="e.g. 1.50"
-                      className="w-full border border-gray-200 rounded-lg pl-5 pr-14 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">/liter</span>
+                      className="w-full border border-line rounded-lg pl-5 pr-14 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">/liter</span>
                   </div>
                   <div className="relative">
                     <input type="number" min="0" step="0.01" value={fuelLph}
                       onChange={e => setFuelLph(e.target.value)}
                       placeholder="Consumption at full load (L/h)"
-                      className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                      className="w-full border border-line rounded-lg pl-3 pr-10 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">L/h</span>
                   </div>
                   {fuelCost && fuelLph && power && (
-                    <p className="text-[10px] font-semibold text-orange-600 bg-orange-50 border border-orange-100 rounded px-2 py-1">
+                    <p className="text-[10px] font-semibold text-accent bg-accent-soft border border-accent-border rounded px-2 py-1">
                       Rated: {currency}{((Number(fuelCost) * Number(fuelLph)) / (Number(power) / 1000)).toFixed(4)}/kWh at 100 % load
                     </p>
                   )}
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">Efficiency Profile (optional)</p>
+                  <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide mt-1">Efficiency Profile (optional)</p>
                   <div className="relative">
                     <input type="number" min="0" step="0.01" value={noLoadFuel}
                       onChange={e => setNoLoadFuel(e.target.value)}
                       placeholder={fuelLph ? `No-load fuel (default ${(Number(fuelLph)*0.3).toFixed(2)} L/h = 30%)` : 'No-load fuel (L/h at idle)'}
-                      className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-1.5 text-xs text-gray-800
-                        placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">L/h</span>
+                      className="w-full border border-line rounded-lg pl-3 pr-10 py-1.5 text-xs text-ink-heading
+                        placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">L/h</span>
                   </div>
                   <div className="flex gap-1.5">
                     <div className="relative flex-1">
                       <input type="number" min="0" max="100" step="1" value={minLoadPct}
                         onChange={e => setMinLoadPct(e.target.value)}
                         placeholder="Min load % (30)"
-                        className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
-                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                        className="w-full border border-line rounded-lg pl-3 pr-6 py-1.5 text-xs text-ink-heading
+                          placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">%</span>
                     </div>
                     <div className="relative flex-1">
                       <input type="number" min="0" max="100" step="1" value={optimalLoadPct}
                         onChange={e => setOptimalLoadPct(e.target.value)}
                         placeholder="Optimal load % (75)"
-                        className="w-full border border-gray-200 rounded-lg pl-3 pr-6 py-1.5 text-xs text-gray-800
-                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                        className="w-full border border-line rounded-lg pl-3 pr-6 py-1.5 text-xs text-ink-heading
+                          placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-inset2" />
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted">%</span>
                     </div>
                   </div>
                 </div>
@@ -1793,34 +1791,34 @@ export default function PowerSourcesBanner({
   const sourceCount = 1 + (batteryEndpoint ? 1 : 0) + (generatorEndpoint ? 1 : 0) + (utilityEndpoint ? 1 : 0);
 
   const generatorIcon = (
-    <svg className="w-4 h-4 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
     </svg>
   );
   const utilityIcon = (
-    <svg className="w-4 h-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
     </svg>
   );
 
   return (
-    <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-sm">
+    <div className="bg-surface-deep text-ink-heading border-b border-line">
 
       {/* ── Always-visible bar ── */}
       <div className="px-6 py-2.5 flex items-center gap-4 flex-wrap">
 
         {/* Icon + total available */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0 text-accent">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 10H3m18-10h-2m2 10h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
             </svg>
           </div>
           <div>
-            <p className="text-[10px] text-emerald-200 uppercase tracking-wider leading-none mb-1">Available</p>
-            <p className="text-lg font-bold leading-none">{fmt(totalAvailable)}</p>
+            <p className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.14em] leading-none mb-1">Available</p>
+            <p className="text-lg font-bold leading-none text-ink-data">{fmt(totalAvailable)}</p>
           </div>
         </div>
 
@@ -1850,7 +1848,7 @@ export default function PowerSourcesBanner({
         {/* Battery */}
         {batteryEndpoint && (
           <>
-            <div className="w-px h-8 bg-white/20" />
+            <div className="w-px h-8 bg-line" />
             <BatteryDropdown
               endpoint={batteryEndpoint}
               onTotalChange={pw => { setBattTotal(pw); }}
@@ -1863,11 +1861,11 @@ export default function PowerSourcesBanner({
         {/* Generator */}
         {generatorEndpoint && (
           <>
-            <div className="w-px h-8 bg-white/20" />
+            <div className="w-px h-8 bg-line" />
             <LinesDropdown
               label="Generator" icon={generatorIcon}
-              iconColor="bg-orange-100 text-orange-700"
-              accentFrom="from-orange-500" accentTo="to-orange-400"
+              iconColor="bg-accent-soft text-accent"
+              accentFrom="from-accent-from" accentTo="to-accent-to"
               endpoint={generatorEndpoint} deleteEndpoint="/api/generator-lines"
               onTotalChange={setGenTotal}
               generatorMode={generatorMode}
@@ -1882,11 +1880,11 @@ export default function PowerSourcesBanner({
         {/* Utility */}
         {utilityEndpoint && (
           <>
-            <div className="w-px h-8 bg-white/20" />
+            <div className="w-px h-8 bg-line" />
             <LinesDropdown
               label="Utility" icon={utilityIcon}
-              iconColor="bg-emerald-100 text-emerald-700"
-              accentFrom="from-emerald-600" accentTo="to-emerald-500"
+              iconColor="bg-accent-soft text-accent"
+              accentFrom="from-accent-from" accentTo="to-accent-to"
               endpoint={utilityEndpoint} deleteEndpoint="/api/utility-lines"
               onTotalChange={setUtilTotal}
               lineType="utility"
@@ -1898,18 +1896,18 @@ export default function PowerSourcesBanner({
         {/* Building inherited sources — read-only indicator */}
         {projectId && (bldgGenTotal > 0 || bldgUtilTotal > 0) && (
           <>
-            <div className="w-px h-8 bg-white/20" />
+            <div className="w-px h-8 bg-line" />
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-7 h-7 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9" />
                 </svg>
               </div>
               <div className="text-left">
-                <p className="text-xs text-emerald-100 leading-none mb-0.5">Project</p>
-                <p className="text-sm font-semibold leading-none">{fmt(bldgGenTotal + bldgUtilTotal)}</p>
-                <p className="text-xs text-emerald-200 leading-none mt-0.5">
+                <p className="text-xs text-ink-muted leading-none mb-0.5">Project</p>
+                <p className="text-sm font-semibold leading-none text-ink-heading">{fmt(bldgGenTotal + bldgUtilTotal)}</p>
+                <p className="text-xs text-ink-muted leading-none mt-0.5">
                   {[bldgGenLines.length > 0 && `${bldgGenLines.length} gen`, bldgUtilLines.length > 0 && `${bldgUtilLines.length} util`].filter(Boolean).join(' · ')}
                 </p>
               </div>
@@ -1919,8 +1917,8 @@ export default function PowerSourcesBanner({
 
         {/* Analysis dropdown toggle */}
         <button onClick={() => setOpen(o => !o)}
-          className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-emerald-200
-            hover:bg-white/10 hover:text-white transition-colors flex-shrink-0">
+          className="w-7 h-7 flex items-center justify-center rounded-lg border border-line-strong text-ink-muted
+            hover:bg-surface-inset hover:text-ink-heading transition-colors flex-shrink-0">
           <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
@@ -1930,7 +1928,7 @@ export default function PowerSourcesBanner({
 
       {/* ── Analysis dropdown ── */}
       {open && (
-        <div className="px-6 pb-4 pt-3 border-t border-white/10">
+        <div className="px-6 pb-4 pt-3 border-t border-line-subtle">
 
           {/* Coverage analysis — only when load data is available */}
           {hasLoadData && (
@@ -1940,21 +1938,22 @@ export default function PowerSourcesBanner({
             </div>
           )}
 
-          {/* Per-source breakdown */}
+          {/* Per-source breakdown — every source uses the same amber accent dot;
+              sources are differentiated by label/icon only, not by hue. */}
           <div className={`grid gap-3 ${
             sourceCount >= 4 ? 'grid-cols-4' :
             sourceCount === 3 ? 'grid-cols-3' :
             sourceCount === 2 ? 'grid-cols-2' : 'grid-cols-1'
           }`}>
             <SourceCard
-              label="Solar" dot="bg-yellow-300"
+              label="Solar" dot="bg-accent"
               capacity={solar}
               maxLoad={maxLoad} optLoad={optimizedLoad}
               fmtFn={fmtW}
             />
             {batteryEndpoint && battTotal > 0 && (
               <SourceCard
-                label="Battery" dot="bg-violet-400"
+                label="Battery" dot="bg-accent"
                 capacity={battTotal}
                 maxLoad={maxLoad} optLoad={optimizedLoad}
               />
@@ -1962,31 +1961,32 @@ export default function PowerSourcesBanner({
             {generatorEndpoint && (
               <SourceCard
                 label={generatorMode === 'needed' ? 'Generator (×1.25)' : 'Generator'}
-                dot="bg-orange-400"
+                dot="bg-accent"
                 capacity={effectiveGen}
                 maxLoad={maxLoad} optLoad={optimizedLoad}
               />
             )}
             {utilityEndpoint && (
               <SourceCard
-                label="Utility" dot="bg-blue-400"
+                label="Utility" dot="bg-accent"
                 capacity={utilTotal}
                 maxLoad={maxLoad} optLoad={optimizedLoad}
               />
             )}
           </div>
 
-          {/* Building sources breakdown */}
+          {/* Building sources breakdown — neutral dot marks these as inherited (read-only),
+              as distinct from the project's own accent-marked sources above. */}
           {projectId && (bldgGenTotal > 0 || bldgUtilTotal > 0) && (
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <p className="text-[10px] font-semibold text-emerald-300/70 uppercase tracking-wider mb-2">
+            <div className="mt-3 pt-3 border-t border-line-subtle">
+              <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wider mb-2">
                 Project Sources (Inherited)
               </p>
               <div className={`grid gap-3 ${bldgGenTotal > 0 && bldgUtilTotal > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 {bldgGenTotal > 0 && (
                   <SourceCard
                     label={`Bldg Gen${bldgGenLines.length > 0 ? ` (${bldgGenLines.length})` : ''}`}
-                    dot="bg-orange-300/70"
+                    dot="bg-ink-muted3"
                     capacity={bldgGenTotal}
                     maxLoad={maxLoad} optLoad={optimizedLoad}
                   />
@@ -1994,7 +1994,7 @@ export default function PowerSourcesBanner({
                 {bldgUtilTotal > 0 && (
                   <SourceCard
                     label={`Bldg Utility${bldgUtilLines.length > 0 ? ` (${bldgUtilLines.length})` : ''}`}
-                    dot="bg-blue-300/70"
+                    dot="bg-ink-muted3"
                     capacity={bldgUtilTotal}
                     maxLoad={maxLoad} optLoad={optimizedLoad}
                   />
@@ -2004,7 +2004,7 @@ export default function PowerSourcesBanner({
           )}
 
           {!hasLoadData && (
-            <p className="text-xs text-emerald-300 mt-2 text-center">
+            <p className="text-xs text-ink-muted mt-2 text-center">
               Load data loading… open the power banner to see coverage analysis.
             </p>
           )}

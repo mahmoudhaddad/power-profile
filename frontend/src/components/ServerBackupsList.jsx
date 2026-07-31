@@ -46,14 +46,14 @@ export default function ServerBackupsList({ projectId, entityType, entityId, onR
   if (loading) {
     return (
       <div className="flex justify-center py-6">
-        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (backups.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-400">
+      <div className="text-center py-8 text-ink-muted">
         <svg className="w-8 h-8 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
@@ -67,10 +67,10 @@ export default function ServerBackupsList({ projectId, entityType, entityId, onR
     <div className="space-y-2">
       {backups.map(backup => (
         <div key={backup.id}
-          className="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-xl">
+          className="flex items-center justify-between px-4 py-3 bg-surface-card border border-line rounded-xl">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-gray-800 truncate">{backup.entity_name}</p>
-            <p className="text-xs text-gray-400">
+            <p className="text-sm font-medium text-ink-heading truncate">{backup.entity_name}</p>
+            <p className="text-xs text-ink-muted">
               {new Date(backup.created_at).toLocaleString('en-US', {
                 month: 'short', day: 'numeric', year: 'numeric',
                 hour: '2-digit', minute: '2-digit',
@@ -81,11 +81,11 @@ export default function ServerBackupsList({ projectId, entityType, entityId, onR
             <button
               onClick={() => handleRestore(backup)}
               disabled={restoring === backup.id}
-              className="flex items-center gap-1.5 text-xs font-medium text-blue-600 px-3 py-1.5
-                rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100
-                transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 text-xs font-medium text-accent px-3 py-1.5
+                rounded-lg border border-accent-border bg-accent-soft hover:bg-accent-softer
+                transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {restoring === backup.id ? (
-                <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -97,11 +97,11 @@ export default function ServerBackupsList({ projectId, entityType, entityId, onR
             <button
               onClick={() => handleDelete(backup.id)}
               disabled={deleting === backup.id}
-              className="flex items-center gap-1 text-xs font-medium text-gray-400 px-2 py-1.5
-                rounded-lg border border-gray-200 hover:border-red-300 hover:text-red-500 hover:bg-red-50
-                transition-colors disabled:opacity-50">
+              className="flex items-center gap-1 text-xs font-medium text-ink-muted px-2 py-1.5
+                rounded-lg border border-line hover:border-danger-border hover:text-danger hover:bg-danger-soft
+                transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {deleting === backup.id ? (
-                <div className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-danger border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

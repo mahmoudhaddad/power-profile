@@ -99,20 +99,20 @@ export default function CreateProjectPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-base flex flex-col">
 
       {/* Top Bar */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <header className="bg-surface-card border-b border-line px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/dashboard')}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+            className="text-ink-muted hover:text-ink-body2 transition-colors p-1 rounded-lg hover:bg-surface-inset">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -125,26 +125,26 @@ export default function CreateProjectPage() {
                 value={nameInput}
                 onChange={e => setNameInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
-                className="text-lg font-semibold text-gray-900 border-b-2 border-blue-500
+                className="text-lg font-semibold text-ink-heading border-b-2 border-accent
                   outline-none bg-transparent w-56"
               />
               <button onClick={saveName}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1
-                  rounded hover:bg-blue-50 transition-colors">
+                className="text-xs text-accent hover:text-accent-bright font-medium px-2 py-1
+                  rounded hover:bg-accent-soft transition-colors">
                 Save
               </button>
               <button onClick={() => setEditingName(false)}
-                className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1
-                  rounded hover:bg-gray-100 transition-colors">
+                className="text-xs text-ink-muted hover:text-ink-body2 font-medium px-2 py-1
+                  rounded hover:bg-surface-inset transition-colors">
                 Cancel
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-gray-900">{project?.name}</h1>
+              <h1 className="text-lg font-semibold text-ink-heading">{project?.name}</h1>
               <button onClick={() => setEditingName(true)}
-                className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded
-                  hover:bg-blue-50">
+                className="text-ink-muted hover:text-accent transition-colors p-1 rounded
+                  hover:bg-accent-soft">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -161,10 +161,10 @@ export default function CreateProjectPage() {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold
                 transition-all duration-200 ${
                   i + 1 < step
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-accent-gradient text-base'
                     : i + 1 === step
-                    ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                    : 'bg-gray-200 text-gray-400'
+                    ? 'bg-accent-gradient text-base ring-4 ring-accent-soft'
+                    : 'bg-surface-inset text-ink-muted'
                 }`}>
                 {i + 1 < step ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,7 +175,7 @@ export default function CreateProjectPage() {
                 )}
               </div>
               {i < TOTAL_STEPS - 1 && (
-                <div className={`w-10 h-0.5 transition-all duration-200 ${i + 1 < step ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                <div className={`w-10 h-0.5 transition-all duration-200 ${i + 1 < step ? 'bg-accent' : 'bg-surface-inset'}`} />
               )}
             </div>
           ))}
@@ -193,11 +193,11 @@ export default function CreateProjectPage() {
       </main>
 
       {/* Bottom Nav */}
-      <footer className="bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+      <footer className="bg-surface-card border-t border-line px-6 py-4 flex items-center justify-between">
         <button
           onClick={handlePrev}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gray-300
-            text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-line
+            text-ink-body2 text-sm font-medium hover:bg-surface-inset hover:border-line-strong transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -205,14 +205,14 @@ export default function CreateProjectPage() {
           {step === 1 ? 'Cancel' : 'Previous'}
         </button>
 
-        <span className="text-sm text-gray-400">Step {step} of {TOTAL_STEPS}</span>
+        <span className="text-sm text-ink-muted">Step {step} of {TOTAL_STEPS}</span>
 
         <button
           onClick={handleNext}
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white
-            text-sm font-medium hover:bg-blue-700 transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-gradient text-base
+            text-sm font-medium hover:shadow-accent transition-shadow
+            disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
         >
           {saving ? 'Saving...' : step === TOTAL_STEPS ? 'Finish' : 'Next'}
           {!saving && step < TOTAL_STEPS && (
@@ -230,8 +230,8 @@ function Step1({ selected, onSelect }) {
   return (
     <div className="w-full max-w-2xl">
       <div className="text-center mb-10">
-        <h2 className="text-2xl font-bold text-gray-900">Select Building Type</h2>
-        <p className="text-gray-500 mt-2 text-sm">Choose the type that best describes the buildings in this project</p>
+        <h2 className="text-2xl font-bold text-ink-heading">Select Building Type</h2>
+        <p className="text-ink-body mt-2 text-sm">Choose the type that best describes the buildings in this project</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -242,26 +242,26 @@ function Step1({ selected, onSelect }) {
             className={`group flex flex-col items-center gap-4 p-8 rounded-2xl border-2
               transition-all duration-200 text-center
               ${selected === type.key
-                ? 'border-blue-500 bg-blue-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm'
+                ? 'border-accent bg-accent-soft shadow-accent'
+                : 'border-line bg-surface-card hover:border-accent-border hover:bg-accent-soft'
               }`}
           >
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors duration-200
               ${selected === type.key
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'
+                ? 'bg-accent-gradient text-base'
+                : 'bg-surface-inset text-ink-muted group-hover:bg-accent-softer group-hover:text-accent'
               }`}>
               {type.icon}
             </div>
             <div>
               <p className={`font-semibold text-base transition-colors duration-200
-                ${selected === type.key ? 'text-blue-700' : 'text-gray-800 group-hover:text-blue-700'}`}>
+                ${selected === type.key ? 'text-accent' : 'text-ink-body2 group-hover:text-accent'}`}>
                 {type.label}
               </p>
             </div>
             {selected === type.key && (
-              <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-5 h-5 rounded-full bg-accent-gradient flex items-center justify-center">
+                <svg className="w-3 h-3 text-base" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -276,11 +276,11 @@ function Step1({ selected, onSelect }) {
 function StepPlaceholder({ step, title }) {
   return (
     <div className="w-full max-w-2xl text-center">
-      <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-        <span className="text-3xl font-bold text-gray-300">{step}</span>
+      <div className="w-20 h-20 bg-surface-inset rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <span className="text-3xl font-bold text-ink-muted2">{step}</span>
       </div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
-      <p className="text-gray-400 text-sm">This step is coming soon.</p>
+      <h2 className="text-2xl font-bold text-ink-heading mb-2">{title}</h2>
+      <p className="text-ink-muted text-sm">This step is coming soon.</p>
     </div>
   );
 }

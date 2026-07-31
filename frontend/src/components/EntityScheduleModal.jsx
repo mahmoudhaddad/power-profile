@@ -114,21 +114,21 @@ export default function EntityScheduleModal({ entity, updateEndpoint, parentSche
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
+      <div className="bg-surface-card border border-line rounded-2xl shadow-2xl w-full max-w-lg my-8">
 
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-line-subtle">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-base font-semibold text-gray-900">Schedule</h2>
+            <h2 className="text-base font-semibold text-ink-heading">Schedule</h2>
             {isCustom ? (
-              <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Custom</span>
+              <span className="text-xs font-medium bg-accent-soft text-accent border border-accent-border px-2 py-0.5 rounded-full">Custom</span>
             ) : (
-              <span className="text-xs font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inherited from {parentLabel}</span>
+              <span className="text-xs font-medium bg-surface-inset text-ink-muted border border-line px-2 py-0.5 rounded-full">Inherited from {parentLabel}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {!editing && (
               <button onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors">
+                className="flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-light px-3 py-1.5 rounded-lg hover:bg-accent-soft transition-colors">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -136,7 +136,7 @@ export default function EntityScheduleModal({ entity, updateEndpoint, parentSche
                 Edit Schedule
               </button>
             )}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
+            <button onClick={onClose} className="text-ink-muted hover:text-ink-heading p-1 rounded-lg hover:bg-surface-inset transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -161,22 +161,22 @@ export default function EntityScheduleModal({ entity, updateEndpoint, parentSche
             <>
               {isCustom && (
                 <button onClick={handleResetToInherited} disabled={saving}
-                  className="text-xs font-medium text-gray-400 hover:text-red-500 px-3 py-2.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 flex-shrink-0">
+                  className="text-xs font-medium text-ink-muted hover:text-danger px-3 py-2.5 rounded-lg hover:bg-danger-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
                   Reset to inherited
                 </button>
               )}
               <button onClick={() => setEditing(false)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:border-line-strong hover:bg-surface-inset transition-colors">
                 Cancel
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-semibold hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </>
           ) : (
             <button onClick={onClose}
-              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+              className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:border-line-strong hover:bg-surface-inset transition-colors">
               Close
             </button>
           )}
@@ -194,49 +194,49 @@ function ScheduleView({ schedule }) {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Working Days</p>
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Working Days</p>
         {days?.length > 0 ? (
           <div className="flex gap-1.5 flex-wrap">
             {DAYS.map(d => (
               <span key={d.key}
                 className={`w-9 h-9 flex items-center justify-center rounded-full text-xs font-semibold
-                  ${days.includes(d.key) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-300'}`}>
+                  ${days.includes(d.key) ? 'bg-accent text-base' : 'bg-surface-inset text-ink-muted2'}`}>
                 {d.short}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 italic">Not set</p>
+          <p className="text-sm text-ink-muted italic">Not set</p>
         )}
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Work Hours</p>
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Work Hours</p>
         {ivs?.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {ivs.map((iv, i) => (
-              <span key={i} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium">
+              <span key={i} className="px-3 py-1.5 bg-accent-soft text-accent rounded-full text-sm font-medium">
                 {iv.start} – {iv.end}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 italic">Not set</p>
+          <p className="text-sm text-ink-muted italic">Not set</p>
         )}
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Operating Season</p>
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">Operating Season</p>
         {seasons?.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {seasons.map((s, i) => (
-              <span key={i} className="px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-sm font-medium">
+              <span key={i} className="px-3 py-1.5 bg-accent-soft text-accent rounded-full text-sm font-medium">
                 {s.from} → {s.to}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 italic">All year</p>
+          <p className="text-sm text-ink-muted italic">All year</p>
         )}
       </div>
     </div>
@@ -247,12 +247,12 @@ function Editor({ days, onToggleDay, intervals, onAddInterval, onRemoveInterval,
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2.5">Working Days</p>
+        <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2.5">Working Days</p>
         <div className="flex gap-1.5">
           {DAYS.map(d => (
             <button key={d.key} onClick={() => onToggleDay(d.key)}
               className={`w-9 h-9 rounded-full text-xs font-semibold transition-colors
-                ${days.includes(d.key) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                ${days.includes(d.key) ? 'bg-accent text-base' : 'bg-surface-inset2 text-ink-body2 hover:bg-surface-inset'}`}>
               {d.short}
             </button>
           ))}
@@ -261,9 +261,9 @@ function Editor({ days, onToggleDay, intervals, onAddInterval, onRemoveInterval,
 
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Work Hours</p>
+          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide">Work Hours</p>
           <button onClick={onAddInterval}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+            className="text-xs text-accent hover:text-accent-light font-medium flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -274,12 +274,12 @@ function Editor({ days, onToggleDay, intervals, onAddInterval, onRemoveInterval,
           {intervals.map((iv, i) => (
             <div key={i} className="flex items-center gap-2">
               <input type="time" value={iv.start} onChange={e => onUpdateInterval(i, 'start', e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-              <span className="text-gray-400 text-xs">to</span>
+                className="flex-1 bg-surface-inset border border-line rounded-lg px-3 py-2 text-sm text-ink-data focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
+              <span className="text-ink-muted text-xs">to</span>
               <input type="time" value={iv.end} onChange={e => onUpdateInterval(i, 'end', e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                className="flex-1 bg-surface-inset border border-line rounded-lg px-3 py-2 text-sm text-ink-data focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
               {intervals.length > 1 && (
-                <button onClick={() => onRemoveInterval(i)} className="text-gray-300 hover:text-red-400 transition-colors p-1">
+                <button onClick={() => onRemoveInterval(i)} className="text-ink-muted2 hover:text-danger transition-colors p-1">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -292,9 +292,9 @@ function Editor({ days, onToggleDay, intervals, onAddInterval, onRemoveInterval,
 
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Operating Season</p>
+          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide">Operating Season</p>
           <button onClick={onAddSeason}
-            className="text-xs text-orange-600 hover:text-orange-800 font-medium flex items-center gap-1">
+            className="text-xs text-accent hover:text-accent-light font-medium flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -302,43 +302,43 @@ function Editor({ days, onToggleDay, intervals, onAddInterval, onRemoveInterval,
           </button>
         </div>
         {seasons.length === 0 ? (
-          <p className="text-xs text-gray-400 italic">All year — no seasonal restriction</p>
+          <p className="text-xs text-ink-muted italic">All year — no seasonal restriction</p>
         ) : (
           <div className="space-y-2">
             {seasons.map((s, i) => {
               const from = parseMmdd(s.from);
               const to   = parseMmdd(s.to);
               return (
-                <div key={i} className="border border-orange-100 rounded-xl p-3 space-y-2 bg-orange-50/30">
+                <div key={i} className="border border-line rounded-xl p-3 space-y-2 bg-surface-inset">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-orange-700">Period {i + 1}</span>
-                    <button onClick={() => onRemoveSeason(i)} className="text-gray-300 hover:text-red-400 transition-colors p-0.5">
+                    <span className="text-xs font-medium text-accent">Period {i + 1}</span>
+                    <button onClick={() => onRemoveSeason(i)} className="text-ink-muted2 hover:text-danger transition-colors p-0.5">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-8">From</span>
+                    <span className="text-xs text-ink-muted w-8">From</span>
                     <select value={from.month} onChange={e => onUpdateSeasonPart(i, 'from', 'month', e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white">
+                      className="flex-1 bg-surface-inset2 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-data focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent">
                       {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
                     </select>
                     <input type="number" min="1" max="31" value={from.day}
                       onChange={e => onUpdateSeasonPart(i, 'from', 'day', e.target.value)}
-                      className="w-14 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-orange-300" />
+                      className="w-14 bg-surface-inset2 border border-line rounded-lg px-2 py-1.5 text-xs text-center text-ink-data focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-8">To</span>
+                    <span className="text-xs text-ink-muted w-8">To</span>
                     <select value={to.month} onChange={e => onUpdateSeasonPart(i, 'to', 'month', e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white">
+                      className="flex-1 bg-surface-inset2 border border-line rounded-lg px-2 py-1.5 text-xs text-ink-data focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent">
                       {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
                     </select>
                     <input type="number" min="1" max="31" value={to.day}
                       onChange={e => onUpdateSeasonPart(i, 'to', 'day', e.target.value)}
-                      className="w-14 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-orange-300" />
+                      className="w-14 bg-surface-inset2 border border-line rounded-lg px-2 py-1.5 text-xs text-center text-ink-data focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
                   </div>
-                  <p className="text-xs text-orange-500 font-medium">{s.from} → {s.to}</p>
+                  <p className="text-xs text-accent font-medium">{s.from} → {s.to}</p>
                 </div>
               );
             })}

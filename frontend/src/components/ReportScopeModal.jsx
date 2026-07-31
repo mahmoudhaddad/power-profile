@@ -139,24 +139,24 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-gray-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="relative bg-surface-card border border-line rounded-2xl shadow-2xl w-full max-w-md">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-base" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0121 9.414V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Generate Report</h2>
-              <p className="text-[11px] text-gray-400">Select the scope of the report</p>
+              <h2 className="text-sm font-semibold text-ink-heading">Generate Report</h2>
+              <p className="text-[11px] text-ink-muted">Select the scope of the report</p>
             </div>
           </div>
           <button onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-muted hover:text-ink-heading hover:bg-surface-inset transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -165,7 +165,7 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
 
         {/* Scope selector */}
         <div className="px-6 pt-4 pb-3">
-          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Report Scope</p>
+          <p className="text-[11px] font-medium text-ink-muted uppercase tracking-wider mb-2">Report Scope</p>
           <div className="grid grid-cols-4 gap-2">
             {SCOPES.map(({ key, label, icon }) => (
               <button
@@ -173,8 +173,8 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
                 onClick={() => handleScopeChange(key)}
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all
                   ${scope === key
-                    ? 'bg-blue-600/20 border-blue-500/60 text-blue-300'
-                    : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200 hover:bg-white/5'}`}
+                    ? 'bg-accent-tint border-accent-border-strong text-accent'
+                    : 'border-line text-ink-muted hover:border-line-strong hover:text-ink-body2 hover:bg-surface-inset'}`}
               >
                 <span className="text-lg">{icon}</span>
                 <span className="text-[10px] font-semibold leading-tight">{label}</span>
@@ -189,9 +189,9 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
 
             {/* Building selector */}
             <div>
-              <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Building</label>
+              <label className="block text-[11px] font-medium text-ink-muted uppercase tracking-wider mb-1.5">Building</label>
               {loadingEntities && !buildings.length ? (
-                <div className="h-9 bg-white/5 rounded-lg animate-pulse" />
+                <div className="h-9 bg-surface-inset rounded-lg animate-pulse" />
               ) : (
                 <select
                   value={selectedBuilding?.id ?? ''}
@@ -199,8 +199,8 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
                     const b = buildings.find(x => x.id === Number(e.target.value));
                     setSelectedBuilding(b ?? null);
                   }}
-                  className="w-full h-9 bg-gray-800 border border-white/10 rounded-lg px-3 text-sm text-white
-                    focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full h-9 bg-surface-inset border border-line rounded-lg px-3 text-sm text-ink-heading
+                    focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors"
                 >
                   <option value="">— Select a building —</option>
                   {buildings.map(b => (
@@ -213,9 +213,9 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
             {/* Floor selector */}
             {(scope === 'floor' || scope === 'room') && selectedBuilding && (
               <div>
-                <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Floor</label>
+                <label className="block text-[11px] font-medium text-ink-muted uppercase tracking-wider mb-1.5">Floor</label>
                 {loadingEntities && !floors.length ? (
-                  <div className="h-9 bg-white/5 rounded-lg animate-pulse" />
+                  <div className="h-9 bg-surface-inset rounded-lg animate-pulse" />
                 ) : (
                   <select
                     value={selectedFloor?.id ?? ''}
@@ -223,8 +223,8 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
                       const f = floors.find(x => x.id === Number(e.target.value));
                       setSelectedFloor(f ?? null);
                     }}
-                    className="w-full h-9 bg-gray-800 border border-white/10 rounded-lg px-3 text-sm text-white
-                      focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full h-9 bg-surface-inset border border-line rounded-lg px-3 text-sm text-ink-heading
+                      focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors"
                   >
                     <option value="">— Select a floor —</option>
                     {floors.map(f => (
@@ -238,9 +238,9 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
             {/* Room selector */}
             {scope === 'room' && selectedFloor && (
               <div>
-                <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Room</label>
+                <label className="block text-[11px] font-medium text-ink-muted uppercase tracking-wider mb-1.5">Room</label>
                 {loadingEntities && !rooms.length ? (
-                  <div className="h-9 bg-white/5 rounded-lg animate-pulse" />
+                  <div className="h-9 bg-surface-inset rounded-lg animate-pulse" />
                 ) : (
                   <select
                     value={selectedRoom?.id ?? ''}
@@ -248,8 +248,8 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
                       const r = rooms.find(x => x.id === Number(e.target.value));
                       setSelectedRoom(r ?? null);
                     }}
-                    className="w-full h-9 bg-gray-800 border border-white/10 rounded-lg px-3 text-sm text-white
-                      focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full h-9 bg-surface-inset border border-line rounded-lg px-3 text-sm text-ink-heading
+                      focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors"
                   >
                     <option value="">— Select a room —</option>
                     {rooms.map(r => (
@@ -264,7 +264,7 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
 
         {/* Error */}
         {error && (
-          <div className="mx-6 mb-3 px-3 py-2 bg-red-500/15 border border-red-500/30 rounded-lg text-xs text-red-300">
+          <div className="mx-6 mb-3 px-3 py-2 bg-danger-soft border border-danger-border rounded-lg text-xs text-danger">
             {error}
           </div>
         )}
@@ -276,10 +276,10 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
             disabled={!canGenerate || !!generating}
             onClick={() => handleGenerate('pdf')}
             className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold
-              bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-white"
+              bg-accent-gradient hover:shadow-accent disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none transition-shadow text-base"
           >
             {generating === 'pdf' ? (
-              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-base/40 border-t-base rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -294,10 +294,10 @@ export default function ReportScopeModal({ projectId, projectName, capApplied, e
             disabled={!canGenerate || !!generating}
             onClick={() => handleGenerate('excel')}
             className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold
-              bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-white"
+              border border-line text-ink-body2 hover:border-line-strong hover:bg-surface-inset disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {generating === 'excel' ? (
-              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

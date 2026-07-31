@@ -63,14 +63,14 @@ export default function RoomPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base">
 
       <div className="sticky top-0 z-40">
         <PowerBanner
@@ -90,32 +90,32 @@ export default function RoomPage() {
         />
       </div>
 
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+      <header className="bg-surface-card border-b border-line px-6 py-4 flex items-center gap-4">
         <button onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floorId}`)}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+          className="text-ink-muted hover:text-ink-heading transition-colors p-1.5 rounded-lg hover:bg-surface-inset">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-0.5 flex-wrap">
-            <span onClick={() => navigate('/dashboard')} className="hover:text-blue-500 cursor-pointer transition-colors">Projects</span>
+          <div className="flex items-center gap-1.5 text-sm text-ink-muted mb-0.5 flex-wrap">
+            <span onClick={() => navigate('/dashboard')} className="hover:text-accent cursor-pointer transition-colors">Projects</span>
             <Chevron />
-            <span onClick={() => navigate(`/projects/${projectId}`)} className="hover:text-blue-500 cursor-pointer transition-colors">{project?.name}</span>
+            <span onClick={() => navigate(`/projects/${projectId}`)} className="hover:text-accent cursor-pointer transition-colors">{project?.name}</span>
             <Chevron />
-            <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}`)} className="hover:text-blue-500 cursor-pointer transition-colors">{building?.name}</span>
+            <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}`)} className="hover:text-accent cursor-pointer transition-colors">{building?.name}</span>
             <Chevron />
-            <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floorId}`)} className="hover:text-blue-500 cursor-pointer transition-colors">{floor?.name}</span>
+            <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floorId}`)} className="hover:text-accent cursor-pointer transition-colors">{floor?.name}</span>
             <Chevron />
-            <span className="text-gray-600 font-medium">{room?.name}</span>
+            <span className="text-ink-body2 font-medium">{room?.name}</span>
           </div>
-          <h1 className="text-lg font-semibold text-gray-900">{room?.name}</h1>
+          <h1 className="text-lg font-semibold text-ink-heading">{room?.name}</h1>
         </div>
         {canEdit && (
           <button onClick={() => setShowSchedule(true)}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-              rounded-lg border border-gray-200 bg-white hover:border-indigo-400 hover:text-indigo-600
-              hover:bg-indigo-50 transition-all duration-150 flex-shrink-0">
+            className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+              rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+              hover:bg-accent-soft transition-all duration-150 flex-shrink-0">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -125,9 +125,9 @@ export default function RoomPage() {
         )}
         {canEdit && (
           <button onClick={() => setBackupTarget(room)}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-              rounded-lg border border-gray-200 bg-white hover:border-emerald-400 hover:text-emerald-600
-              hover:bg-emerald-50 transition-all duration-150 flex-shrink-0">
+            className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+              rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+              hover:bg-accent-soft transition-all duration-150 flex-shrink-0">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

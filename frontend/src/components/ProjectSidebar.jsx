@@ -71,7 +71,7 @@ function Chevron({ open }) {
 function Spinner() {
   return (
     <div className="flex items-center justify-center py-1.5">
-      <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-indigo-500 rounded-full animate-spin" />
+      <div className="w-3.5 h-3.5 border-2 border-line border-t-accent rounded-full animate-spin" />
     </div>
   );
 }
@@ -210,7 +210,7 @@ export default function ProjectSidebar() {
   const isOnRoom     = rId => Number(activeRoomId)     === Number(rId);
 
   return (
-    <aside className="w-full lg:w-60 lg:flex-shrink-0 flex flex-col bg-white rounded-xl overflow-hidden max-h-[70vh] shadow-lg">
+    <aside className="w-full lg:w-60 lg:flex-shrink-0 flex flex-col bg-surface-card border border-line rounded-xl overflow-hidden max-h-[70vh]">
 
       {/* Project header */}
       <div className="px-3 pt-4 pb-2 flex-shrink-0">
@@ -218,15 +218,15 @@ export default function ProjectSidebar() {
           onClick={goProject}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-semibold transition-colors
             ${isOnProject
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'text-gray-700 hover:bg-gray-100'}`}
+              ? 'bg-accent-soft text-accent'
+              : 'text-ink-body2 hover:bg-surface-inset'}`}
         >
           <IconProject />
           <span className="truncate">{project?.name ?? '…'}</span>
         </button>
       </div>
 
-      <div className="mx-3 border-t border-gray-100 flex-shrink-0" />
+      <div className="mx-3 border-t border-line-subtle flex-shrink-0" />
 
       {/* Phase Balance link */}
       <div className="px-3 pt-2 flex-shrink-0">
@@ -234,8 +234,8 @@ export default function ProjectSidebar() {
           onClick={() => navigate(`/projects/${projectId}/phase-balance`)}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
             ${isOnPhaseBalance
-              ? 'bg-violet-50 text-violet-700'
-              : 'text-gray-600 hover:bg-gray-100'}`}
+              ? 'bg-accent-soft text-accent'
+              : 'text-ink-body2 hover:bg-surface-inset'}`}
         >
           <IconPhase />
           <span>Phase Balance</span>
@@ -248,8 +248,8 @@ export default function ProjectSidebar() {
           onClick={() => navigate(`/projects/${projectId}/schedule`)}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
             ${isOnSchedule
-              ? 'bg-amber-50 text-amber-700'
-              : 'text-gray-600 hover:bg-gray-100'}`}
+              ? 'bg-accent-soft text-accent'
+              : 'text-ink-body2 hover:bg-surface-inset'}`}
         >
           <IconSchedule />
           <span>Load Schedule</span>
@@ -262,8 +262,8 @@ export default function ProjectSidebar() {
           onClick={() => navigate(`/projects/${projectId}/financial`)}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
             ${isOnFinancial
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'text-gray-600 hover:bg-gray-100'}`}
+              ? 'bg-accent-soft text-accent'
+              : 'text-ink-body2 hover:bg-surface-inset'}`}
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -279,8 +279,8 @@ export default function ProjectSidebar() {
           onClick={() => navigate(`/projects/${projectId}/single-line`)}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
             ${isOnSLD
-              ? 'bg-cyan-50 text-cyan-700'
-              : 'text-gray-600 hover:bg-gray-100'}`}
+              ? 'bg-accent-soft text-accent'
+              : 'text-ink-body2 hover:bg-surface-inset'}`}
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -296,8 +296,8 @@ export default function ProjectSidebar() {
           onClick={() => navigate(`/projects/${projectId}/electrical-design`)}
           className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm font-medium transition-colors
             ${isOnElectricalDesign
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'text-gray-600 hover:bg-gray-100'}`}
+              ? 'bg-accent-soft text-accent'
+              : 'text-ink-body2 hover:bg-surface-inset'}`}
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
@@ -307,7 +307,7 @@ export default function ProjectSidebar() {
         </button>
       </div>
 
-      <div className="mx-3 border-t border-gray-100 flex-shrink-0 mt-2" />
+      <div className="mx-3 border-t border-line-subtle flex-shrink-0 mt-2" />
 
       {/* Tree */}
       <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-px">
@@ -322,13 +322,13 @@ export default function ProjectSidebar() {
             <div key={bId}>
               {/* Building row */}
               <div className={`flex items-center rounded-lg transition-colors
-                ${bActive ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                ${bActive ? 'bg-accent-soft' : 'hover:bg-surface-inset'}`}>
 
                 {/* chevron button */}
                 <button
                   onClick={() => toggleBuilding(bId)}
                   className={`flex items-center justify-center w-6 h-7 ml-1 flex-shrink-0 rounded
-                    ${bActive ? 'text-indigo-500' : 'text-gray-400 hover:text-gray-600'}`}
+                    ${bActive ? 'text-accent' : 'text-ink-muted hover:text-ink-body2'}`}
                   aria-label={bOpen ? 'Collapse' : 'Expand'}
                 >
                   <Chevron open={bOpen} />
@@ -338,7 +338,7 @@ export default function ProjectSidebar() {
                 <button
                   onClick={() => goBuilding(building)}
                   className={`flex-1 flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-left min-w-0
-                    ${bActive ? 'text-indigo-700' : 'text-gray-700'}`}
+                    ${bActive ? 'text-accent' : 'text-ink-body2'}`}
                 >
                   <IconBuilding />
                   <span className="truncate">{building.name}</span>
@@ -361,12 +361,12 @@ export default function ProjectSidebar() {
                           <div key={fId}>
                             {/* Floor row */}
                             <div className={`flex items-center rounded-lg transition-colors
-                              ${fActive ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                              ${fActive ? 'bg-accent-soft' : 'hover:bg-surface-inset'}`}>
 
                               <button
                                 onClick={() => toggleFloor(fId)}
                                 className={`flex items-center justify-center w-6 h-7 ml-1 flex-shrink-0 rounded
-                                  ${fActive ? 'text-indigo-500' : 'text-gray-400 hover:text-gray-600'}`}
+                                  ${fActive ? 'text-accent' : 'text-ink-muted hover:text-ink-body2'}`}
                                 aria-label={fOpen ? 'Collapse' : 'Expand'}
                               >
                                 <Chevron open={fOpen} />
@@ -375,7 +375,7 @@ export default function ProjectSidebar() {
                               <button
                                 onClick={() => goFloor(floor, bId)}
                                 className={`flex-1 flex items-center gap-1.5 px-1 py-1.5 text-sm text-left min-w-0
-                                  ${fActive ? 'text-indigo-700 font-medium' : 'text-gray-600'}`}
+                                  ${fActive ? 'text-accent font-medium' : 'text-ink-body3'}`}
                               >
                                 <IconFloor />
                                 <span className="truncate">{floor.name}</span>
@@ -396,8 +396,8 @@ export default function ProjectSidebar() {
                                           className={`w-full flex items-center gap-1.5 pl-2 pr-2 py-1.5 rounded-lg
                                             text-sm text-left transition-colors
                                             ${rActive
-                                              ? 'bg-indigo-50 text-indigo-700 font-medium'
-                                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}
+                                              ? 'bg-accent-soft text-accent font-medium'
+                                              : 'text-ink-muted3 hover:bg-surface-inset hover:text-ink-body2'}`}
                                         >
                                           <IconRoom />
                                           <span className="truncate">{room.name}</span>
@@ -406,7 +406,7 @@ export default function ProjectSidebar() {
                                     })
                                 }
                                 {!fLoading && fRooms.length === 0 && (
-                                  <p className="pl-2 py-1 text-xs text-gray-400">No rooms</p>
+                                  <p className="pl-2 py-1 text-xs text-ink-muted">No rooms</p>
                                 )}
                               </div>
                             )}
@@ -415,7 +415,7 @@ export default function ProjectSidebar() {
                       })
                   }
                   {!bLoading && bFloors.length === 0 && (
-                    <p className="pl-2 py-1 text-xs text-gray-400">No floors</p>
+                    <p className="pl-2 py-1 text-xs text-ink-muted">No floors</p>
                   )}
                 </div>
               )}

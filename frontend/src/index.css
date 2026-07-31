@@ -1,3 +1,76 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Design tokens — single source of truth for the color system.
+ * Mirrored in tailwind.config.js (colors.*) for use as utility classes.
+ * Exposed here as CSS custom properties for contexts that need raw
+ * color values in JS (e.g. recharts stroke/fill props, inline styles).
+ */
+:root {
+  --bg-base: #0a0b0d;
+  --bg-alt: #0f1114;
+
+  --surface-card: #15181c;
+  --surface-deep: #0d0f12;
+  --surface-darker: #0a0c0e;
+  --surface-inset: #191c20;
+  --surface-inset-2: #101317;
+  --surface-inset-3: #131619;
+
+  --line-subtle: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --accent: #f4b23e;
+  --accent-from: #f7bd52;
+  --accent-to: #eda52c;
+  --accent-light: #ffd77a;
+  --accent-lighter: #ffe0a0;
+  --accent-bright: #ffca63;
+  --accent-soft: rgba(244, 178, 62, 0.08);
+  --accent-softer: rgba(244, 178, 62, 0.16);
+  --accent-tint: rgba(244, 178, 62, 0.25);
+  --accent-border: rgba(244, 178, 62, 0.3);
+  --accent-border-strong: rgba(244, 178, 62, 0.55);
+  --accent-glow: 0 0 20px -6px rgba(244, 178, 62, 0.6);
+
+  --text-heading: #f4f5f7;
+  --text-heading-2: #f2f3f5;
+  --text-body: #9aa0aa;
+  --text-body-2: #9298a2;
+  --text-body-3: #8a919b;
+  --text-muted: #6b727c;
+  --text-muted-2: #5b626c;
+  --text-muted-3: #7b828c;
+  --text-data: #c8ccd2;
+  --text-data-2: #d5d8dc;
+
+  --danger: #c2645f;
+  --danger-soft: rgba(194, 101, 95, 0.12);
+  --danger-border: rgba(194, 101, 95, 0.4);
+
+  --success: #7fae7a;
+  --success-soft: rgba(127, 174, 122, 0.12);
+  --success-border: rgba(127, 174, 122, 0.4);
+
+  --font-heading: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-base text-ink-body font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-[-0.01em];
+    font-weight: 600;
+  }
+}

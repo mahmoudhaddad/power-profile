@@ -30,14 +30,18 @@ function nextBreaker(kW, volt = 400, pf = 0.9) {
 }
 
 // ── Colour palette ────────────────────────────────────────────────────────────
+// Sources (solar/battery/utility/gen/hybrid) share the single amber accent —
+// distinguished by icon + label, not hue. Buildings (loads) get a neutral
+// treatment so the amber reads as "power flowing in". The bus is the one
+// always-on bright accent spine.
 const C = {
-  solar:   { fill: '#fef9c3', stroke: '#ca8a04', text: '#713f12', label: 'Solar PV'       },
-  battery: { fill: '#ede9fe', stroke: '#7c3aed', text: '#4c1d95', label: 'BESS'           },
-  utility: { fill: '#dbeafe', stroke: '#2563eb', text: '#1e3a8a', label: 'Utility Grid'   },
-  gen:     { fill: '#ffedd5', stroke: '#ea580c', text: '#7c2d12', label: 'Generator'      },
-  bus:     { fill: '#1e3a8a', stroke: '#1e3a8a' },
-  bldg:    { fill: '#f0fdf4', stroke: '#16a34a', text: '#14532d', label: 'Building Panel' },
-  hybrid:  { fill: '#ecfeff', stroke: '#0891b2', text: '#164e63', label: 'Hybrid Inv.'    },
+  solar:   { fill: '#191c20', stroke: '#f4b23e', text: '#f4f5f7', label: 'Solar PV'       },
+  battery: { fill: '#191c20', stroke: '#f4b23e', text: '#f4f5f7', label: 'BESS'           },
+  utility: { fill: '#191c20', stroke: '#f4b23e', text: '#f4f5f7', label: 'Utility Grid'   },
+  gen:     { fill: '#191c20', stroke: '#f4b23e', text: '#f4f5f7', label: 'Generator'      },
+  bus:     { fill: '#f4b23e', stroke: '#f4b23e' },
+  bldg:    { fill: '#191c20', stroke: 'rgba(255,255,255,0.2)', text: '#f4f5f7', label: 'Building Panel' },
+  hybrid:  { fill: '#191c20', stroke: '#f4b23e', text: '#f4f5f7', label: 'Hybrid Inv.'    },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,8 +56,8 @@ function SourceNode({ cx, cy, r, col, title, line1, line2, icon }) {
       <circle cx={cx} cy={cy} r={r}     fill={col.fill} stroke={col.stroke} strokeWidth={2.5} />
       <text x={cx} y={cy - 8}  textAnchor="middle" fill={col.text} fontSize={20} fontWeight="bold">{icon}</text>
       <text x={cx} y={cy + 10} textAnchor="middle" fill={col.text} fontSize={11} fontWeight="700">{title}</text>
-      {line1 && <text x={cx} y={cy + r + 18} textAnchor="middle" fill="#374151" fontSize={12} fontWeight="700">{line1}</text>}
-      {line2 && <text x={cx} y={cy + r + 33} textAnchor="middle" fill="#6b7280" fontSize={10}>{line2}</text>}
+      {line1 && <text x={cx} y={cy + r + 18} textAnchor="middle" fill="#c8ccd2" fontSize={12} fontWeight="700">{line1}</text>}
+      {line2 && <text x={cx} y={cy + r + 33} textAnchor="middle" fill="#6b727c" fontSize={10}>{line2}</text>}
     </g>
   );
 }
@@ -73,7 +77,7 @@ function HybridGroup({ cx, cy, solarKw, solarCount, battUsable, battNominal, bat
         rx={13} fill={C.hybrid.fill} stroke={C.hybrid.stroke} strokeWidth={1} opacity={0.35} />
       {/* Main box */}
       <rect x={bX} y={bY} width={HYBW} height={HYBH}
-        rx={9} fill="white" stroke={C.hybrid.stroke} strokeWidth={1.8} />
+        rx={9} fill="#191c20" stroke={C.hybrid.stroke} strokeWidth={1.8} />
 
       {/* Icon row */}
       <text x={cx - 42} y={bY + 24} textAnchor="middle" fill={C.solar.text} fontSize={20}>☀</text>
@@ -81,8 +85,8 @@ function HybridGroup({ cx, cy, solarKw, solarCount, battUsable, battNominal, bat
 
       {/* DC-bus coupling dashed line between icons */}
       <line x1={cx - 20} y1={bY + 18} x2={cx + 20} y2={bY + 18}
-        stroke="#9ca3af" strokeWidth={1.5} strokeDasharray="4 3" />
-      <text x={cx} y={bY + 16} textAnchor="middle" fill="#9ca3af" fontSize={7}
+        stroke="#6b727c" strokeWidth={1.5} strokeDasharray="4 3" />
+      <text x={cx} y={bY + 16} textAnchor="middle" fill="#6b727c" fontSize={7}
         style={{ letterSpacing: '0.08em' }}>DC BUS</text>
 
       {/* Source names */}
@@ -90,16 +94,16 @@ function HybridGroup({ cx, cy, solarKw, solarCount, battUsable, battNominal, bat
       <text x={cx + 42} y={bY + 38} textAnchor="middle" fill={C.battery.text} fontSize={10} fontWeight="700">BESS</text>
 
       {/* Capacity values */}
-      <text x={cx - 42} y={bY + 55} textAnchor="middle" fill="#374151" fontSize={12} fontWeight="800">{solarKw.toFixed(1)} kW</text>
-      <text x={cx + 42} y={bY + 55} textAnchor="middle" fill="#374151" fontSize={12} fontWeight="800">{battUsable.toFixed(1)} kWh</text>
-      <text x={cx + 42} y={bY + 68} textAnchor="middle" fill="#9ca3af" fontSize={9}>{battNominal.toFixed(1)} kWh nom.</text>
+      <text x={cx - 42} y={bY + 55} textAnchor="middle" fill="#c8ccd2" fontSize={12} fontWeight="800">{solarKw.toFixed(1)} kW</text>
+      <text x={cx + 42} y={bY + 55} textAnchor="middle" fill="#c8ccd2" fontSize={12} fontWeight="800">{battUsable.toFixed(1)} kWh</text>
+      <text x={cx + 42} y={bY + 68} textAnchor="middle" fill="#6b727c" fontSize={9}>{battNominal.toFixed(1)} kWh nom.</text>
 
       {/* Count sub-labels */}
-      <text x={cx - 42} y={bY + 82} textAnchor="middle" fill="#6b7280" fontSize={9}>{solarCount} system{solarCount !== 1 ? 's' : ''}</text>
-      <text x={cx + 42} y={bY + 82} textAnchor="middle" fill="#6b7280" fontSize={9}>{battCount} bank{battCount !== 1 ? 's' : ''}</text>
+      <text x={cx - 42} y={bY + 82} textAnchor="middle" fill="#6b727c" fontSize={9}>{solarCount} system{solarCount !== 1 ? 's' : ''}</text>
+      <text x={cx + 42} y={bY + 82} textAnchor="middle" fill="#6b727c" fontSize={9}>{battCount} bank{battCount !== 1 ? 's' : ''}</text>
 
       {/* Divider */}
-      <line x1={bX + 12} y1={bY + 90} x2={bX + HYBW - 12} y2={bY + 90} stroke="#e0f2fe" strokeWidth={1} />
+      <line x1={bX + 12} y1={bY + 90} x2={bX + HYBW - 12} y2={bY + 90} stroke="rgba(255,255,255,0.14)" strokeWidth={1} />
 
       {/* Hybrid Inverter label */}
       <text x={cx} y={bY + 104} textAnchor="middle" fill={C.hybrid.text} fontSize={11} fontWeight="700">Hybrid Inverter</text>
@@ -117,7 +121,7 @@ function BuildingNode({ cx, cy, w, h, col, name, line1, line2, active }) {
       <text x={cx} y={cy - 14} textAnchor="middle" fill={col.text} fontSize={13} fontWeight="700"
         style={{textTransform:'uppercase',letterSpacing:'0.04em'}}>{name}</text>
       {line1 && <text x={cx} y={cy + 6}  textAnchor="middle" fill={col.text} fontSize={16} fontWeight="800">{line1}</text>}
-      {line2 && <text x={cx} y={cy + 24} textAnchor="middle" fill="#6b7280" fontSize={11}>{line2}</text>}
+      {line2 && <text x={cx} y={cy + 24} textAnchor="middle" fill="#6b727c" fontSize={11}>{line2}</text>}
     </g>
   );
 }
@@ -127,11 +131,11 @@ function Breaker({ cx, cy, ratingA }) {
   return (
     <g>
       <rect x={cx - s} y={cy - s} width={s * 2} height={s * 2}
-        rx={3} fill="white" stroke="#374151" strokeWidth={2} />
+        rx={3} fill="#191c20" stroke="#9aa0aa" strokeWidth={2} />
       <line x1={cx - s + 4} y1={cy + s - 4} x2={cx + s - 4} y2={cy - s + 4}
-        stroke="#374151" strokeWidth={2} />
+        stroke="#9aa0aa" strokeWidth={2} />
       {ratingA != null && (
-        <text x={cx + s + 5} y={cy + 4} fill="#374151" fontSize={10} fontWeight="700">{ratingA} A</text>
+        <text x={cx + s + 5} y={cy + 4} fill="#c8ccd2" fontSize={10} fontWeight="700">{ratingA} A</text>
       )}
     </g>
   );
@@ -288,9 +292,9 @@ export default function SingleLineDiagramPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+      <div className="flex-1 flex items-center justify-center text-ink-muted text-sm">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
           Loading diagram…
         </div>
       </div>
@@ -298,14 +302,14 @@ export default function SingleLineDiagramPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-gray-50 p-4 md:p-6 gap-4">
+    <div className="flex-1 flex flex-col min-h-0 bg-base p-4 md:p-6 gap-4">
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(`/projects/${projectId}`)}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100"
+            className="text-ink-muted hover:text-ink-body2 transition-colors p-1.5 rounded-lg hover:bg-surface-inset"
             title="Back to project"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -313,18 +317,18 @@ export default function SingleLineDiagramPage() {
             </svg>
           </button>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Single-Line Diagram</h1>
-            <p className="text-xs text-gray-400 mt-0.5">{project?.name} — simplified electrical topology</p>
+            <h1 className="text-lg font-bold text-ink-heading">Single-Line Diagram</h1>
+            <p className="text-xs text-ink-muted mt-0.5">{project?.name} — simplified electrical topology</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 bg-white border border-gray-200 px-2 py-1 rounded-lg">
+          <span className="text-xs text-ink-muted bg-surface-card border border-line px-2 py-1 rounded-lg">
             Auto-generated from project data
           </span>
           <button
             onClick={downloadSVG}
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200
-              hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-accent bg-accent-soft border border-accent-border
+              hover:bg-accent-softer px-3 py-1.5 rounded-lg transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -344,17 +348,17 @@ export default function SingleLineDiagramPage() {
             ['Power Factor', Number(powerData.system_power_factor||0).toFixed(3), 'System PF'],
             ['Buildings',    buildings.length,           'In this project'],
           ].map(([label, value, sub]) => (
-            <div key={label} className="bg-white border border-gray-200 rounded-xl p-3">
-              <div className="text-xs text-gray-400 font-medium">{label}</div>
-              <div className="text-base font-bold text-gray-900 mt-0.5">{value}</div>
-              <div className="text-xs text-gray-400">{sub}</div>
+            <div key={label} className="bg-surface-card border border-line rounded-xl p-3">
+              <div className="text-xs text-ink-muted font-medium">{label}</div>
+              <div className="text-base font-bold text-ink-data mt-0.5">{value}</div>
+              <div className="text-xs text-ink-muted">{sub}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* SVG diagram */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto shadow-sm">
+      <div className="bg-surface-card border border-line rounded-xl overflow-x-auto">
         <svg
           ref={svgRef}
           viewBox={viewBox}
@@ -366,14 +370,14 @@ export default function SingleLineDiagramPage() {
           {/* Background grid */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f1f5f9" strokeWidth="1"/>
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
             </pattern>
           </defs>
+          <rect width={W} height={diagramH} fill="#15181c" />
           <rect width={W} height={diagramH} fill="url(#grid)" />
-          <rect width={W} height={diagramH} fill="white" opacity="0.7" />
 
           {/* Title */}
-          <text x={W/2} y={20} textAnchor="middle" fill="#94a3b8" fontSize={12}
+          <text x={W/2} y={20} textAnchor="middle" fill="#6b727c" fontSize={12}
             fontWeight="500" style={{textTransform:'uppercase',letterSpacing:'0.1em'}}>
             {project?.name ?? 'Project'} — Simplified Single-Line Diagram
           </text>
@@ -386,9 +390,9 @@ export default function SingleLineDiagramPage() {
             const ratingA = nextBreaker(n.solarKw + n.battMaxDch);
             return (
               <g key={`hwire-${i}`}>
-                <line x1={n.cx} y1={wireY1} x2={n.cx} y2={midY - 10} stroke="#9ca3af" strokeWidth={1.5} />
+                <line x1={n.cx} y1={wireY1} x2={n.cx} y2={midY - 10} stroke="#6b727c" strokeWidth={1.5} />
                 <Breaker cx={n.cx} cy={midY} ratingA={ratingA} />
-                <line x1={n.cx} y1={midY + 10} x2={n.cx} y2={wireY2} stroke="#9ca3af" strokeWidth={1.5} />
+                <line x1={n.cx} y1={midY + 10} x2={n.cx} y2={wireY2} stroke="#6b727c" strokeWidth={1.5} />
               </g>
             );
           })}
@@ -401,9 +405,9 @@ export default function SingleLineDiagramPage() {
             const ratingA = nextBreaker(n.breakerKw ?? 0);
             return (
               <g key={n.type + n.cx}>
-                <line x1={n.cx} y1={wireY1} x2={n.cx} y2={midY - 10} stroke="#9ca3af" strokeWidth={1.5} />
+                <line x1={n.cx} y1={wireY1} x2={n.cx} y2={midY - 10} stroke="#6b727c" strokeWidth={1.5} />
                 <Breaker cx={n.cx} cy={midY} ratingA={ratingA} />
-                <line x1={n.cx} y1={midY + 10} x2={n.cx} y2={wireY2} stroke="#9ca3af" strokeWidth={1.5} />
+                <line x1={n.cx} y1={midY + 10} x2={n.cx} y2={wireY2} stroke="#6b727c" strokeWidth={1.5} />
               </g>
             );
           })}
@@ -413,15 +417,15 @@ export default function SingleLineDiagramPage() {
             rx={3} fill={C.bus.fill} />
           {/* Bus voltage annotation */}
           <text x={busX1 + 12} y={BUS_Y - BUS_H/2 - 7} textAnchor="start"
-            fill="#1e3a8a" fontSize={11} fontWeight="700">230 / 400 V · 3-phase</text>
+            fill="#ffca63" fontSize={11} fontWeight="700">230 / 400 V · 3-phase</text>
           <text x={busCx} y={BUS_Y + BUS_H/2 + 18} textAnchor="middle"
-            fill="#1e3a8a" fontSize={12} fontWeight="700"
+            fill="#ffca63" fontSize={12} fontWeight="700"
             style={{textTransform:'uppercase',letterSpacing:'0.06em'}}>
             MAIN DISTRIBUTION BUS
           </text>
           {powerData && (
             <text x={busCx} y={BUS_Y + BUS_H/2 + 33} textAnchor="middle"
-              fill="#6b7280" fontSize={11}>
+              fill="#6b727c" fontSize={11}>
               {fmtVA(powerData.max_va)} max · {fmtVA(powerData.total_va)} optimized
             </text>
           )}
@@ -433,9 +437,9 @@ export default function SingleLineDiagramPage() {
             const midY   = (wireY1 + wireY2) / 2 + 10;
             return (
               <g key={n.id}>
-                <line x1={n.cx} y1={wireY1} x2={n.cx} y2={midY - 10} stroke="#9ca3af" strokeWidth={1.5} />
+                <line x1={n.cx} y1={wireY1} x2={n.cx} y2={midY - 10} stroke="#6b727c" strokeWidth={1.5} />
                 <Breaker cx={n.cx} cy={midY} ratingA={null} />
-                <line x1={n.cx} y1={midY + 10} x2={n.cx} y2={wireY2} stroke="#9ca3af" strokeWidth={1.5} />
+                <line x1={n.cx} y1={midY + 10} x2={n.cx} y2={wireY2} stroke="#6b727c" strokeWidth={1.5} />
               </g>
             );
           })}
@@ -479,7 +483,7 @@ export default function SingleLineDiagramPage() {
 
           {/* No-buildings placeholder */}
           {bldgNodes.length === 0 && (
-            <text x={W/2} y={BLD_Y} textAnchor="middle" fill="#9ca3af" fontSize={12}>
+            <text x={W/2} y={BLD_Y} textAnchor="middle" fill="#6b727c" fontSize={12}>
               No buildings added yet
             </text>
           )}
@@ -492,7 +496,7 @@ export default function SingleLineDiagramPage() {
             return legendItems.map((it, i) => (
               <g key={it.label} transform={`translate(${legX + i * step}, ${legY})`}>
                 <rect x={0} y={-9} width={13} height={13} rx={3} fill={it.col} opacity={0.85} />
-                <text x={18} y={2} fill="#6b7280" fontSize={11}>{it.label}</text>
+                <text x={18} y={2} fill="#9aa0aa" fontSize={11}>{it.label}</text>
               </g>
             ));
           })()}

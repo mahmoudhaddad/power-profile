@@ -27,18 +27,18 @@ function IconBuilding() {
 
 function StatCard({ label, value, sub, accent }) {
   const border = {
-    indigo: 'border-indigo-200 bg-indigo-50',
-    amber:  'border-amber-200 bg-amber-50',
-    green:  'border-green-200 bg-green-50',
-    red:    'border-red-200 bg-red-50',
-    violet: 'border-violet-200 bg-violet-50',
-  }[accent] ?? 'border-gray-200 bg-gray-50';
+    indigo: 'border-line bg-surface-inset',
+    amber:  'border-accent-border bg-accent-soft',
+    green:  'border-success-border bg-success-soft',
+    red:    'border-danger-border bg-danger-soft',
+    violet: 'border-line bg-surface-inset',
+  }[accent] ?? 'border-line bg-surface-inset';
 
   return (
     <div className={`border rounded-xl px-4 py-3 ${border}`}>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-lg font-bold text-gray-900 mt-0.5">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
+      <p className="text-xs text-ink-muted">{label}</p>
+      <p className="text-lg font-bold text-ink-heading mt-0.5">{value}</p>
+      {sub && <p className="text-xs text-ink-muted mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -59,16 +59,16 @@ function BuildingSection({ building, vdTable }) {
   const mdb = building.mdb;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+    <div className="bg-surface-card rounded-2xl border border-line overflow-hidden mb-6">
       {/* Building header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-gray-200">
+      <div className="px-6 py-4 bg-surface-alt border-b border-line">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+          <div className="w-8 h-8 rounded-lg bg-accent-gradient flex items-center justify-center text-base">
             <IconBuilding />
           </div>
           <div>
-            <h2 className="text-base font-bold text-gray-900">{building.name}</h2>
-            <p className="text-xs text-gray-500">
+            <h2 className="text-base font-bold text-ink-heading">{building.name}</h2>
+            <p className="text-xs text-ink-muted">
               {building.type ?? 'General'} · {building.rules?.standard_ref}
             </p>
           </div>
@@ -125,15 +125,15 @@ function BuildingSection({ building, vdTable }) {
 
         {/* Essential panel warning */}
         {building.essential_panel && (
-          <div className="border border-orange-300 bg-orange-50 rounded-xl p-4">
-            <p className="text-sm font-semibold text-orange-800 mb-1">
+          <div className="border border-accent-border-strong bg-accent-tint rounded-xl p-4">
+            <p className="text-sm font-semibold text-accent-light mb-1">
               Essential Panel Required
             </p>
-            <p className="text-xs text-orange-700 mb-2">
+            <p className="text-xs text-accent-lighter mb-2">
               {building.essential_panel.note} — Incomer: {building.essential_panel.incomer_in_a} A ·
               {building.essential_panel.incomer_cable_mm2} mm² cable
             </p>
-            <p className="text-xs text-orange-600">
+            <p className="text-xs text-ink-muted">
               {building.essential_panel.circuits?.length ?? 0} circuit(s) with critical-priority loads identified.
               These must be supplied from an ATS-backed essential busbar per {building.rules?.standard_ref}.
             </p>
@@ -188,8 +188,8 @@ export default function ElectricalDesignPage() {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Computing panel schedules…</p>
+          <div className="w-10 h-10 border-4 border-line border-t-accent rounded-full animate-spin" />
+          <p className="text-sm text-ink-muted">Computing panel schedules…</p>
         </div>
       </div>
     );
@@ -198,13 +198,13 @@ export default function ElectricalDesignPage() {
   if (error) {
     return (
       <div className="max-w-2xl mx-auto mt-12 text-center px-4">
-        <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
-          <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-12 h-12 rounded-full bg-danger-soft flex items-center justify-center mx-auto mb-3">
+          <svg className="w-6 h-6 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <p className="text-red-600 font-medium">{error}</p>
+        <p className="text-danger font-medium">{error}</p>
       </div>
     );
   }
@@ -224,19 +224,19 @@ export default function ElectricalDesignPage() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors shadow-sm"
+          className="w-9 h-9 rounded-lg border border-line bg-surface-card hover:bg-surface-inset flex items-center justify-center text-ink-muted hover:text-ink-body2 transition-colors"
           title="Go back"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow">
+        <div className="w-10 h-10 rounded-xl bg-accent-gradient flex items-center justify-center text-base shadow-accent">
           <IconBolt />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Electrical Design</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl font-bold text-ink-heading">Electrical Design</h1>
+          <p className="text-sm text-ink-muted">
             {data.standard_ref} · {data.system_voltage} · {data.frequency_hz} Hz ·
             40 °C ambient · {data.install_method}
           </p>
@@ -257,7 +257,7 @@ export default function ElectricalDesignPage() {
       </div>
 
       {/* Engineering notice */}
-      <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+      <div className="mb-6 p-3 bg-accent-soft border border-accent-border rounded-xl text-xs text-accent-lighter">
         <strong>Engineering notice:</strong> Cable ampacity values are from IEC 60364-5-52 Table B.52.2,
         Method A1 (conductors in conduit in thermally insulated wall) — the most conservative reference
         method, adopted to give a built-in safety margin. Enter cable run lengths in the L (m) column
@@ -271,7 +271,7 @@ export default function ElectricalDesignPage() {
       ))}
 
       {totalBuildings === 0 && (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-ink-muted">
           <p className="text-lg font-medium mb-1">No buildings found</p>
           <p className="text-sm">Add buildings with floors and rooms to generate the panel schedule.</p>
         </div>

@@ -5,11 +5,11 @@ export default function LoginPage() {
   const apiUrl = import.meta.env.VITE_API_URL;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-base flex items-center justify-center p-4">
       <div className="flex flex-col items-center w-full max-w-md">
 
         {/* Login card */}
-        <div className="bg-white rounded-2xl shadow-xl w-full p-8">
+        <div className="bg-surface-card rounded-2xl border border-line w-full p-8">
 
           {/* University & College logos */}
           <div className="flex items-center justify-between mb-10">
@@ -18,24 +18,24 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-accent-gradient rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-accent">
+              <svg className="w-9 h-9 text-surface-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Power Profile</h1>
-            <p className="text-gray-500 mt-1 text-sm">Building Energy Analysis Platform</p>
+            <h1 className="text-2xl font-bold text-ink-heading">Power Profile</h1>
+            <p className="text-ink-muted mt-1 text-sm">Building Energy Analysis Platform</p>
           </div>
 
           <div className="space-y-4">
-            <p className="text-center text-gray-600 text-sm">Sign in to access your dashboard</p>
+            <p className="text-center text-ink-body text-sm">Sign in to access your dashboard</p>
 
             <a
               href={`${apiUrl}/auth/google?origin=${encodeURIComponent(window.location.origin)}`}
-              className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-white border-2
-                border-gray-200 rounded-xl text-gray-700 font-medium hover:border-blue-400
-                hover:bg-blue-50 transition-all duration-200 shadow-sm hover:shadow group"
+              className="flex items-center justify-center gap-3 w-full py-3 px-4 bg-surface-card border-2
+                border-line rounded-xl text-ink-body2 font-medium hover:border-accent-border
+                hover:bg-surface-inset transition-all duration-200 group"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -51,11 +51,11 @@ export default function LoginPage() {
 
         {/* Credits — below the card */}
         <div className="mt-8 text-center space-y-4">
-          <p className="text-base text-gray-600 whitespace-nowrap">
-            <span className="font-semibold text-gray-800">Made by:</span> Mahmoud Emad ALHaddad &amp; Ahmed Zoher Abu Awad
+          <p className="text-base text-ink-body whitespace-nowrap">
+            <span className="font-semibold text-ink-heading2">Made by:</span> Mahmoud Emad ALHaddad &amp; Ahmed Zoher Abu Awad
           </p>
-          <p className="text-base text-gray-600">
-            <span className="font-semibold text-gray-800">Supervisor:</span> Dr. Moayed Almobaied
+          <p className="text-base text-ink-body">
+            <span className="font-semibold text-ink-heading2">Supervisor:</span> Dr. Moayed Almobaied
           </p>
         </div>
 

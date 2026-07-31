@@ -19,9 +19,9 @@ function fmt(v, unit = 'va') {
 }
 
 const PRIORITIES = [
-  { key: 'critical',  label: 'Critical',  dot: 'bg-red-400',     opt: 'text-red-300'     },
-  { key: 'essential', label: 'Essential', dot: 'bg-amber-400',   opt: 'text-amber-300'   },
-  { key: 'normal',    label: 'Normal',    dot: 'bg-emerald-400', opt: 'text-emerald-300' },
+  { key: 'critical',  label: 'Critical',  dot: 'bg-danger',        opt: 'text-danger'        },
+  { key: 'essential', label: 'Essential', dot: 'bg-accent',        opt: 'text-accent-bright'  },
+  { key: 'normal',    label: 'Normal',    dot: 'bg-success',       opt: 'text-success'        },
 ];
 
 export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle, projectId }) {
@@ -62,13 +62,13 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
     : 'Q';
 
   return (
-    <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg">
+    <div className="bg-surface-deep text-ink-heading border-b border-line">
 
       {/* ── Always-visible summary row ── */}
       <div className="px-6 py-2.5 flex items-center gap-4 flex-wrap">
 
         {/* Icon */}
-        <div className="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 bg-surface-inset rounded-lg flex items-center justify-center flex-shrink-0 text-accent">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -76,21 +76,21 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
 
         {loading ? (
           <div className="flex gap-6 flex-1">
-            <div className="h-8 w-28 bg-white/20 rounded-lg animate-pulse" />
-            <div className="h-8 w-28 bg-white/10 rounded-lg animate-pulse" />
+            <div className="h-8 w-28 bg-surface-inset rounded-lg animate-pulse" />
+            <div className="h-8 w-28 bg-surface-inset/60 rounded-lg animate-pulse" />
           </div>
         ) : (
           <>
             <div>
-              <p className="text-[10px] text-blue-300 uppercase tracking-wider leading-none mb-1">Max Load</p>
-              <p className="text-lg font-bold leading-none">{fmt(maxVal, unit)}</p>
+              <p className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.14em] leading-none mb-1">Max Load</p>
+              <p className="text-lg font-bold leading-none text-ink-data">{fmt(maxVal, unit)}</p>
             </div>
-            <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
             <div>
-              <p className="text-[10px] text-blue-300 uppercase tracking-wider leading-none mb-1">Optimized</p>
-              <p className="text-lg font-bold leading-none text-emerald-300">{fmt(optVal, unit)}</p>
+              <p className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.14em] leading-none mb-1">Optimized</p>
+              <p className="text-lg font-bold leading-none text-accent-light">{fmt(optVal, unit)}</p>
             </div>
           </>
         )}
@@ -98,13 +98,13 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
         <div className="flex-1" />
 
         {/* VA / W toggle */}
-        <div className="flex rounded-lg border border-white/25 overflow-hidden text-xs font-semibold flex-shrink-0">
+        <div className="flex rounded-lg border border-line-strong overflow-hidden text-xs font-semibold flex-shrink-0">
           <button onClick={() => setUnit('va')}
-            className={`px-3 py-1.5 transition-colors ${unit === 'va' ? 'bg-white/25 text-white' : 'text-blue-300 hover:bg-white/10'}`}>
+            className={`px-3 py-1.5 transition-colors ${unit === 'va' ? 'bg-accent-soft text-accent' : 'text-ink-muted hover:bg-surface-inset'}`}>
             VA
           </button>
           <button onClick={() => setUnit('w')}
-            className={`px-3 py-1.5 border-l border-white/25 transition-colors ${unit === 'w' ? 'bg-white/25 text-white' : 'text-blue-300 hover:bg-white/10'}`}>
+            className={`px-3 py-1.5 border-l border-line-strong transition-colors ${unit === 'w' ? 'bg-accent-soft text-accent' : 'text-ink-muted hover:bg-surface-inset'}`}>
             W
           </button>
         </div>
@@ -118,9 +118,9 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
               transition-colors flex-shrink-0
               ${qOpen
                 ? pfBad
-                  ? 'bg-amber-500/30 border-amber-400/50 text-amber-200'
-                  : 'bg-emerald-500/25 border-emerald-400/40 text-emerald-200'
-                : 'border-white/25 text-blue-300 hover:bg-white/10 hover:text-white'}`}
+                  ? 'bg-accent-tint border-accent-border-strong text-accent-light'
+                  : 'bg-success-soft border-success-border text-success'
+                : 'border-line-strong text-ink-muted hover:bg-surface-inset hover:text-ink-heading'}`}
           >
             {/* ∿ wave symbol for reactive power */}
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,7 +128,7 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
                 d="M3 12c2-4 4-4 6 0s4 4 6 0 4-4 6-0" />
             </svg>
             <span>{kvarLabel}</span>
-            {pfBad && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />}
+            {pfBad && <span className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />}
           </button>
         )}
 
@@ -137,8 +137,8 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
           <button
             onClick={() => setReportModal(true)}
             title="Generate report"
-            className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
-              hover:bg-white/10 hover:text-white transition-colors flex-shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-line-strong text-ink-muted
+              hover:bg-surface-inset hover:text-ink-heading transition-colors flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -149,8 +149,8 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
 
         {/* Expand chevron */}
         <button onClick={() => setOpen(o => !o)}
-          className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/25 text-blue-300
-            hover:bg-white/10 hover:text-white transition-colors flex-shrink-0">
+          className="w-7 h-7 flex items-center justify-center rounded-lg border border-line-strong text-ink-muted
+            hover:bg-surface-inset hover:text-ink-heading transition-colors flex-shrink-0">
           <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
@@ -180,21 +180,21 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
 
       {/* ── Breakdown dropdown ── */}
       {open && !loading && data && (
-        <div className="px-6 pb-4 pt-3 border-t border-white/10 space-y-3">
+        <div className="px-6 pb-4 pt-3 border-t border-line-subtle space-y-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {visiblePriorities.map(({ key, label, dot, opt }) => (
-              <div key={key} className="bg-white/10 hover:bg-white/15 rounded-xl p-3 transition-colors">
+              <div key={key} className="bg-surface-inset/60 hover:bg-surface-inset rounded-xl p-3 transition-colors">
                 <div className="flex items-center gap-2 mb-2.5">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-                  <span className="text-xs font-semibold">{label}</span>
+                  <span className="text-xs font-semibold text-ink-heading2">{label}</span>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-blue-300 uppercase tracking-wide">Max</span>
-                    <span className="text-xs font-medium">{fmt(pMax(key), unit)}</span>
+                    <span className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.12em]">Max</span>
+                    <span className="text-xs font-medium text-ink-data">{fmt(pMax(key), unit)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-blue-300 uppercase tracking-wide">Optimized</span>
+                    <span className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.12em]">Optimized</span>
                     <span className={`text-xs font-bold ${opt}`}>{fmt(pOpt(key), unit)}</span>
                   </div>
                 </div>
@@ -202,26 +202,26 @@ export default function PowerBanner({ endpoint, refreshKey, onData, reportTitle,
             ))}
 
             {hasSocket && (
-              <div className="bg-white/10 hover:bg-white/15 rounded-xl p-3 transition-colors">
+              <div className="bg-surface-inset/60 hover:bg-surface-inset rounded-xl p-3 transition-colors">
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0 bg-orange-400" />
-                  <span className="text-xs font-semibold">Sockets</span>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0 bg-accent-bright" />
+                  <span className="text-xs font-semibold text-ink-heading2">Sockets</span>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-blue-300 uppercase tracking-wide">Capacity</span>
-                    <span className="text-xs font-medium">{fmt(socketConnected, 'va')}</span>
+                    <span className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.12em]">Capacity</span>
+                    <span className="text-xs font-medium text-ink-data">{fmt(socketConnected, 'va')}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-blue-300 uppercase tracking-wide">Demand</span>
-                    <span className="text-xs font-bold text-orange-300">{fmt(socketDemand, 'va')}</span>
+                    <span className="text-[10px] font-mono text-ink-muted uppercase tracking-[0.12em]">Demand</span>
+                    <span className="text-xs font-bold text-accent-bright">{fmt(socketDemand, 'va')}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {visiblePriorities.length === 0 && !hasSocket && (
-              <div className="col-span-4 text-center text-blue-300 text-xs py-2">
+              <div className="col-span-4 text-center text-ink-muted text-xs py-2">
                 No load data yet.
               </div>
             )}

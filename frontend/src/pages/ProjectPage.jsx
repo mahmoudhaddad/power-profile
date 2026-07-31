@@ -190,14 +190,14 @@ export default function ProjectPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base">
 
       <div className="sticky top-0 z-40">
         <ErrorBoundary label="power summary">
@@ -226,22 +226,22 @@ export default function ProjectPage() {
         </ErrorBoundary>
       </div>
 
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+      <header className="bg-surface-card border-b border-line px-6 py-4 flex items-center gap-4">
         <button onClick={() => navigate('/dashboard')}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+          className="text-ink-muted hover:text-ink-heading transition-colors p-1.5 rounded-lg hover:bg-surface-inset">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2 text-sm text-gray-400 mb-0.5">
+          <div className="flex items-center gap-2 text-sm text-ink-muted mb-0.5">
             <span onClick={() => navigate('/dashboard')}
-              className="hover:text-blue-500 cursor-pointer transition-colors">Projects</span>
+              className="hover:text-accent cursor-pointer transition-colors">Projects</span>
             <Chevron />
-            <span className="text-gray-600 font-medium">{project?.name}</span>
+            <span className="text-ink-body2 font-medium">{project?.name}</span>
             {userRole && userRole !== 'admin' && (
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-1 ${
-                userRole === 'main' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                userRole === 'main' ? 'bg-accent-soft text-accent' : 'bg-surface-inset text-ink-muted'
               }`}>
                 {userRole === 'main' ? 'Main User' : 'View Only'}
               </span>
@@ -253,18 +253,18 @@ export default function ProjectPage() {
               <input autoFocus value={nameInput}
                 onChange={e => setNameInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
-                className="text-lg font-semibold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-56" />
+                className="text-lg font-semibold text-ink-heading border-b-2 border-accent outline-none bg-transparent w-56" />
               <button onClick={saveName}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">Save</button>
+                className="text-xs text-accent hover:text-accent-bright font-medium px-2 py-1 rounded hover:bg-accent-soft transition-colors">Save</button>
               <button onClick={() => setEditingName(false)}
-                className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 rounded hover:bg-gray-100 transition-colors">Cancel</button>
+                className="text-xs text-ink-muted hover:text-ink-heading font-medium px-2 py-1 rounded hover:bg-surface-inset transition-colors">Cancel</button>
             </div>
           ) : (
             <div className="flex items-center gap-2 mt-0.5">
-              <h1 className="text-lg font-semibold text-gray-900">{project?.name}</h1>
+              <h1 className="text-lg font-semibold text-ink-heading">{project?.name}</h1>
               {canEdit && (
                 <button onClick={() => { setNameInput(project.name); setEditingName(true); }}
-                  className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded hover:bg-blue-50">
+                  className="text-ink-muted hover:text-accent transition-colors p-1 rounded hover:bg-accent-soft">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -278,9 +278,9 @@ export default function ProjectPage() {
         {/* Schedule settings */}
         {canEdit && (
           <button onClick={() => setShowSchedule(true)}
-            className="flex items-center gap-1.5 text-sm font-medium text-gray-600 px-3 py-2
-              rounded-lg border border-gray-200 hover:border-indigo-400 hover:text-indigo-600
-              hover:bg-indigo-50 transition-all duration-150">
+            className="flex items-center gap-1.5 text-sm font-medium text-ink-body2 px-3 py-2
+              rounded-lg border border-line hover:border-accent-border hover:text-accent
+              hover:bg-accent-soft transition-all duration-150">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -291,9 +291,9 @@ export default function ProjectPage() {
 
         {/* Time schedule chart */}
         <button onClick={() => setShowTimeSchedule(true)}
-          className="flex items-center gap-1.5 text-sm font-medium text-gray-600 px-3 py-2
-            rounded-lg border border-gray-200 hover:border-violet-400 hover:text-violet-600
-            hover:bg-violet-50 transition-all duration-150">
+          className="flex items-center gap-1.5 text-sm font-medium text-ink-body2 px-3 py-2
+            rounded-lg border border-line hover:border-accent-border hover:text-accent
+            hover:bg-accent-soft transition-all duration-150">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -304,9 +304,9 @@ export default function ProjectPage() {
         {/* Members button — admin only */}
         {userRole === 'admin' && (
           <button onClick={() => setShowMembers(true)}
-            className="flex items-center gap-1.5 text-sm font-medium text-gray-600 px-3 py-2
-              rounded-lg border border-gray-200 hover:border-blue-400 hover:text-blue-600
-              hover:bg-blue-50 transition-all duration-150">
+            className="flex items-center gap-1.5 text-sm font-medium text-ink-body2 px-3 py-2
+              rounded-lg border border-line hover:border-accent-border hover:text-accent
+              hover:bg-accent-soft transition-all duration-150">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -323,21 +323,21 @@ export default function ProjectPage() {
         <section>
           <div className={`flex items-center justify-between ${openBuildings ? 'mb-4' : 'mb-0'}`}>
             <button onClick={() => setOpenBuildings(o => !o)} className="flex items-center gap-2 group">
-              <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openBuildings ? 'rotate-90' : ''}`}
+              <svg className={`w-4 h-4 text-ink-muted transition-transform duration-200 ${openBuildings ? 'rotate-90' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
-              <h2 className="text-base font-semibold text-gray-900 group-hover:text-gray-700">
+              <h2 className="text-base font-semibold text-ink-heading group-hover:text-ink-body2">
                 Buildings
-                <span className="ml-2 text-xs font-normal text-gray-400">({buildings.length})</span>
+                <span className="ml-2 text-xs font-normal text-ink-muted">({buildings.length})</span>
               </h2>
             </button>
           </div>
 
-          {openBuildings && <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {openBuildings && <div className="bg-surface-card rounded-xl border border-line overflow-hidden">
             {buildings.length === 0 ? (
-              <div className="py-14 text-center text-gray-400">
-                <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="py-14 text-center text-ink-muted">
+                <svg className="w-10 h-10 mx-auto mb-3 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
@@ -383,31 +383,31 @@ export default function ProjectPage() {
 
         {canEdit && (
           <aside className="w-full lg:w-72 lg:flex-shrink-0 flex flex-col gap-4">
-            <div className="bg-white rounded-xl shadow-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Add Building</h2>
+            <div className="bg-surface-card rounded-xl border border-line p-4">
+              <h2 className="text-sm font-semibold text-ink-heading mb-3">Add Building</h2>
               <button onClick={() => setShowModal(true)}
-                className="group flex items-center gap-3 border-2 border-dashed border-blue-300
-                  hover:border-blue-500 hover:bg-blue-50 text-blue-500 hover:text-blue-700
-                  rounded-xl px-4 py-3 w-full transition-all duration-200 hover:shadow-sm">
-                <span className="w-8 h-8 rounded-full bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+                className="group flex items-center gap-3 border-2 border-dashed border-accent-border
+                  hover:border-accent hover:bg-accent-soft text-accent hover:text-accent-bright
+                  rounded-xl px-4 py-3 w-full transition-all duration-200 hover:shadow-accent">
+                <span className="w-8 h-8 rounded-full bg-accent-soft group-hover:bg-accent-softer flex items-center justify-center flex-shrink-0 transition-colors duration-200">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </span>
                 <div className="text-left">
                   <p className="font-semibold text-xs">Add New Building</p>
-                  <p className="text-xs text-blue-400 group-hover:text-blue-500 transition-colors">Add a building to this project</p>
+                  <p className="text-xs text-accent-light group-hover:text-accent-bright transition-colors">Add a building to this project</p>
                 </div>
               </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Restore Building</h2>
-              <div className="flex gap-1 mb-3 bg-gray-100 p-1 rounded-lg">
+            <div className="bg-surface-card rounded-xl border border-line p-4">
+              <h2 className="text-sm font-semibold text-ink-heading mb-3">Restore Building</h2>
+              <div className="flex gap-1 mb-3 bg-surface-inset p-1 rounded-lg">
                 {['computer', 'server'].map(tab => (
                   <button key={tab} onClick={() => setRestoreTab(tab)}
                     className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      restoreTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      restoreTab === tab ? 'bg-surface-card text-ink-heading' : 'text-ink-muted hover:text-ink-body2'
                     }`}>
                     {tab === 'computer' ? 'Computer' : 'Server'}
                   </button>
@@ -420,26 +420,26 @@ export default function ProjectPage() {
                   onDrop={e => { e.preventDefault(); setDragOver(false); loadRestoreFile(e.dataTransfer.files[0]); }}
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-xl px-4 py-5 text-center cursor-pointer transition-all duration-200
-                    ${dragOver ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50'}`}>
+                    ${dragOver ? 'border-accent bg-accent-soft' : 'border-accent-border hover:border-accent hover:bg-accent-soft'}`}>
                   <input ref={fileInputRef} type="file" accept=".json" className="hidden"
                     onChange={e => loadRestoreFile(e.target.files[0])} />
-                  <svg className="w-7 h-7 mx-auto mb-1.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-7 h-7 mx-auto mb-1.5 text-accent-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
-                  <p className="text-xs font-medium text-emerald-700">Drop backup or click to browse</p>
-                  <p className="text-xs text-emerald-500 mt-0.5">Accepts .json files</p>
+                  <p className="text-xs font-medium text-accent">Drop backup or click to browse</p>
+                  <p className="text-xs text-accent-light mt-0.5">Accepts .json files</p>
                 </div>
                 {restoreFile && restoreTab === 'computer' && (
-                  <div className="mt-2 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                    <p className="text-xs font-semibold text-gray-900 truncate min-w-0">
+                  <div className="mt-2 flex items-center justify-between bg-accent-soft border border-accent-border rounded-xl px-3 py-2">
+                    <p className="text-xs font-semibold text-ink-heading truncate min-w-0">
                       {restoreFile.raw?.building?.name ?? restoreFile.raw?.name ?? restoreFile.name}
                     </p>
                     <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
                       <button onClick={() => { setRestoreFile(null); setRestoreError(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                        className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors">Clear</button>
+                        className="text-xs text-ink-muted hover:text-ink-body2 px-1.5 py-0.5 rounded hover:bg-surface-inset transition-colors">Clear</button>
                       <button onClick={() => doRestore(false)} disabled={restoring}
-                        className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1 rounded-lg transition-colors disabled:opacity-50">
+                        className="text-xs font-semibold text-base bg-accent-gradient hover:shadow-accent px-3 py-1 rounded-lg transition-shadow disabled:opacity-50">
                         {restoring ? '…' : 'Restore'}
                       </button>
                     </div>
@@ -456,7 +456,7 @@ export default function ProjectPage() {
                   />
                 </ErrorBoundary>
               )}
-              {restoreError && <p className="mt-2 text-xs text-red-500">{restoreError}</p>}
+              {restoreError && <p className="mt-2 text-xs text-danger">{restoreError}</p>}
             </div>
           </aside>
         )}
@@ -508,19 +508,19 @@ export default function ProjectPage() {
       )}
       {confirmData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-surface-card rounded-2xl border border-line w-full max-w-sm p-6">
+            <div className="w-12 h-12 bg-accent-soft rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-gray-900 text-center mb-2">Building Already Exists</h3>
-            <p className="text-sm text-gray-500 text-center mb-6">{confirmData.message}</p>
+            <h3 className="text-base font-semibold text-ink-heading text-center mb-2">Building Already Exists</h3>
+            <p className="text-sm text-ink-muted text-center mb-6">{confirmData.message}</p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmData(null)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+                className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:border-line-strong hover:bg-surface-inset transition-colors">Cancel</button>
               <button onClick={() => doRestore(true)}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors">Overwrite</button>
+                className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-semibold hover:shadow-accent transition-shadow">Overwrite</button>
             </div>
           </div>
         </div>
@@ -539,49 +539,49 @@ function Chevron() {
 
 function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplicate }) {
   return (
-    <div onClick={onOpen} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 border border-blue-300 rounded-xl
-      cursor-pointer group transition-all duration-200 hover:bg-blue-50 hover:-translate-y-1 hover:shadow-md">
+    <div onClick={onOpen} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 border border-line rounded-xl
+      cursor-pointer group transition-all duration-200 hover:bg-surface-inset hover:-translate-y-1 hover:border-line-strong">
       <div className="flex items-center gap-3 min-w-0 flex-1 basis-40">
-        <div className="w-9 h-9 bg-blue-50 group-hover:bg-blue-100 rounded-lg flex items-center
+        <div className="w-9 h-9 bg-accent-soft group-hover:bg-accent-softer rounded-lg flex items-center
           justify-center flex-shrink-0 transition-colors duration-150">
-          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         </div>
         <div className="min-w-0">
-          <span className="font-medium text-gray-900 text-sm truncate block">{building.name}</span>
+          <span className="font-medium text-ink-heading text-sm truncate block">{building.name}</span>
           {building.type && (
-            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
+            <span className="text-xs px-1.5 py-0.5 bg-accent-soft text-accent rounded font-medium">
               {BUILDING_TYPES.find(t => t.value === building.type)?.label ?? building.type}
             </span>
           )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-body flex-shrink-0">
         <span className="flex items-center gap-1.5 whitespace-nowrap">
-          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
           </svg>
           {building.floors_count} floor{building.floors_count !== 1 ? 's' : ''}
         </span>
         <span className="flex items-center gap-1.5 whitespace-nowrap">
-          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
           </svg>
           {Number(building.area).toLocaleString()} m²
         </span>
-        <span className="text-xs text-gray-400 whitespace-nowrap hidden md:inline">
+        <span className="text-xs text-ink-muted whitespace-nowrap hidden md:inline">
           {new Date(building.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </span>
       </div>
       <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
         {canEdit && (
         <button onClick={e => { e.stopPropagation(); onBackup(); }}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-            rounded-lg border border-gray-200 bg-white hover:border-emerald-400 hover:text-emerald-600
-            hover:bg-emerald-50 transition-all duration-150">
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+            rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+            hover:bg-accent-soft transition-all duration-150">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -591,9 +591,9 @@ function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, on
         {canEdit && (
           <>
             <button onClick={e => { e.stopPropagation(); onDuplicate(); }}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-                rounded-lg border border-gray-200 bg-white hover:border-violet-400 hover:text-violet-600
-                hover:bg-violet-50 transition-all duration-150">
+              className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+                rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+                hover:bg-accent-soft transition-all duration-150">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -601,9 +601,9 @@ function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, on
               Duplicate
             </button>
             <button onClick={e => { e.stopPropagation(); onEdit(); }}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-                rounded-lg border border-gray-200 bg-white hover:border-blue-400 hover:text-blue-600
-                hover:bg-blue-50 transition-all duration-150">
+              className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+                rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+                hover:bg-accent-soft transition-all duration-150">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -611,9 +611,9 @@ function BuildingRow({ building, canEdit, onOpen, onEdit, onDelete, onBackup, on
               Edit
             </button>
             <button onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-                rounded-lg border border-gray-200 bg-white hover:border-red-300 hover:text-red-600
-                hover:bg-red-50 transition-all duration-150">
+              className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+                rounded-lg border border-line bg-surface-card hover:border-danger-border hover:text-danger
+                hover:bg-danger-soft transition-all duration-150">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -715,19 +715,19 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[90vh]">
+      <div className="bg-surface-card rounded-2xl border border-line w-full max-w-sm flex flex-col max-h-[90vh]">
 
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex-shrink-0 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900">Project Schedule</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Define when this project operates</p>
+        <div className="px-6 pt-6 pb-4 flex-shrink-0 border-b border-line-subtle">
+          <h3 className="text-lg font-semibold text-ink-heading">Project Schedule</h3>
+          <p className="text-xs text-ink-muted mt-0.5">Define when this project operates</p>
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6" style={{ minHeight: 0 }}>
 
           {/* Currency symbol */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-1.5">Currency Symbol</p>
+            <p className="text-sm font-medium text-ink-body2 mb-1.5">Currency Symbol</p>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -735,36 +735,36 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
                 value={currencyInput}
                 onChange={e => setCurrencyInput(e.target.value)}
                 placeholder="e.g. $ € £ EGP"
-                className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-800
-                  focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
+                className="w-28 border border-line rounded-lg px-3 py-2 text-sm font-semibold text-ink-heading bg-surface-inset
+                  focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent text-center"
               />
-              <p className="text-xs text-gray-400">Used in cost calculations across all sources</p>
+              <p className="text-xs text-ink-muted">Used in cost calculations across all sources</p>
             </div>
           </div>
 
           {/* Day picker */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">Working Days</p>
+            <p className="text-sm font-medium text-ink-body2 mb-3">Working Days</p>
             <div className="flex gap-1.5 justify-between mb-3">
               {DAYS.map(d => {
                 const selected = workDays.includes(d.key);
                 return (
                   <button key={d.key} type="button" onClick={() => toggleDay(d.key)}
                     className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                      selected ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                      selected ? 'bg-accent-gradient text-base' : 'bg-surface-inset text-ink-muted hover:bg-surface-inset2'
                     }`}>
                     {d.short}
                   </button>
                 );
               })}
             </div>
-            <div className="flex gap-4 text-xs text-gray-400">
+            <div className="flex gap-4 text-xs text-ink-muted">
               <span>
-                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5 align-middle" />
+                <span className="inline-block w-2 h-2 rounded-full bg-accent mr-1.5 align-middle" />
                 Weekday: {weekdays.length > 0 ? weekdays.map(d => d.short).join(', ') : '—'}
               </span>
               <span>
-                <span className="inline-block w-2 h-2 rounded-full bg-gray-300 mr-1.5 align-middle" />
+                <span className="inline-block w-2 h-2 rounded-full bg-ink-muted2 mr-1.5 align-middle" />
                 Weekend: {weekends.length > 0 ? weekends.map(d => d.short).join(', ') : '—'}
               </span>
             </div>
@@ -773,23 +773,23 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
           {/* Work time intervals */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-700">Work Hours</p>
+              <p className="text-sm font-medium text-ink-body2">Work Hours</p>
               <button type="button" onClick={addTimeIv}
-                className="text-xs text-blue-500 font-medium hover:text-blue-700">+ Add</button>
+                className="text-xs text-accent font-medium hover:text-accent-bright">+ Add</button>
             </div>
             <div className="space-y-2">
               {timeIvs.map((iv, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input type="time" value={iv.start}
                     onChange={e => updateTimeIv(i, 'start', e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                  <span className="text-xs text-gray-400 flex-shrink-0">to</span>
+                    className="flex-1 border border-line rounded-lg px-3 py-2 text-sm bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
+                  <span className="text-xs text-ink-muted flex-shrink-0">to</span>
                   <input type="time" value={iv.end}
                     onChange={e => updateTimeIv(i, 'end', e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                    className="flex-1 border border-line rounded-lg px-3 py-2 text-sm bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
                   <button type="button" onClick={() => removeTimeIv(i)}
                     disabled={timeIvs.length <= 1}
-                    className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base leading-none flex-shrink-0">
+                    className="w-6 h-6 flex items-center justify-center rounded text-ink-muted hover:text-danger hover:bg-danger-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base leading-none flex-shrink-0">
                     ×
                   </button>
                 </div>
@@ -801,16 +801,16 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div>
-                <p className="text-sm font-medium text-gray-700">Operating Season</p>
-                <p className="text-xs text-gray-400">Leave empty to operate all year</p>
+                <p className="text-sm font-medium text-ink-body2">Operating Season</p>
+                <p className="text-xs text-ink-muted">Leave empty to operate all year</p>
               </div>
               <button type="button" onClick={addSeasonIv}
-                className="text-xs text-blue-500 font-medium hover:text-blue-700 flex-shrink-0">+ Add period</button>
+                className="text-xs text-accent font-medium hover:text-accent-bright flex-shrink-0">+ Add period</button>
             </div>
 
             {seasonIvs.length === 0 ? (
-              <div className="text-center py-4 border border-dashed border-gray-200 rounded-xl">
-                <p className="text-xs text-gray-400">All year — no seasonal restriction</p>
+              <div className="text-center py-4 border border-dashed border-line rounded-xl">
+                <p className="text-xs text-ink-muted">All year — no seasonal restriction</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -818,43 +818,43 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
                   const f = parseMmdd(iv.from);
                   const t = parseMmdd(iv.to);
                   return (
-                    <div key={i} className="border border-gray-200 rounded-xl p-3 space-y-2">
+                    <div key={i} className="border border-line rounded-xl p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-500">Period {i + 1}</span>
+                        <span className="text-xs font-medium text-ink-muted">Period {i + 1}</span>
                         <button type="button" onClick={() => removeSeasonIv(i)}
-                          className="text-xs text-gray-400 hover:text-red-500 transition-colors">Remove</button>
+                          className="text-xs text-ink-muted hover:text-danger transition-colors">Remove</button>
                       </div>
                       {/* From row */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 w-8 flex-shrink-0">From</span>
+                        <span className="text-xs text-ink-muted w-8 flex-shrink-0">From</span>
                         <select value={f.month}
                           onChange={e => updateSeasonIv(i, 'from', 'month', e.target.value)}
-                          className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white">
+                          className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent bg-surface-inset text-ink-heading">
                           <option value="">Month</option>
                           {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
                         </select>
                         <input type="number" min="1" max="31" placeholder="Day"
                           value={f.day}
                           onChange={e => updateSeasonIv(i, 'from', 'day', e.target.value)}
-                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                          className="w-16 border border-line rounded-lg px-2 py-1.5 text-xs bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
                       </div>
                       {/* To row */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 w-8 flex-shrink-0">To</span>
+                        <span className="text-xs text-ink-muted w-8 flex-shrink-0">To</span>
                         <select value={t.month}
                           onChange={e => updateSeasonIv(i, 'to', 'month', e.target.value)}
-                          className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white">
+                          className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent bg-surface-inset text-ink-heading">
                           <option value="">Month</option>
                           {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
                         </select>
                         <input type="number" min="1" max="31" placeholder="Day"
                           value={t.day}
                           onChange={e => updateSeasonIv(i, 'to', 'day', e.target.value)}
-                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                          className="w-16 border border-line rounded-lg px-2 py-1.5 text-xs bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent" />
                       </div>
                       {/* Preview */}
                       {iv.from && iv.to && (
-                        <p className="text-xs text-indigo-600 font-medium">{fmtSeasonInterval(iv)}</p>
+                        <p className="text-xs text-accent font-medium">{fmtSeasonInterval(iv)}</p>
                       )}
                     </div>
                   );
@@ -866,13 +866,13 @@ function ProjectScheduleModal({ project, onSave, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 flex-shrink-0 border-t border-gray-100">
+        <div className="flex gap-3 px-6 py-4 flex-shrink-0 border-t border-line-subtle">
           <button onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+            className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:border-line-strong hover:bg-surface-inset transition-colors">
             Cancel
           </button>
           <button onClick={handleSave} disabled={saving || !timeOk || !seasonOk}
-            className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-semibold hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
             {saving ? 'Saving…' : 'Save Schedule'}
           </button>
         </div>
@@ -912,34 +912,34 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-5">{title}</h3>
+      <div className="bg-surface-card rounded-2xl border border-line w-full max-w-sm p-6">
+        <h3 className="text-lg font-semibold text-ink-heading mb-5">{title}</h3>
         <div className="space-y-4">
           <div className="relative" ref={wrapperRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{nameLabel}</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">{nameLabel}</label>
             <input type="text" autoFocus value={form.name}
               onChange={e => { onChange({ ...form, name: e.target.value }); setShowSuggestions(true); onClearError?.('name'); }}
               onFocus={() => setShowSuggestions(true)}
               onKeyDown={e => { if (e.key === 'Escape') setShowSuggestions(false); if (e.key === 'Enter') onSubmit(); }}
               placeholder={namePlaceholder}
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldErrors?.name ? 'border-red-400' : 'border-gray-300'}`} />
-            {fieldErrors?.name?.[0] && <p className="text-red-500 text-xs mt-1">{fieldErrors.name[0]}</p>}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${fieldErrors?.name ? 'border-danger-border' : 'border-line'}`} />
+            {fieldErrors?.name?.[0] && <p className="text-danger text-xs mt-1">{fieldErrors.name[0]}</p>}
             {showSuggestions && filtered.length > 0 && (
-              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+              <ul className="absolute z-10 w-full bg-surface-card border border-line rounded-lg shadow-accent mt-1 max-h-48 overflow-y-auto">
                 {filtered.map((s, i) => (
-                  <li key={i} className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between gap-2">
+                  <li key={i} className="px-3 py-2 text-sm text-ink-body2 hover:bg-surface-inset flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <span className="font-medium truncate block">{s.name}</span>
-                      {Number(s.area) > 0 && <span className="text-xs text-gray-400">{Number(s.area).toLocaleString()} m²</span>}
+                      {Number(s.area) > 0 && <span className="text-xs text-ink-muted">{Number(s.area).toLocaleString()} m²</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button onMouseDown={() => { onChange({ ...form, name: s.name, area: s.area ?? form.area }); setShowSuggestions(false); }}
-                        className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
+                        className="text-xs px-2 py-1 rounded-md border border-line text-ink-body2 hover:bg-surface-inset2 transition-colors">
                         Empty
                       </button>
                       {onDuplicateFrom && (
                         <button onMouseDown={() => { setShowSuggestions(false); onDuplicateFrom(s.id); }}
-                          className="text-xs px-2 py-1 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+                          className="text-xs px-2 py-1 rounded-md border border-accent-border text-accent hover:bg-accent-soft transition-colors">
                           Copy all
                         </button>
                       )}
@@ -950,30 +950,30 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Building Type</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">Building Type</label>
             <select value={form.type ?? ''} onChange={e => onChange({ ...form, type: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+              className="w-full border border-line rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent bg-surface-inset text-ink-heading">
               {BUILDING_TYPES.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">Area (m²)</label>
             <input type="number" min="0.01" step="0.01" value={form.area}
               onChange={e => { onChange({ ...form, area: e.target.value }); onClearError?.('area'); }}
               placeholder="e.g. 100"
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldErrors?.area ? 'border-red-400' : 'border-gray-300'}`} />
-            {fieldErrors?.area?.[0] && <p className="text-red-500 text-xs mt-1">{fieldErrors.area[0]}</p>}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${fieldErrors?.area ? 'border-danger-border' : 'border-line'}`} />
+            {fieldErrors?.area?.[0] && <p className="text-danger text-xs mt-1">{fieldErrors.area[0]}</p>}
           </div>
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm
-              font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+            className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm
+              font-medium hover:border-line-strong hover:bg-surface-inset transition-colors">Cancel</button>
           <button onClick={onSubmit} disabled={!form.name.trim() || Number(form.area) <= 0}
-            className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium
-              hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-semibold
+              hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
             {submitLabel}
           </button>
         </div>

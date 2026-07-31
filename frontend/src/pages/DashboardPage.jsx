@@ -155,13 +155,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Welcome back, {user?.name?.split(' ')[0]}!</p>
+          <h1 className="text-2xl font-bold text-ink-heading">Dashboard</h1>
+          <p className="text-ink-body mt-1">Welcome back, {user?.name?.split(' ')[0]}!</p>
         </div>
 
         <div className="flex gap-6 items-start">
@@ -176,22 +176,22 @@ export default function DashboardPage() {
 
             {/* System Validation — visible to admins */}
             {user?.is_admin && (
-              <section className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
+              <section className="bg-accent-soft border border-accent-border rounded-xl p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-9 h-9 bg-accent-softer rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-indigo-900">System Validation</p>
-                    <p className="text-xs text-indigo-600">Verify calculation accuracy against hand-computed reference values</p>
+                    <p className="text-sm font-semibold text-ink-heading">System Validation</p>
+                    <p className="text-xs text-ink-body2">Verify calculation accuracy against hand-computed reference values</p>
                   </div>
                 </div>
                 <Link to="/validation"
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
-                    bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors">
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-base
+                    bg-accent-gradient hover:shadow-accent rounded-xl transition-shadow">
                   Open
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -201,15 +201,15 @@ export default function DashboardPage() {
             )}
 
             {/* New Project Section */}
-            <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">New Project</h2>
+            <section className="bg-surface-card rounded-xl border border-line p-5">
+              <h2 className="text-base font-semibold text-ink-heading mb-4">New Project</h2>
               <button
                 onClick={() => setShowModal(true)}
-                className="group flex items-center gap-3 border-2 border-dashed border-blue-300
-                  hover:border-blue-500 hover:bg-blue-50 text-blue-500 hover:text-blue-700
-                  rounded-xl px-5 py-4 transition-all duration-200 hover:shadow-sm w-full"
+                className="group flex items-center gap-3 border-2 border-dashed border-line
+                  hover:border-accent-border-strong hover:bg-accent-soft text-accent hover:text-accent-bright
+                  rounded-xl px-5 py-4 transition-all duration-200 hover:shadow-accent w-full"
               >
-                <span className="w-9 h-9 rounded-full bg-blue-100 group-hover:bg-blue-200 flex items-center
+                <span className="w-9 h-9 rounded-full bg-accent-soft group-hover:bg-accent-softer flex items-center
                   justify-center flex-shrink-0 transition-colors duration-200">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                 </span>
                 <div className="text-left">
                   <p className="font-semibold text-sm">Add New Project</p>
-                  <p className="text-xs text-blue-400 group-hover:text-blue-500 transition-colors">
+                  <p className="text-xs text-ink-muted group-hover:text-accent transition-colors">
                     Start analysing a new building group
                   </p>
                 </div>
@@ -225,17 +225,17 @@ export default function DashboardPage() {
             </section>
 
             {/* Restore Backup Section */}
-            <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Restore Project from Backup</h2>
+            <section className="bg-surface-card rounded-xl border border-line p-5">
+              <h2 className="text-base font-semibold text-ink-heading mb-4">Restore Project from Backup</h2>
 
               {/* Tabs */}
-              <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg w-fit">
+              <div className="flex gap-1 mb-4 bg-surface-inset p-1 rounded-lg w-fit">
                 {['computer', 'server'].map(tab => (
                   <button key={tab} onClick={() => setRestoreTab(tab)}
                     className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                       restoreTab === tab
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-surface-card text-ink-heading'
+                        : 'text-ink-body2 hover:text-ink-heading'
                     }`}>
                     {tab === 'computer' ? 'From Computer' : 'From Server'}
                   </button>
@@ -252,8 +252,8 @@ export default function DashboardPage() {
                   className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl
                     px-6 py-8 cursor-pointer transition-all duration-200
                     ${dragOver
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                      : 'border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600'
+                      ? 'border-accent-border-strong bg-accent-soft text-accent'
+                      : 'border-line hover:border-accent-border hover:bg-accent-soft text-ink-muted hover:text-accent'
                     }`}
                 >
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -269,22 +269,22 @@ export default function DashboardPage() {
 
                 {/* Selected file + restore button */}
                 {restoreFile && restoreTab === 'computer' && (
-                  <div className="mt-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                    <svg className="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="mt-3 flex items-center gap-3 bg-accent-soft border border-accent-border rounded-xl px-4 py-3">
+                    <svg className="w-5 h-5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-emerald-800 truncate">{restoreFile.name}</p>
-                      <p className="text-xs text-emerald-600">
+                      <p className="text-sm font-medium text-ink-heading truncate">{restoreFile.name}</p>
+                      <p className="text-xs text-ink-body2">
                         Project: <span className="font-semibold">{restoreFile.parsed?.project?.name ?? restoreFile.parsed?.name ?? '—'}</span>
                       </p>
                     </div>
                     <button onClick={() => doRestore(false)} disabled={restoring}
-                      className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white
-                        text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50">
+                      className="flex items-center gap-1.5 bg-accent-gradient text-base
+                        text-sm font-medium px-4 py-2 rounded-lg hover:shadow-accent transition-shadow disabled:opacity-50">
                       {restoring
-                        ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ? <span className="w-4 h-4 border-2 border-base border-t-transparent rounded-full animate-spin" />
                         : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                       Restore
                     </button>
                     <button onClick={() => { setRestoreFile(null); setRestoreError(''); }}
-                      className="text-gray-400 hover:text-gray-600 p-1">
+                      className="text-ink-muted hover:text-ink-body2 p-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -305,8 +305,8 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   <select value={serverRestoreProjectId}
                     onChange={e => setServerRestoreProjectId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white
-                      focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-surface-card text-ink-body
+                      focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent">
                     <option value="">Select a project…</option>
                     {projects.filter(p => p.user_role === 'admin' || p.user_role === 'main').map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -324,7 +324,7 @@ export default function DashboardPage() {
               )}
 
               {restoreError && (
-                <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5">
+                <p className="mt-2 text-sm text-danger flex items-center gap-1.5">
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -335,21 +335,21 @@ export default function DashboardPage() {
             </section>
 
             {/* Previous Projects Section */}
-            <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <section className="bg-surface-card rounded-xl border border-line p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-900">Previous Projects</h2>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+                <h2 className="text-base font-semibold text-ink-heading">Previous Projects</h2>
+                <span className="text-xs text-ink-muted bg-surface-inset px-2.5 py-1 rounded-full">
                   {projects.length} project{projects.length !== 1 ? 's' : ''}
                 </span>
               </div>
 
               {loading ? (
                 <div className="flex justify-center py-10">
-                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : projects.length === 0 ? (
-                <div className="py-10 text-center text-gray-400">
-                  <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="py-10 text-center text-ink-muted">
+                  <svg className="w-10 h-10 mx-auto mb-3 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                       d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                   </svg>
@@ -388,20 +388,20 @@ export default function DashboardPage() {
       {/* Edit Project Modal */}
       {editingProject && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Project</h3>
+          <div className="bg-surface-card border border-line rounded-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-ink-heading mb-4">Edit Project</h3>
             <div className="space-y-4 mb-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                <label className="block text-sm font-medium text-ink-body2 mb-1">Project Name</label>
                 <input type="text" autoFocus value={editName}
                   onChange={e => { setEditName(e.target.value); setEditErrors(p => ({ ...p, name: null })); }}
                   onKeyDown={e => e.key === 'Enter' && handleEditProject()}
                   placeholder="Project name"
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editErrors.name ? 'border-red-400' : 'border-gray-300'}`} />
-                {editErrors.name?.[0] && <p className="text-red-500 text-xs mt-1">{editErrors.name[0]}</p>}
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${editErrors.name ? 'border-danger-border' : 'border-line'}`} />
+                {editErrors.name?.[0] && <p className="text-danger text-xs mt-1">{editErrors.name[0]}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Auto Backup</label>
+                <label className="block text-sm font-medium text-ink-body2 mb-2">Auto Backup</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {[
                     { value: 'never',   label: 'Never' },
@@ -413,15 +413,15 @@ export default function DashboardPage() {
                       onClick={() => setEditInterval(opt.value)}
                       className={`py-2 rounded-lg text-xs font-semibold border transition-colors ${
                         editInterval === opt.value
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                          ? 'bg-accent-gradient border-accent text-base'
+                          : 'border-line text-ink-body2 hover:border-accent-border hover:text-accent'
                       }`}>
                       {opt.label}
                     </button>
                   ))}
                 </div>
                 {editInterval !== 'never' && (
-                  <p className="text-xs text-gray-400 mt-2">
+                  <p className="text-xs text-ink-muted mt-2">
                     A project backup will be saved to the server automatically every {editInterval === 'daily' ? 'day' : editInterval === 'weekly' ? 'week' : 'month'}.
                   </p>
                 )}
@@ -429,12 +429,12 @@ export default function DashboardPage() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => { setEditingProject(null); setEditErrors({}); }}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:bg-surface-inset hover:border-line-strong transition-colors">
                 Cancel
               </button>
               <button onClick={handleEditProject} disabled={!editName.trim()}
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium
-                  hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-medium
+                  hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
                 Save
               </button>
             </div>
@@ -445,22 +445,22 @@ export default function DashboardPage() {
       {/* Add Project Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">New Project</h3>
+          <div className="bg-surface-card border border-line rounded-2xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-ink-heading mb-4">New Project</h3>
             <input type="text" autoFocus value={newName}
               onChange={e => { setNewName(e.target.value); setAddErrors(p => ({ ...p, name: null })); }}
               onKeyDown={e => e.key === 'Enter' && handleAddProject()}
               placeholder="Project name"
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${addErrors.name ? 'border-red-400' : 'border-gray-300'}`} />
-            {addErrors.name?.[0] && <p className="text-red-500 text-xs mt-1">{addErrors.name[0]}</p>}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-surface-inset text-ink-heading focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${addErrors.name ? 'border-danger-border' : 'border-line'}`} />
+            {addErrors.name?.[0] && <p className="text-danger text-xs mt-1">{addErrors.name[0]}</p>}
             <div className="flex gap-3 mt-4">
               <button onClick={() => { setShowModal(false); setNewName(''); setAddErrors({}); }}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:bg-surface-inset hover:border-line-strong transition-colors">
                 Cancel
               </button>
               <button onClick={handleAddProject} disabled={!newName.trim()}
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium
-                  hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-medium
+                  hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed">
                 Create
               </button>
             </div>
@@ -471,32 +471,32 @@ export default function DashboardPage() {
       {/* Overwrite Confirm Modal */}
       {confirmData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-surface-card border border-line rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-accent-soft rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-gray-900">Project Already Exists</h3>
-                <p className="text-sm text-gray-500 mt-0.5">{confirmData.message}</p>
+                <h3 className="text-base font-semibold text-ink-heading">Project Already Exists</h3>
+                <p className="text-sm text-ink-body mt-0.5">{confirmData.message}</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600 mb-5">
+            <p className="text-sm text-ink-body mb-5">
               This will replace the existing project and all its data with the backup. This cannot be undone.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmData(null)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:bg-surface-inset hover:border-line-strong transition-colors">
                 Cancel
               </button>
               <button
                 onClick={() => doRestore(true)}
                 disabled={restoring}
-                className="flex-1 bg-amber-600 text-white py-2.5 rounded-lg text-sm font-medium
-                  hover:bg-amber-700 transition-colors disabled:opacity-50"
+                className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-medium
+                  hover:shadow-accent transition-shadow disabled:opacity-50"
               >
                 {restoring ? 'Restoring…' : 'Yes, Overwrite'}
               </button>
@@ -523,14 +523,14 @@ function fmtKW(kw) {
 
 const ROLE_ROW = {
   admin:  { label: null },
-  main:   { label: 'Main User',  bg: 'bg-blue-100',  text: 'text-blue-700'  },
-  normal: { label: 'View Only',  bg: 'bg-gray-100',  text: 'text-gray-500'  },
+  main:   { label: 'Main User',  bg: 'bg-accent-soft',    text: 'text-accent'     },
+  normal: { label: 'View Only',  bg: 'bg-surface-inset',  text: 'text-ink-body2'  },
 };
 
 const INTERVAL_BADGE = {
-  daily:   { label: 'Daily backup',   bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  weekly:  { label: 'Weekly backup',  bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  monthly: { label: 'Monthly backup', bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  daily:   { label: 'Daily backup',   bg: 'bg-accent-soft', text: 'text-accent' },
+  weekly:  { label: 'Weekly backup',  bg: 'bg-accent-soft', text: 'text-accent' },
+  monthly: { label: 'Monthly backup', bg: 'bg-accent-soft', text: 'text-accent' },
 };
 
 function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
@@ -543,22 +543,22 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
   return (
     <div
       onClick={onOpen}
-      className="flex items-center justify-between py-4 px-4 border border-blue-300
+      className="flex items-center justify-between py-4 px-4 border border-line
         rounded-xl cursor-pointer group transition-all duration-200
-        hover:bg-blue-50 hover:-translate-y-1 hover:shadow-md"
+        hover:bg-surface-inset hover:-translate-y-1 hover:shadow-accent"
     >
 
       {/* Icon + Name */}
       <div className="flex items-center gap-3 min-w-0 w-56">
-        <div className="w-9 h-9 bg-blue-50 group-hover:bg-blue-100 rounded-lg flex items-center
+        <div className="w-9 h-9 bg-surface-inset group-hover:bg-accent-soft rounded-lg flex items-center
           justify-center flex-shrink-0 transition-colors duration-150">
-          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
         </div>
         <div className="min-w-0">
-          <span className="font-medium text-gray-900 text-sm truncate block">{project.name}</span>
+          <span className="font-medium text-ink-heading text-sm truncate block">{project.name}</span>
           <div className="flex items-center gap-1 flex-wrap">
             {meta.label && (
               <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${meta.bg} ${meta.text}`}>
@@ -575,8 +575,8 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
       </div>
 
       {/* Buildings */}
-      <div className="flex items-center gap-1.5 w-32 text-sm text-gray-500">
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex items-center gap-1.5 w-32 text-sm text-ink-body2">
+        <svg className="w-4 h-4 text-ink-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
@@ -584,18 +584,18 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
       </div>
 
       {/* Total Power */}
-      <div className="flex items-center gap-1.5 w-40 text-sm text-gray-500">
-        <svg className="w-4 h-4 text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex items-center gap-1.5 w-40 text-sm text-ink-body2">
+        <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <div className="flex flex-col leading-tight">
-          <span className="font-medium text-gray-700">{fmtKW(project.total_kw)}</span>
-          <span className="text-xs text-gray-400">{fmtVA(project.total_power)}</span>
+          <span className="font-medium text-ink-data font-mono">{fmtKW(project.total_kw)}</span>
+          <span className="text-xs text-ink-muted font-mono">{fmtVA(project.total_power)}</span>
         </div>
       </div>
 
       {/* Last Modified */}
-      <div className="flex items-center gap-1.5 text-sm text-gray-400 w-36">
+      <div className="flex items-center gap-1.5 text-sm text-ink-muted w-36">
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -613,9 +613,9 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
         {canEdit && <button
           onClick={e => { e.stopPropagation(); onBackup(); }}
           title="Download backup"
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-            rounded-lg border border-gray-200 bg-white hover:border-emerald-400 hover:text-emerald-600
-            hover:bg-emerald-50 transition-all duration-150"
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+            rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+            hover:bg-accent-soft transition-all duration-150"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -628,9 +628,9 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
           <>
             <button
               onClick={e => { e.stopPropagation(); onEdit(); }}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-                rounded-lg border border-gray-200 bg-white hover:border-blue-400 hover:text-blue-600
-                hover:bg-blue-50 transition-all duration-150"
+              className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+                rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+                hover:bg-accent-soft transition-all duration-150"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -641,9 +641,9 @@ function ProjectRow({ project, onOpen, onEdit, onDelete, onBackup }) {
             {role === 'admin' && (
               <button
                 onClick={e => { e.stopPropagation(); onDelete(); }}
-                className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-                  rounded-lg border border-gray-200 bg-white hover:border-red-300 hover:text-red-600
-                  hover:bg-red-50 transition-all duration-150"
+                className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+                  rounded-lg border border-line bg-surface-card hover:border-danger-border hover:text-danger
+                  hover:bg-danger-soft transition-all duration-150"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

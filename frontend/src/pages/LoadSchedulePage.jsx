@@ -36,53 +36,53 @@ function CustomTooltip({ active, payload, label, tab, mode }) {
     <div key={name} className="flex items-center justify-between gap-6 text-xs">
       <div className="flex items-center gap-1.5">
         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
-        <span className="text-gray-600">{name}</span>
+        <span className="text-ink-body">{name}</span>
       </div>
-      <span className="font-semibold text-gray-800">{fmtW(val)}</span>
+      <span className="font-semibold font-mono text-ink-data">{fmtW(val)}</span>
     </div>
   );
 
   const byKey = Object.fromEntries(payload.map(p => [p.dataKey, p.value]));
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-xl p-3 min-w-[180px]">
-      <p className="text-xs font-bold text-gray-700 mb-2">{hourLabel(label)} – {hourLabel((label + 1) % 24)}</p>
+    <div className="bg-surface-card border border-line rounded-xl shadow-xl p-3 min-w-[180px]">
+      <p className="text-xs font-bold text-ink-body2 mb-2">{hourLabel(label)} – {hourLabel((label + 1) % 24)}</p>
       {tab === 'load' && (
         <>
-          {row('#4f46e5', 'Max Load',   byKey.load_max)}
-          {row('#10b981', 'Optimized', byKey.load_opt)}
+          {row('var(--text-muted)', 'Max Load',   byKey.load_max)}
+          {row('var(--accent)', 'Optimized', byKey.load_opt)}
           {(byKey.kvar ?? 0) > 0 && (
             <div className="flex items-center justify-between gap-6 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#f59e0b' }} />
-                <span className="text-gray-600">Reactive (kVAR)</span>
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-bright)' }} />
+                <span className="text-ink-body">Reactive (kVAR)</span>
               </div>
-              <span className="font-semibold text-gray-800">{Number(byKey.kvar).toFixed(2)} kVAR</span>
+              <span className="font-semibold font-mono text-ink-data">{Number(byKey.kvar).toFixed(2)} kVAR</span>
             </div>
           )}
         </>
       )}
       {tab === 'sources' && (
         <>
-          {row('#f59e0b', 'Solar Generation', byKey.solar)}
-          {row('#3b82f6', 'Utility Capacity', byKey.utility_cap)}
-          {row('#f97316', 'Generator Capacity', byKey.gen_cap)}
+          {row('var(--accent)', 'Solar Generation', byKey.solar)}
+          {row('var(--text-body)', 'Utility Capacity', byKey.utility_cap)}
+          {row('var(--text-muted-3)', 'Generator Capacity', byKey.gen_cap)}
         </>
       )}
       {tab === 'combined' && (
         <>
-          {row('#6b7280', 'Total Demand',       byKey.demand)}
-          {row('#f59e0b', 'Solar Used',          byKey.solar_used)}
-          {(byKey.battery_disc ?? 0) > 0 && row('#8b5cf6', 'Battery ↓ Discharge', byKey.battery_disc)}
-          {(byKey.battery_chrg_sol ?? 0) > 0 && row('#fbbf24', 'Battery ↑ Solar',    byKey.battery_chrg_sol)}
-          {(byKey.battery_chrg_gen ?? 0) > 0 && row('#fb923c', 'Battery ↑ Generator', byKey.battery_chrg_gen)}
-          {row('#3b82f6', 'Utility Used',        byKey.utility_used)}
-          {row('#f97316', 'Generator Used',      byKey.gen_used)}
-          {byKey.unmet > 0 && row('#ef4444', 'Unmet', byKey.unmet)}
+          {row('var(--text-heading)', 'Total Demand',       byKey.demand)}
+          {row('var(--accent)', 'Solar Used',          byKey.solar_used)}
+          {(byKey.battery_disc ?? 0) > 0 && row('var(--text-body-2)', 'Battery ↓ Discharge', byKey.battery_disc)}
+          {(byKey.battery_chrg_sol ?? 0) > 0 && row('var(--accent-light)', 'Battery ↑ Solar',    byKey.battery_chrg_sol)}
+          {(byKey.battery_chrg_gen ?? 0) > 0 && row('var(--text-muted-2)', 'Battery ↑ Generator', byKey.battery_chrg_gen)}
+          {row('var(--text-body)', 'Utility Used',        byKey.utility_used)}
+          {row('var(--text-muted-3)', 'Generator Used',      byKey.gen_used)}
+          {byKey.unmet > 0 && row('var(--danger)', 'Unmet', byKey.unmet)}
           {byKey.battery_soc != null && (
-            <div className="flex items-center justify-between gap-6 text-xs border-t border-gray-100 mt-1 pt-1">
-              <span className="text-gray-500">Battery SOC</span>
-              <span className="font-semibold text-violet-600">{Number(byKey.battery_soc).toFixed(1)}%</span>
+            <div className="flex items-center justify-between gap-6 text-xs border-t border-line-subtle mt-1 pt-1">
+              <span className="text-ink-muted">Battery SOC</span>
+              <span className="font-semibold font-mono text-ink-data">{Number(byKey.battery_soc).toFixed(1)}%</span>
             </div>
           )}
         </>
@@ -95,29 +95,29 @@ function CustomTooltip({ active, payload, label, tab, mode }) {
 function StatCard({ color, dot, label, hours, kwh, pct, cost, costLabel, currency = '$' }) {
   const hasCost = cost !== null && cost !== undefined;
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+    <div className="bg-surface-card rounded-xl border border-line-subtle p-4">
       <div className="flex items-center gap-2 mb-3">
         <span className={`w-3 h-3 rounded-full flex-shrink-0 ${dot}`} />
-        <span className="text-sm font-semibold text-gray-800">{label}</span>
+        <span className="text-sm font-semibold text-ink-heading2">{label}</span>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
-          <p className="text-lg font-bold text-gray-900">{hours}h</p>
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Active</p>
+          <p className="text-lg font-bold font-mono text-ink-heading">{hours}h</p>
+          <p className="text-[10px] text-ink-muted uppercase tracking-wide">Active</p>
         </div>
         <div>
-          <p className="text-lg font-bold" style={{ color }}>{fmtKwh(kwh)}</p>
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Delivered</p>
+          <p className="text-lg font-bold font-mono" style={{ color }}>{fmtKwh(kwh)}</p>
+          <p className="text-[10px] text-ink-muted uppercase tracking-wide">Delivered</p>
         </div>
         <div>
-          <p className="text-lg font-bold text-gray-700">{pct}%</p>
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Share</p>
+          <p className="text-lg font-bold font-mono text-ink-body2">{pct}%</p>
+          <p className="text-[10px] text-ink-muted uppercase tracking-wide">Share</p>
         </div>
       </div>
       {hasCost && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center justify-between">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide">{costLabel ?? 'Daily Cost'}</p>
-          <p className={`text-sm font-bold ${cost === 0 ? 'text-emerald-600' : 'text-gray-800'}`}>
+        <div className="mt-2.5 pt-2.5 border-t border-line-subtle flex items-center justify-between">
+          <p className="text-[10px] text-ink-muted uppercase tracking-wide">{costLabel ?? 'Daily Cost'}</p>
+          <p className={`text-sm font-bold font-mono ${cost === 0 ? 'text-success' : 'text-ink-heading2'}`}>
             {cost === 0 ? `Free` : `${currency}${cost.toFixed(2)}`}
           </p>
         </div>
@@ -133,7 +133,7 @@ function SourceSubChart({ data, dataKey, demandKey, name, stroke, xTick }) {
     <div>
       <div className="flex items-center gap-2 mb-2">
         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stroke }} />
-        <span className="text-xs font-semibold text-gray-700">{name}</span>
+        <span className="text-xs font-semibold text-ink-body2">{name}</span>
       </div>
       <ResponsiveContainer width="100%" height={140}>
         <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -143,17 +143,19 @@ function SourceSubChart({ data, dataKey, demandKey, name, stroke, xTick }) {
               <stop offset="95%" stopColor={stroke} stopOpacity={0.05} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-          <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 9, fill: '#9ca3af' }} />
-          <YAxis tickFormatter={fmtW} tick={{ fontSize: 9, fill: '#9ca3af' }} width={52} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+          <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
+          <YAxis tickFormatter={fmtW} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} width={52} />
           <Tooltip
             formatter={(val, key) => [fmtW(val), key === demandKey ? 'Demand' : name]}
             labelFormatter={h => `${hourLabel(h)} – ${hourLabel((h + 1) % 24)}`}
+            contentStyle={{ background: 'var(--surface-card)', border: '1px solid var(--line)', borderRadius: 8 }}
+            labelStyle={{ color: 'var(--text-heading)' }}
           />
           <Area type="monotone" dataKey={dataKey} stroke={stroke}
             fill={`url(#${gradId})`} strokeWidth={2} dot={false} activeDot={{ r: 3 }} />
           {demandKey && (
-            <Line type="monotone" dataKey={demandKey} stroke="#d1d5db"
+            <Line type="monotone" dataKey={demandKey} stroke="var(--text-muted)"
               strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
           )}
         </ComposedChart>
@@ -237,30 +239,30 @@ function LocationCard({ projectId, location, onSaved }) {
   // ── Collapsed display ──
   if (!editing) {
     return (
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3">
-        <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-          <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-surface-card rounded-xl border border-line-subtle px-4 py-3 flex items-center gap-3">
+        <div className="w-8 h-8 bg-accent-soft rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wide">Project Location</p>
+          <p className="text-[10px] text-ink-muted uppercase tracking-wide">Project Location</p>
           {hasLocation ? (
-            <p className="text-sm font-medium text-gray-800 truncate">
+            <p className="text-sm font-medium text-ink-heading2 truncate">
               {location.name || `${Number(location.lat).toFixed(4)}°, ${Number(location.lng).toFixed(4)}°`}
-              <span className="ml-2 text-xs text-gray-400">
+              <span className="ml-2 text-xs font-mono text-ink-muted">
                 ({Number(location.lat).toFixed(4)}°N, {Number(location.lng).toFixed(4)}°E)
               </span>
             </p>
           ) : (
-            <p className="text-sm text-gray-400 italic">No location set — solar generation unavailable</p>
+            <p className="text-sm text-ink-muted italic">No location set — solar generation unavailable</p>
           )}
         </div>
         <button onClick={openEditor}
-          className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50
-            hover:bg-amber-100 rounded-lg transition-colors border border-amber-200">
+          className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-accent bg-accent-soft
+            hover:bg-accent-softer rounded-lg transition-colors border border-accent-border">
           {hasLocation ? 'Change' : 'Set Location'}
         </button>
       </div>
@@ -269,20 +271,20 @@ function LocationCard({ projectId, location, onSaved }) {
 
   // ── Edit mode ──
   return (
-    <div className="bg-white rounded-xl border border-amber-200 shadow-sm px-4 py-3 space-y-3">
+    <div className="bg-surface-card rounded-xl border border-accent-border px-4 py-3 space-y-3">
       <div className="flex items-center gap-2">
-        <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        <span className="text-sm font-semibold text-gray-800">Search City</span>
+        <span className="text-sm font-semibold text-ink-heading2">Search City</span>
       </div>
 
       {/* Search input */}
       <div className="relative">
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none"
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-muted pointer-events-none"
             fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -293,18 +295,18 @@ function LocationCard({ projectId, location, onSaved }) {
             value={query}
             onChange={e => { setQuery(e.target.value); setSelected(null); }}
             placeholder="Type a city name… e.g. Beirut, Paris, Dubai"
-            className="w-full border border-gray-200 rounded-xl pl-9 pr-10 py-2.5 text-sm text-gray-800
-              placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            className="w-full border border-line rounded-xl pl-9 pr-10 py-2.5 text-sm text-ink-heading2 bg-surface-inset
+              placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
           />
           {searching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2
-              w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+              w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
           )}
         </div>
 
         {/* Dropdown results */}
         {results.length > 0 && (
-          <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl
+          <ul className="absolute z-50 mt-1 w-full bg-surface-card border border-line rounded-xl shadow-xl
             overflow-hidden max-h-60 overflow-y-auto">
             {results.map((r, i) => {
               const addr    = r.address ?? {};
@@ -317,9 +319,9 @@ function LocationCard({ projectId, location, onSaved }) {
                 <li key={i}>
                   <button
                     onClick={() => pickResult(r)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-amber-50 transition-colors
-                      border-b border-gray-50 last:border-0 flex items-start gap-3">
-                    <svg className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5"
+                    className="w-full text-left px-4 py-2.5 hover:bg-surface-inset transition-colors
+                      border-b border-line-subtle last:border-0 flex items-start gap-3">
+                    <svg className="w-3.5 h-3.5 text-accent-light flex-shrink-0 mt-0.5"
                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -327,9 +329,9 @@ function LocationCard({ projectId, location, onSaved }) {
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{primary}</p>
-                      {secondary && <p className="text-xs text-gray-400 truncate">{secondary}</p>}
-                      <p className="text-[10px] text-gray-300 mt-0.5">
+                      <p className="text-sm font-medium text-ink-heading2 truncate">{primary}</p>
+                      {secondary && <p className="text-xs text-ink-muted truncate">{secondary}</p>}
+                      <p className="text-[10px] font-mono text-ink-muted2 mt-0.5">
                         {parseFloat(r.lat).toFixed(4)}°N, {parseFloat(r.lon).toFixed(4)}°E
                       </p>
                     </div>
@@ -343,29 +345,29 @@ function LocationCard({ projectId, location, onSaved }) {
 
       {/* Selected city confirmation */}
       {selected && (
-        <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-2.5 bg-accent-soft border border-accent-border rounded-xl px-3 py-2.5">
+          <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-amber-800 truncate">{selected.name}</p>
-            <p className="text-xs text-amber-600">
+            <p className="text-sm font-semibold text-accent truncate">{selected.name}</p>
+            <p className="text-xs font-mono text-accent-light">
               {selected.lat.toFixed(5)}°N, {selected.lng.toFixed(5)}°E
             </p>
           </div>
         </div>
       )}
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       <div className="flex gap-2">
         <button onClick={save} disabled={saving || !selected}
-          className="px-4 py-1.5 text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600
-            disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors">
+          className="px-4 py-1.5 text-xs font-semibold text-base bg-accent-gradient hover:shadow-accent
+            disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none rounded-lg transition-shadow">
           {saving ? 'Saving…' : 'Save Location'}
         </button>
         <button onClick={() => { setEditing(false); setError(''); }}
-          className="px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+          className="px-4 py-1.5 text-xs font-medium text-ink-body2 hover:bg-surface-inset rounded-lg transition-colors">
           Cancel
         </button>
       </div>
@@ -420,10 +422,10 @@ function MiniCalendar({ month, day, year, workDays, onDayChange }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors ${
           open
-            ? 'bg-indigo-600 text-white border-indigo-600'
-            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            ? 'bg-accent text-base border-accent'
+            : 'bg-surface-card text-ink-body2 border-line hover:bg-surface-inset'
         }`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -438,8 +440,8 @@ function MiniCalendar({ month, day, year, workDays, onDayChange }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 w-64">
-          <p className="text-[11px] font-semibold text-gray-500 text-center mb-2 uppercase tracking-wide">
+        <div className="absolute left-0 top-full mt-2 z-50 bg-surface-card rounded-2xl shadow-2xl border border-line p-3 w-64">
+          <p className="text-[11px] font-semibold text-ink-muted text-center mb-2 uppercase tracking-wide">
             {MONTHS[month - 1]} — pick a day
           </p>
 
@@ -450,7 +452,7 @@ function MiniCalendar({ month, day, year, workDays, onDayChange }) {
               const isOff   = !projectWorkDays.includes(dayName);
               return (
                 <div key={d} className={`text-center text-[10px] font-semibold py-0.5 ${
-                  isOff ? 'text-indigo-400' : 'text-gray-400'
+                  isOff ? 'text-accent-light' : 'text-ink-muted'
                 }`}>{d}</div>
               );
             })}
@@ -469,12 +471,12 @@ function MiniCalendar({ month, day, year, workDays, onDayChange }) {
                   className={`
                     h-8 w-full rounded-lg text-xs font-semibold transition-all
                     ${selected
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-accent text-base'
                       : isTodayD
-                        ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-300'
+                        ? 'bg-accent-soft text-accent ring-1 ring-accent-border'
                         : isNonWorking
-                          ? 'text-indigo-500 hover:bg-indigo-50'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'text-accent-light hover:bg-accent-soft'
+                          : 'text-ink-body2 hover:bg-surface-inset'
                     }
                   `}
                 >
@@ -484,7 +486,7 @@ function MiniCalendar({ month, day, year, workDays, onDayChange }) {
             })}
           </div>
 
-          <p className="text-[10px] text-gray-400 text-center mt-2">
+          <p className="text-[10px] text-ink-muted text-center mt-2">
             Solar curve uses actual 2023 irradiance for this date
           </p>
         </div>
@@ -656,52 +658,52 @@ export default function LoadSchedulePage() {
   const Defs = () => (
     <defs>
       <linearGradient id="gLoadMax" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#4f46e5" stopOpacity={0.18} />
-        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.01} />
+        <stop offset="5%"  stopColor="var(--text-muted)" stopOpacity={0.18} />
+        <stop offset="95%" stopColor="var(--text-muted)" stopOpacity={0.01} />
       </linearGradient>
       <linearGradient id="gLoadOpt" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#10b981" stopOpacity={0.22} />
-        <stop offset="95%" stopColor="#10b981" stopOpacity={0.01} />
+        <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.22} />
+        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.01} />
       </linearGradient>
       <linearGradient id="gSolar" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#f59e0b" stopOpacity={0.30} />
-        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.01} />
+        <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.30} />
+        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.01} />
       </linearGradient>
       <linearGradient id="gUtilSrc" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.14} />
-        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.01} />
+        <stop offset="5%"  stopColor="var(--text-body)" stopOpacity={0.14} />
+        <stop offset="95%" stopColor="var(--text-body)" stopOpacity={0.01} />
       </linearGradient>
       <linearGradient id="gGenSrc" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#f97316" stopOpacity={0.14} />
-        <stop offset="95%" stopColor="#f97316" stopOpacity={0.01} />
+        <stop offset="5%"  stopColor="var(--text-muted-3)" stopOpacity={0.14} />
+        <stop offset="95%" stopColor="var(--text-muted-3)" stopOpacity={0.01} />
       </linearGradient>
       <linearGradient id="gSolarUsed" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.85} />
-        <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.60} />
+        <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.85} />
+        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.60} />
       </linearGradient>
       <linearGradient id="gUtil" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.85} />
-        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.60} />
+        <stop offset="5%"  stopColor="var(--text-body)" stopOpacity={0.85} />
+        <stop offset="95%" stopColor="var(--text-body)" stopOpacity={0.60} />
       </linearGradient>
       <linearGradient id="gGen" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#f97316" stopOpacity={0.85} />
-        <stop offset="95%" stopColor="#f97316" stopOpacity={0.60} />
+        <stop offset="5%"  stopColor="var(--text-muted-3)" stopOpacity={0.85} />
+        <stop offset="95%" stopColor="var(--text-muted-3)" stopOpacity={0.60} />
       </linearGradient>
       <linearGradient id="gUnmet" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.85} />
-        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.60} />
+        <stop offset="5%"  stopColor="var(--danger)" stopOpacity={0.85} />
+        <stop offset="95%" stopColor="var(--danger)" stopOpacity={0.60} />
       </linearGradient>
       <linearGradient id="gBattDisc" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.85} />
-        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.60} />
+        <stop offset="5%"  stopColor="var(--text-body-2)" stopOpacity={0.85} />
+        <stop offset="95%" stopColor="var(--text-body-2)" stopOpacity={0.60} />
       </linearGradient>
       <linearGradient id="gBattChrgSol" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.70} />
-        <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.40} />
+        <stop offset="5%"  stopColor="var(--accent-light)" stopOpacity={0.70} />
+        <stop offset="95%" stopColor="var(--accent-light)" stopOpacity={0.40} />
       </linearGradient>
       <linearGradient id="gBattChrgGen" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="5%"  stopColor="#fb923c" stopOpacity={0.70} />
-        <stop offset="95%" stopColor="#fb923c" stopOpacity={0.40} />
+        <stop offset="5%"  stopColor="var(--text-muted-2)" stopOpacity={0.70} />
+        <stop offset="95%" stopColor="var(--text-muted-2)" stopOpacity={0.40} />
       </linearGradient>
     </defs>
   );
@@ -714,16 +716,16 @@ export default function LoadSchedulePage() {
           This is the same number as the orange "Capacity Shortfall" banner in After Shedding
           view, so the two can never contradict each other. */}
       {!loading && finalUnmetKwh > 0 && (
-        <div className="flex items-start gap-3 bg-red-700 border border-red-900 rounded-xl px-4 py-3">
-          <svg className="w-5 h-5 text-red-100 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-start gap-3 bg-danger border border-danger-border rounded-xl px-4 py-3">
+          <svg className="w-5 h-5 text-base flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white">
+            <p className="text-sm font-bold text-base">
               CRITICAL LOADS UNMET: {finalUnmetKwh.toFixed(2)} kWh cannot be served
             </p>
-            <p className="text-xs text-red-200 mt-0.5">
+            <p className="text-xs text-base/80 mt-0.5">
               All non-critical loads were shed but supply is still insufficient.
               {shedding && (shedding.shed_normal_kwh > 0 || shedding.shed_essential_kwh > 0)
                 ? ` After shedding ${((shedding.shed_normal_kwh ?? 0) + (shedding.shed_essential_kwh ?? 0)).toFixed(2)} kWh of non-critical loads, `
@@ -748,22 +750,22 @@ export default function LoadSchedulePage() {
         return (
           <div className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
             isRawView
-              ? 'bg-orange-50 border-orange-300'
-              : 'bg-red-50 border-red-300'
+              ? 'bg-accent-soft border-accent-border'
+              : 'bg-danger-soft border-danger-border'
           }`}>
-            <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isRawView ? 'text-orange-500' : 'text-red-500'}`}
+            <svg className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isRawView ? 'text-accent' : 'text-danger'}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </svg>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-bold ${isRawView ? 'text-orange-700' : 'text-red-700'}`}>
+              <p className={`text-sm font-bold ${isRawView ? 'text-accent' : 'text-danger'}`}>
                 {isRawView ? '⚠ Pre-Shedding Deficit: ' : '⚠ Capacity Shortfall: '}
                 {fmtKwh(unmetKwhDay)} of demand could not be served
                 {isRawView ? ' (before load shedding).' : '.'}
               </p>
               {worstHour !== null && (
-                <p className={`text-xs mt-0.5 ${isRawView ? 'text-orange-600' : 'text-red-600'}`}>
+                <p className={`text-xs mt-0.5 ${isRawView ? 'text-accent-light' : 'text-danger'}`}>
                   Worst hour: {hourLabel(worstHour)} ({maxUnmetKwDay.toFixed(1)} kW unmet).
                   {isRawView
                     ? ' Switch to "After Shedding" to see how much the shedding algorithm resolved.'
@@ -779,16 +781,16 @@ export default function LoadSchedulePage() {
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800
-            px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors flex-shrink-0">
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink-heading
+            px-2.5 py-1.5 rounded-lg border border-line hover:bg-surface-inset transition-colors flex-shrink-0">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Project
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Load Schedule</h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <h1 className="text-xl font-bold text-ink-heading">Load Schedule</h1>
+          <p className="text-xs text-ink-muted mt-0.5">
             {project?.name} — 24-hour power profile & source dispatch
           </p>
         </div>
@@ -796,8 +798,8 @@ export default function LoadSchedulePage() {
 
         {/* Month selector */}
         <select value={month} onChange={e => handleMonthChange(Number(e.target.value))}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700
-            focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white shadow-sm">
+          className="border border-line rounded-lg px-3 py-1.5 text-sm text-ink-body2
+            focus:outline-none focus:ring-2 focus:ring-accent/40 bg-surface-card">
           {MONTHS.map((m, i) => (
             <option key={i + 1} value={i + 1}>{m}</option>
           ))}
@@ -811,17 +813,17 @@ export default function LoadSchedulePage() {
         />
 
         {/* Year navigator */}
-        <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <div className="flex items-center gap-1 border border-line rounded-lg overflow-hidden">
           <button onClick={() => handleYearChange(-1)}
-            className="px-2 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-bold">‹</button>
-          <span className="px-2 text-sm font-semibold text-gray-700">{year}</span>
+            className="px-2 py-1.5 text-ink-muted hover:bg-surface-inset transition-colors text-sm font-bold">‹</button>
+          <span className="px-2 text-sm font-semibold font-mono text-ink-body2">{year}</span>
           <button onClick={() => handleYearChange(1)}
-            className="px-2 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-bold">›</button>
+            className="px-2 py-1.5 text-ink-muted hover:bg-surface-inset transition-colors text-sm font-bold">›</button>
         </div>
 
         {/* Selected day badge — auto-derived from the picked date */}
-        <span className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50
-          border border-indigo-200 rounded-lg capitalize shadow-sm">
+        <span className="px-3 py-1.5 text-xs font-semibold text-accent bg-accent-soft
+          border border-accent-border rounded-lg capitalize">
           {dayName}
         </span>
       </div>
@@ -837,7 +839,7 @@ export default function LoadSchedulePage() {
 
       {/* ── Tabs + mode ── */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-sm font-semibold">
+        <div className="flex rounded-lg border border-line overflow-hidden text-sm font-semibold">
           {[
             { key: 'load',      label: 'Load Schedule' },
             { key: 'sources',   label: 'Sources' },
@@ -845,40 +847,40 @@ export default function LoadSchedulePage() {
             { key: 'shiftable', label: '⚡ Shiftable Loads' },
           ].map(({ key, label }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`px-4 py-2 transition-colors border-l first:border-l-0 border-gray-200 ${
-                tab === key ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              className={`px-4 py-2 transition-colors border-l first:border-l-0 border-line ${
+                tab === key ? 'bg-accent text-base' : 'text-ink-body2 hover:bg-surface-inset'
               }`}>
               {label}
             </button>
           ))}
         </div>
 
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-xs font-semibold">
+        <div className="flex rounded-lg border border-line overflow-hidden text-xs font-semibold">
           <button onClick={() => setMode('optimized')}
             className={`px-3 py-1.5 transition-colors ${
-              mode === 'optimized' ? 'bg-emerald-500 text-white' : 'text-gray-600 hover:bg-gray-50'
+              mode === 'optimized' ? 'bg-accent text-base' : 'text-ink-body2 hover:bg-surface-inset'
             }`}>
             Optimized
           </button>
           <button onClick={() => setMode('max')}
-            className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${
-              mode === 'max' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+            className={`px-3 py-1.5 border-l border-line transition-colors ${
+              mode === 'max' ? 'bg-accent text-base' : 'text-ink-body2 hover:bg-surface-inset'
             }`}>
             Max Load
           </button>
         </div>
 
         {/* Before / After Shedding toggle — shows raw vs post-shed dispatch */}
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden shadow-sm text-xs font-semibold">
+        <div className="flex rounded-lg border border-line overflow-hidden text-xs font-semibold">
           <button onClick={() => setSheddingView('shed')}
             className={`px-3 py-1.5 transition-colors ${
-              sheddingView === 'shed' ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              sheddingView === 'shed' ? 'bg-accent text-base' : 'text-ink-body2 hover:bg-surface-inset'
             }`}>
             After Shedding
           </button>
           <button onClick={() => setSheddingView('raw')}
-            className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${
-              sheddingView === 'raw' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'
+            className={`px-3 py-1.5 border-l border-line transition-colors ${
+              sheddingView === 'raw' ? 'bg-accent text-base' : 'text-ink-body2 hover:bg-surface-inset'
             }`}>
             Before Shedding
           </button>
@@ -888,27 +890,27 @@ export default function LoadSchedulePage() {
 
       {/* ── Restoration-mode bar — visible below controls when After Shedding + generator fuel data ── */}
       {sheddingView === 'shed' && mode === 'optimized' && data?.cost_rates?.generator_rated_lph != null && (
-        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
-          <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-3 bg-accent-soft border border-accent-border rounded-xl px-4 py-2.5">
+          <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-xs font-semibold text-emerald-700 flex-shrink-0">Restoration mode:</span>
-          <div className="flex rounded-lg border border-emerald-300 overflow-hidden shadow-sm text-xs font-semibold">
+          <span className="text-xs font-semibold text-accent flex-shrink-0">Restoration mode:</span>
+          <div className="flex rounded-lg border border-accent-border overflow-hidden text-xs font-semibold">
             <button onClick={() => setRestoreMode('service')}
               className={`px-3 py-1.5 transition-colors ${
-                restoreMode === 'service' ? 'bg-emerald-600 text-white' : 'text-emerald-700 hover:bg-emerald-100'
+                restoreMode === 'service' ? 'bg-accent text-base' : 'text-accent hover:bg-accent-softer'
               }`}>
               Service-Priority
             </button>
             <button onClick={() => setRestoreMode('cost')}
-              className={`px-3 py-1.5 border-l border-emerald-300 transition-colors ${
-                restoreMode === 'cost' ? 'bg-emerald-700 text-white' : 'text-emerald-700 hover:bg-emerald-100'
+              className={`px-3 py-1.5 border-l border-accent-border transition-colors ${
+                restoreMode === 'cost' ? 'bg-accent text-base' : 'text-accent hover:bg-accent-softer'
               }`}>
               Cost-Priority
             </button>
           </div>
-          <span className="text-[10px] text-emerald-500 hidden sm:block">
+          <span className="text-[10px] text-accent-light hidden sm:block">
             {restoreMode === 'cost'
               ? 'Keeps generator ≤ 30% load — sheds more to minimise fuel consumption'
               : 'Restores shed loads whenever supply headroom permits'}
@@ -917,37 +919,37 @@ export default function LoadSchedulePage() {
       )}
 
       {/* ── Chart area ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div className="bg-surface-card rounded-2xl border border-line-subtle p-4">
 
         {/* Solar / location info bar */}
         {data && (
           <div className="flex items-center gap-4 flex-wrap mb-4 px-1">
             {hasSolar ? (
               <>
-                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                <div className="flex items-center gap-1.5 text-xs text-accent bg-accent-soft px-2.5 py-1 rounded-full border border-accent-border">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
                   </svg>
                   <span>Sunrise {data.sunrise_hour != null ? hourLabel(Math.floor(data.sunrise_hour)) : '—'}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                <div className="flex items-center gap-1.5 text-xs text-accent bg-accent-soft px-2.5 py-1 rounded-full border border-accent-border">
                   <span>Sunset {data.sunset_hour != null ? hourLabel(Math.floor(data.sunset_hour)) : '—'}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
+                <div className="flex items-center gap-1.5 text-xs text-accent bg-accent-soft px-2.5 py-1 rounded-full border border-accent-border">
                   <span>PSH {data.peak_sun_hours} h/day</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                <div className="flex items-center gap-1.5 text-xs text-accent bg-accent-soft px-2.5 py-1 rounded-full border border-accent-border">
                   <span>Solar cap {fmtW(data.solar_capacity_w)}</span>
                 </div>
               </>
             ) : (
-              <p className="text-xs text-gray-400 italic">
+              <p className="text-xs text-ink-muted italic">
                 {hasLocation ? 'No solar capacity configured.' : 'Set location to enable solar generation profile.'}
               </p>
             )}
             <div className="flex-1" />
-            <span className="text-xs text-gray-400 capitalize">
+            <span className="text-xs text-ink-muted capitalize">
               {MONTHS[month - 1]} {day}, {year} — {dayName}
             </span>
           </div>
@@ -955,29 +957,29 @@ export default function LoadSchedulePage() {
 
         {loading ? (
           <div className="h-72 flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-accent-soft border-t-accent rounded-full animate-spin" />
           </div>
         ) : error === 'no_sources' ? (
           <div className="h-72 flex flex-col items-center justify-center gap-4 text-center px-8">
-            <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-12 h-12 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <div>
-              <p className="text-sm font-semibold text-gray-700">No power sources configured</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-sm font-semibold text-ink-body2">No power sources configured</p>
+              <p className="text-xs text-ink-muted mt-1">
                 Add a utility line, generator, or solar system to generate a load schedule.
               </p>
             </div>
             <button
               onClick={() => navigate(`/projects/${projectId}`)}
-              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors">
+              className="px-4 py-2 text-xs font-semibold text-base bg-accent-gradient hover:shadow-accent rounded-lg transition-shadow">
               Go to Sources
             </button>
           </div>
         ) : error ? (
           <div className="h-72 flex items-center justify-center">
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-danger">{error}</p>
           </div>
         ) : (
           <>
@@ -986,27 +988,27 @@ export default function LoadSchedulePage() {
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={chartData} margin={{ top: 5, right: 55, left: 10, bottom: 0 }}>
                   <Defs />
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                  <YAxis yAxisId="w" tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                  <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                  <YAxis yAxisId="w" tickFormatter={fmtW} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} width={65} />
                   <YAxis yAxisId="kvar" orientation="right"
-                    tickFormatter={v => `${v} kVAR`} tick={{ fontSize: 10, fill: '#f59e0b' }} width={55} />
+                    tickFormatter={v => `${v} kVAR`} tick={{ fontSize: 10, fill: 'var(--accent-bright)' }} width={55} />
                   <Tooltip content={<CustomTooltip tab="load" />} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8, color: 'var(--text-body)' }} />
                   {data?.sunrise_hour != null && (
-                    <ReferenceLine yAxisId="w" x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3"
-                      label={{ value: '☀ Rise', position: 'top', fontSize: 10, fill: '#d97706' }} />
+                    <ReferenceLine yAxisId="w" x={Math.round(data.sunrise_hour)} stroke="var(--accent-light)" strokeDasharray="4 3"
+                      label={{ value: '☀ Rise', position: 'top', fontSize: 10, fill: 'var(--accent)' }} />
                   )}
                   {data?.sunset_hour != null && (
-                    <ReferenceLine yAxisId="w" x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3"
-                      label={{ value: '☀ Set', position: 'top', fontSize: 10, fill: '#d97706' }} />
+                    <ReferenceLine yAxisId="w" x={Math.round(data.sunset_hour)} stroke="var(--accent-light)" strokeDasharray="4 3"
+                      label={{ value: '☀ Set', position: 'top', fontSize: 10, fill: 'var(--accent)' }} />
                   )}
                   <Area yAxisId="w" type="monotone" dataKey="load_max" name="Max Load"
-                    stroke="#4f46e5" fill="url(#gLoadMax)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    stroke="var(--text-muted)" fill="url(#gLoadMax)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                   <Area yAxisId="w" type="monotone" dataKey="load_opt" name="Optimized"
-                    stroke="#10b981" fill="url(#gLoadOpt)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    stroke="var(--accent)" fill="url(#gLoadOpt)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                   <Line yAxisId="kvar" type="monotone" dataKey="kvar" name="Reactive (kVAR)"
-                    stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
+                    stroke="var(--accent-bright)" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             )}
@@ -1016,33 +1018,33 @@ export default function LoadSchedulePage() {
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
                   <Defs />
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                  <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                  <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                  <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} width={65} />
                   <Tooltip content={<CustomTooltip tab="sources" />} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8, color: 'var(--text-body)' }} />
                   {data?.sunrise_hour != null && (
-                    <ReferenceLine x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3"
-                      label={{ value: '☀ Rise', position: 'top', fontSize: 10, fill: '#d97706' }} />
+                    <ReferenceLine x={Math.round(data.sunrise_hour)} stroke="var(--accent-light)" strokeDasharray="4 3"
+                      label={{ value: '☀ Rise', position: 'top', fontSize: 10, fill: 'var(--accent)' }} />
                   )}
                   {data?.sunset_hour != null && (
-                    <ReferenceLine x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3"
-                      label={{ value: '☀ Set', position: 'top', fontSize: 10, fill: '#d97706' }} />
+                    <ReferenceLine x={Math.round(data.sunset_hour)} stroke="var(--accent-light)" strokeDasharray="4 3"
+                      label={{ value: '☀ Set', position: 'top', fontSize: 10, fill: 'var(--accent)' }} />
                   )}
                   {/* Generator capacity — flat area (behind others) */}
                   <Area type="monotone" dataKey="gen_cap" name="Generator Capacity"
-                    stroke="#f97316" strokeWidth={2} strokeDasharray="6 3"
+                    stroke="var(--text-muted-3)" strokeWidth={2} strokeDasharray="6 3"
                     fill="url(#gGenSrc)" dot={false} activeDot={{ r: 4 }} />
                   {/* Utility capacity — flat area */}
                   <Area type="monotone" dataKey="utility_cap" name="Utility Capacity"
-                    stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 3"
+                    stroke="var(--text-body)" strokeWidth={2} strokeDasharray="6 3"
                     fill="url(#gUtilSrc)" dot={false} activeDot={{ r: 4 }} />
                   {/* Solar generation bell curve — solid fill, in front */}
                   <Area type="monotone" dataKey="solar" name="Solar Generation"
-                    stroke="#f59e0b" strokeWidth={2.5}
+                    stroke="var(--accent)" strokeWidth={2.5}
                     fill="url(#gSolar)" dot={false} activeDot={{ r: 4 }} />
                   {!hasSolar && (
-                    <text x="50%" y="45%" textAnchor="middle" fill="#9ca3af" fontSize={13}>
+                    <text x="50%" y="45%" textAnchor="middle" fill="var(--text-muted)" fontSize={13}>
                       Set location &amp; solar capacity to see solar generation curve
                     </text>
                   )}
@@ -1057,83 +1059,83 @@ export default function LoadSchedulePage() {
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
                     <Defs />
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                    <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: '#9ca3af' }} width={65} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                    <XAxis dataKey="hour" tickFormatter={xTick} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                    <YAxis tickFormatter={fmtW} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} width={65} />
                     {hasBattery && (
                       <YAxis yAxisId="soc" orientation="right" domain={[0, 100]}
-                        tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#8b5cf6' }} width={35} />
+                        tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: 'var(--text-body-2)' }} width={35} />
                     )}
                     <Tooltip content={<CustomTooltip tab="combined" />} />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8, color: 'var(--text-body)' }} />
                     {data?.sunrise_hour != null && (
-                      <ReferenceLine x={Math.round(data.sunrise_hour)} stroke="#fbbf24" strokeDasharray="4 3" />
+                      <ReferenceLine x={Math.round(data.sunrise_hour)} stroke="var(--accent-light)" strokeDasharray="4 3" />
                     )}
                     {data?.sunset_hour != null && (
-                      <ReferenceLine x={Math.round(data.sunset_hour)} stroke="#fbbf24" strokeDasharray="4 3" />
+                      <ReferenceLine x={Math.round(data.sunset_hour)} stroke="var(--accent-light)" strokeDasharray="4 3" />
                     )}
                     {/* Stacked areas — solar, battery, utility, generator, unmet */}
                     <Area type="monotone" dataKey="solar_used"   name="Solar"     stackId="s"
-                      stroke="#f59e0b" fill="url(#gSolarUsed)" strokeWidth={1.5} dot={false} />
+                      stroke="var(--accent)" fill="url(#gSolarUsed)" strokeWidth={1.5} dot={false} />
                     {hasBattery && (
                       <Area type="monotone" dataKey="battery_disc" name="Battery" stackId="s"
-                        stroke="#8b5cf6" fill="url(#gBattDisc)" strokeWidth={1.5} dot={false} />
+                        stroke="var(--text-body-2)" fill="url(#gBattDisc)" strokeWidth={1.5} dot={false} />
                     )}
                     <Area type="monotone" dataKey="utility_used" name="Utility"    stackId="s"
-                      stroke="#3b82f6" fill="url(#gUtil)"      strokeWidth={1.5} dot={false} />
+                      stroke="var(--text-body)" fill="url(#gUtil)"      strokeWidth={1.5} dot={false} />
                     <Area type="monotone" dataKey="gen_used"     name="Generator"  stackId="s"
-                      stroke="#f97316" fill="url(#gGen)"       strokeWidth={1.5} dot={false} />
+                      stroke="var(--text-muted-3)" fill="url(#gGen)"       strokeWidth={1.5} dot={false} />
                     <Area type="monotone" dataKey="unmet"        name="Unmet"      stackId="s"
-                      stroke="#ef4444" fill="url(#gUnmet)"     strokeWidth={1.5} dot={false} />
+                      stroke="var(--danger)" fill="url(#gUnmet)"     strokeWidth={1.5} dot={false} />
                     {/* Demand line */}
                     <Line type="monotone" dataKey="demand" name="Demand"
-                      stroke="#1f2937" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                      stroke="var(--text-heading)" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                     {/* Battery SOC % — right axis */}
                     {hasBattery && (
                       <Line yAxisId="soc" type="monotone" dataKey="battery_soc" name="Battery SOC %"
-                        stroke="#8b5cf6" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
+                        stroke="var(--text-body-2)" strokeWidth={1.5} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} />
                     )}
                   </ComposedChart>
                 </ResponsiveContainer>
 
                 {/* Per-source sub-charts */}
-                <div className={`grid gap-4 mt-4 pt-4 border-t border-gray-100 ${
+                <div className={`grid gap-4 mt-4 pt-4 border-t border-line-subtle ${
                   hasBattery ? 'grid-cols-3 lg:grid-cols-5' : 'grid-cols-3'
                 }`}>
                   <SourceSubChart
                     data={chartData} dataKey="solar_used" demandKey="demand"
-                    name="Solar → Load" stroke="#f59e0b" xTick={xTick}
+                    name="Solar → Load" stroke="var(--accent)" xTick={xTick}
                   />
                   {hasBattery && (
                     <SourceSubChart
                       data={chartData} dataKey="battery_chrg_sol" demandKey="demand"
-                      name="Solar → Battery" stroke="#fbbf24" xTick={xTick}
+                      name="Solar → Battery" stroke="var(--accent-light)" xTick={xTick}
                     />
                   )}
                   {hasBattery && (
                     <SourceSubChart
                       data={chartData} dataKey="battery_disc" demandKey="demand"
-                      name="Battery → Load" stroke="#8b5cf6" xTick={xTick}
+                      name="Battery → Load" stroke="var(--text-body-2)" xTick={xTick}
                     />
                   )}
                   <SourceSubChart
                     data={chartData} dataKey="utility_used" demandKey="demand"
-                    name="Utility Grid" stroke="#3b82f6" xTick={xTick}
+                    name="Utility Grid" stroke="var(--text-body)" xTick={xTick}
                   />
                   <SourceSubChart
                     data={chartData} dataKey="gen_used" demandKey="demand"
-                    name="Generator" stroke="#f97316" xTick={xTick}
+                    name="Generator" stroke="var(--text-muted-3)" xTick={xTick}
                   />
                 </div>
                 {/* Battery charging from generator — shown only when it occurs */}
                 {hasBattery && chartData.some(d => d.battery_chrg_gen > 0) && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs font-semibold text-orange-600 mb-2">
+                  <div className="mt-3 pt-3 border-t border-line-subtle">
+                    <p className="text-xs font-semibold text-accent-light mb-2">
                       Generator → Battery Charging (spare capacity)
                     </p>
                     <SourceSubChart
                       data={chartData} dataKey="battery_chrg_gen" demandKey="demand"
-                      name="Gen spare → Battery" stroke="#fb923c" xTick={xTick}
+                      name="Gen spare → Battery" stroke="var(--text-muted-2)" xTick={xTick}
                     />
                   </div>
                 )}
@@ -1152,9 +1154,9 @@ export default function LoadSchedulePage() {
             <ShedLoadsPanel shedding={shedding} />
           )}
 
-          <h2 className="text-sm font-semibold text-gray-700">
+          <h2 className="text-sm font-semibold text-ink-body2">
             Daily Energy Breakdown
-            <span className="ml-2 text-xs font-normal text-gray-400">
+            <span className="ml-2 text-xs font-normal text-ink-muted">
               ({mode === 'optimized' ? 'Optimized' : 'Max'} load — {MONTHS[month - 1]} {day}, {year} — {dayName})
             </span>
           </h2>
@@ -1212,7 +1214,7 @@ export default function LoadSchedulePage() {
               <>
                 <div className={`grid gap-3 ${hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
                   <StatCard
-                    color="#f59e0b" dot="bg-amber-400"
+                    color="var(--accent)" dot="bg-accent"
                     label="Solar"
                     hours={stats.solar_hours}
                     kwh={stats.solar_kwh}
@@ -1223,7 +1225,7 @@ export default function LoadSchedulePage() {
                   />
                   {hasBattery && (stats.battery_discharged_kwh ?? 0) > 0 && (
                     <StatCard
-                      color="#8b5cf6" dot="bg-violet-400"
+                      color="var(--text-body-2)" dot="bg-ink-body2"
                       label={`Battery${(stats.battery_charged_gen_kwh ?? 0) > 0 ? ' ⚡' : ''}`}
                       hours={chartData.filter(d => d.battery_disc > 0).length}
                       kwh={stats.battery_discharged_kwh}
@@ -1234,7 +1236,7 @@ export default function LoadSchedulePage() {
                     />
                   )}
                   <StatCard
-                    color="#3b82f6" dot="bg-blue-400"
+                    color="var(--text-body)" dot="bg-ink-body"
                     label="Utility Grid"
                     hours={stats.utility_hours}
                     kwh={stats.utility_kwh}
@@ -1244,7 +1246,7 @@ export default function LoadSchedulePage() {
                     currency={sym}
                   />
                   <StatCard
-                    color="#f97316" dot="bg-orange-400"
+                    color="var(--text-muted-3)" dot="bg-ink-muted3"
                     label="Generator"
                     hours={stats.generator_hours}
                     kwh={stats.generator_kwh}
@@ -1255,50 +1257,50 @@ export default function LoadSchedulePage() {
                   />
                   {stats.unmet_kwh > 0 ? (
                     <StatCard
-                      color="#ef4444" dot="bg-red-400"
+                      color="var(--danger)" dot="bg-danger"
                       label="Unmet Load"
                       hours={0}
                       kwh={stats.unmet_kwh}
                       pct={pct(stats.unmet_kwh)}
                     />
                   ) : (
-                    <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 flex flex-col items-center justify-center gap-1">
-                      <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-success-soft rounded-xl border border-success-border p-4 flex flex-col items-center justify-center gap-1">
+                      <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <p className="text-xs font-semibold text-emerald-700">All Load Covered</p>
-                      <p className="text-[10px] text-emerald-500">0 kWh unmet</p>
+                      <p className="text-xs font-semibold text-success">All Load Covered</p>
+                      <p className="text-[10px] text-success">0 kWh unmet</p>
                     </div>
                   )}
                 </div>
 
                 {/* Summary row */}
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex flex-wrap gap-6 text-sm">
+                <div className="bg-surface-card rounded-xl border border-line-subtle px-4 py-3 flex flex-wrap gap-6 text-sm">
                   <div>
-                    <span className="text-gray-400 text-xs uppercase tracking-wide">Total Load</span>
-                    <p className="font-bold text-gray-800">{fmtKwh(stats.total_load_kwh)}</p>
+                    <span className="text-ink-muted text-xs uppercase tracking-wide">Total Load</span>
+                    <p className="font-bold font-mono text-ink-data">{fmtKwh(stats.total_load_kwh)}</p>
                   </div>
                   {hasSolar && stats.solar_generated_kwh > 0 && (
                     <div>
-                      <span className="text-gray-400 text-xs uppercase tracking-wide">Solar Generated</span>
-                      <p className="font-bold text-amber-600">{fmtKwh(stats.solar_generated_kwh)}</p>
+                      <span className="text-ink-muted text-xs uppercase tracking-wide">Solar Generated</span>
+                      <p className="font-bold font-mono text-accent">{fmtKwh(stats.solar_generated_kwh)}</p>
                     </div>
                   )}
                   {hasSolar && stats.solar_generated_kwh > 0 && (
                     <div>
-                      <span className="text-gray-400 text-xs uppercase tracking-wide">Solar Self-consumption</span>
-                      <p className="font-bold text-emerald-600">{stats.solar_self_consumption}%</p>
+                      <span className="text-ink-muted text-xs uppercase tracking-wide">Solar Self-consumption</span>
+                      <p className="font-bold font-mono text-success">{stats.solar_self_consumption}%</p>
                     </div>
                   )}
                   {showCosts && (
                     <div>
-                      <span className="text-gray-400 text-xs uppercase tracking-wide">Total Daily Cost</span>
-                      <p className="font-bold text-gray-900">{sym}{totalDailyCost.toFixed(2)}</p>
+                      <span className="text-ink-muted text-xs uppercase tracking-wide">Total Daily Cost</span>
+                      <p className="font-bold font-mono text-ink-heading">{sym}{totalDailyCost.toFixed(2)}</p>
                     </div>
                   )}
                   <div className="ml-auto text-right">
-                    <span className="text-gray-400 text-xs uppercase tracking-wide">Utility + Generator</span>
-                    <p className="font-bold text-gray-800">{fmtKwh((stats.utility_kwh || 0) + (stats.generator_kwh || 0))}</p>
+                    <span className="text-ink-muted text-xs uppercase tracking-wide">Utility + Generator</span>
+                    <p className="font-bold font-mono text-ink-data">{fmtKwh((stats.utility_kwh || 0) + (stats.generator_kwh || 0))}</p>
                   </div>
                 </div>
               </>
@@ -1306,11 +1308,11 @@ export default function LoadSchedulePage() {
           })()}
 
           {/* Dispatch priority note */}
-          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-            <svg className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-start gap-2 bg-surface-inset border border-line rounded-xl px-4 py-3">
+            <svg className="w-4 h-4 text-ink-muted flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-xs text-blue-700">
+            <p className="text-xs text-ink-body2">
               <strong>Dispatch priority:</strong> Solar → Utility Grid → Generator.
               Solar covers as much of the demand as available; utility fills the gap up to its capacity;
               generator covers any remaining demand. Unmet load appears only if all sources are insufficient.
@@ -1319,31 +1321,31 @@ export default function LoadSchedulePage() {
 
           {/* Battery chemistry comparison panel */}
           {hasBattery && (
-            <div className="rounded-xl border border-violet-100 bg-violet-50/40 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-violet-100">
+            <div className="rounded-xl border border-line bg-surface-inset overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-line">
                 <div className="flex items-center gap-2">
-                  <svg className="w-3.5 h-3.5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
-                  <span className="text-xs font-semibold text-violet-700">Battery Chemistry Comparison</span>
-                  <span className="text-[10px] text-violet-400">— same nominal capacity, same building</span>
+                  <span className="text-xs font-semibold text-ink-body2">Battery Chemistry Comparison</span>
+                  <span className="text-[10px] text-ink-muted">— same nominal capacity, same building</span>
                 </div>
                 {!chemComp && !chemCompLoading && (
                   <button
                     onClick={fetchChemComp}
-                    className="text-[10px] font-semibold text-violet-600 bg-white border border-violet-200 rounded-lg px-2.5 py-1 hover:bg-violet-50 transition-colors"
+                    className="text-[10px] font-semibold text-ink-body2 bg-surface-card border border-line rounded-lg px-2.5 py-1 hover:bg-surface-inset2 hover:border-line-strong transition-colors"
                   >
                     Run comparison
                   </button>
                 )}
                 {chemCompLoading && (
-                  <span className="text-[10px] text-violet-400 animate-pulse">Computing…</span>
+                  <span className="text-[10px] text-ink-muted animate-pulse">Computing…</span>
                 )}
                 {chemComp && !chemCompLoading && (
                   <button
                     onClick={fetchChemComp}
-                    className="text-[10px] text-violet-400 hover:text-violet-600 transition-colors"
+                    className="text-[10px] text-ink-muted hover:text-ink-heading transition-colors"
                     title="Refresh"
                   >
                     ↺ Refresh
@@ -1360,20 +1362,20 @@ export default function LoadSchedulePage() {
                 if (!la || !lfp) return null;
 
                 const row = (label, laVal, lfpVal, fmt = v => v, highlight = false) => (
-                  <tr key={label} className={highlight ? 'bg-violet-50' : ''}>
-                    <td className="px-3 py-1.5 text-[11px] text-gray-500 font-medium">{label}</td>
-                    <td className="px-3 py-1.5 text-[11px] text-center font-semibold text-amber-700">{fmt(laVal)}</td>
-                    <td className="px-3 py-1.5 text-[11px] text-center font-semibold text-violet-700">{fmt(lfpVal)}</td>
-                    <td className="px-3 py-1.5 text-[11px] text-center text-gray-400 italic">
+                  <tr key={label} className={highlight ? 'bg-accent-soft' : ''}>
+                    <td className="px-3 py-1.5 text-[11px] text-ink-muted font-medium">{label}</td>
+                    <td className="px-3 py-1.5 text-[11px] text-center font-semibold font-mono text-accent">{fmt(laVal)}</td>
+                    <td className="px-3 py-1.5 text-[11px] text-center font-semibold font-mono text-ink-heading2">{fmt(lfpVal)}</td>
+                    <td className="px-3 py-1.5 text-[11px] text-center text-ink-muted italic">
                       {d ? (() => {
                         const diff = laVal - lfpVal;
                         if (typeof diff !== 'number' || isNaN(diff)) return '—';
                         const sign = diff > 0 ? '−' : '+';
                         return diff !== 0
-                          ? <span className={diff > 0 ? 'text-emerald-600 font-semibold' : 'text-red-400'}>
+                          ? <span className={diff > 0 ? 'text-success font-semibold' : 'text-danger'}>
                               {sign}{fmt(Math.abs(diff))} LFP
                             </span>
-                          : <span className="text-gray-300">same</span>;
+                          : <span className="text-ink-muted2">same</span>;
                       })() : '—'}
                     </td>
                   </tr>
@@ -1381,28 +1383,28 @@ export default function LoadSchedulePage() {
 
                 return (
                   <div className="px-4 py-3">
-                    <p className="text-[10px] text-gray-400 mb-2">
-                      Nominal capacity: <strong className="text-gray-600">{chemComp.nominal_kwh} kWh</strong>
-                      {' '}· Lead-Acid usable: <strong className="text-amber-600">{la.usable_kwh} kWh</strong>
-                      {' '}· LFP usable: <strong className="text-violet-600">{lfp.usable_kwh} kWh</strong>
+                    <p className="text-[10px] text-ink-muted mb-2">
+                      Nominal capacity: <strong className="text-ink-body">{chemComp.nominal_kwh} kWh</strong>
+                      {' '}· Lead-Acid usable: <strong className="text-accent">{la.usable_kwh} kWh</strong>
+                      {' '}· LFP usable: <strong className="text-ink-heading2">{lfp.usable_kwh} kWh</strong>
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-violet-100">
-                            <th className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-1/3"></th>
-                            <th className="px-3 py-1.5 text-[10px] font-semibold text-amber-600 uppercase tracking-wide text-center">
+                          <tr className="border-b border-line">
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-ink-muted uppercase tracking-wide w-1/3"></th>
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-accent uppercase tracking-wide text-center">
                               Lead-Acid<br/>
                               <span className="normal-case font-normal">DoD {la.dod_pct}% · RTE {la.rte_pct}%</span>
                             </th>
-                            <th className="px-3 py-1.5 text-[10px] font-semibold text-violet-600 uppercase tracking-wide text-center">
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-ink-heading2 uppercase tracking-wide text-center">
                               Lithium LFP<br/>
                               <span className="normal-case font-normal">DoD {lfp.dod_pct}% · RTE {lfp.rte_pct}%</span>
                             </th>
-                            <th className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide text-center">LFP advantage</th>
+                            <th className="px-3 py-1.5 text-[10px] font-semibold text-ink-muted uppercase tracking-wide text-center">LFP advantage</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-line-subtle">
                           {row('Battery delivered', la.battery_discharged_kwh, lfp.battery_discharged_kwh, v => `${Number(v).toFixed(1)} kWh`)}
                           {row('Generator hours', la.generator_hours, lfp.generator_hours, v => `${v} h`, true)}
                           {row('Generator kWh', la.generator_kwh, lfp.generator_kwh, v => `${Number(v).toFixed(1)} kWh`)}
@@ -1414,7 +1416,7 @@ export default function LoadSchedulePage() {
                       </table>
                     </div>
                     {d?.fuel_cost_saved != null && d.fuel_cost_saved > 0 && (
-                      <p className="text-[10px] text-emerald-700 mt-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                      <p className="text-[10px] text-success mt-2 bg-success-soft border border-success-border rounded-lg px-3 py-1.5">
                         LFP saves <strong>{cur}{d.fuel_cost_saved.toFixed(2)}/day</strong> in generator fuel
                         ({d.generator_hours_saved > 0 ? `${d.generator_hours_saved}h less running, ` : ''}
                         {d.generator_kwh_saved} kWh less generated) vs same-nominal lead-acid.
@@ -1425,7 +1427,7 @@ export default function LoadSchedulePage() {
               })()}
 
               {!chemComp && !chemCompLoading && (
-                <p className="text-[10px] text-gray-400 text-center py-3">
+                <p className="text-[10px] text-ink-muted text-center py-3">
                   Click "Run comparison" to see how battery chemistry affects generator usage.
                 </p>
               )}
@@ -1514,85 +1516,85 @@ function ShedLoadsPanel({ shedding }) {
 
   function actionBadge(action) {
     if (action === 'shed_essential')
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">Essential Shed</span>;
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-danger-soft text-danger">Essential Shed</span>;
     if (action === 'shed_normal')
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">Shed</span>;
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent-soft text-accent">Shed</span>;
     if (action === 'curtailed')
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-800">Curtailed</span>;
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-accent-soft text-accent-light">Curtailed</span>;
     if (action?.startsWith('shifted_to_h')) {
       const h = action.replace('shifted_to_h', '');
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">Shifted → {h}:00</span>;
+      return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-inset text-ink-body2">Shifted → {h}:00</span>;
     }
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600">{action}</span>;
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-inset text-ink-body2">{action}</span>;
   }
 
   const totalShedKwh = circuits.reduce((s, c) => s + c.totalKwh, 0);
   const numRestored  = circuits.filter(c => c.wasRestored).length;
 
   return (
-    <div className="rounded-xl border border-orange-100 bg-orange-50/30 overflow-hidden">
+    <div className="rounded-xl border border-accent-border bg-accent-soft overflow-hidden">
       {/* Header — click to fold/unfold the list */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-orange-50/60 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent-softer transition-colors"
       >
         <div className="flex items-center gap-2">
           <svg
-            className={`w-3 h-3 text-orange-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
+            className={`w-3 h-3 text-accent-light flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
           </svg>
-          <span className="text-xs font-semibold text-orange-700">Shed Loads</span>
-          <span className="text-[10px] text-orange-400 hidden sm:inline">— circuits removed by load shedding this day</span>
+          <span className="text-xs font-semibold text-accent">Shed Loads</span>
+          <span className="text-[10px] text-accent-light hidden sm:inline">— circuits removed by load shedding this day</span>
         </div>
         <div className="flex items-center gap-3 text-[10px]">
-          <span className="text-orange-500">{circuits.length} circuit{circuits.length !== 1 ? 's' : ''}</span>
-          <span className="font-semibold text-orange-600">{totalShedKwh.toFixed(2)} kWh shed</span>
+          <span className="text-accent-light">{circuits.length} circuit{circuits.length !== 1 ? 's' : ''}</span>
+          <span className="font-semibold text-accent">{totalShedKwh.toFixed(2)} kWh shed</span>
           {numRestored > 0 && (
-            <span className="text-emerald-600 font-semibold">{numRestored} restored mid-day</span>
+            <span className="text-success font-semibold">{numRestored} restored mid-day</span>
           )}
         </div>
       </button>
 
       {/* Per-circuit rows — only when expanded */}
-      {open && <div className="border-t border-orange-100 divide-y divide-orange-50">
+      {open && <div className="border-t border-accent-border divide-y divide-accent-border">
         {circuits.map(circuit => (
           <div key={circuit.label}>
             <button
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-orange-50/60 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent-softer transition-colors text-left"
               onClick={() => toggle(circuit.label)}
             >
               <svg
-                className={`w-3 h-3 text-orange-400 flex-shrink-0 transition-transform ${expanded[circuit.label] ? 'rotate-90' : ''}`}
+                className={`w-3 h-3 text-accent-light flex-shrink-0 transition-transform ${expanded[circuit.label] ? 'rotate-90' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <span className="text-[11px] font-medium text-gray-700 flex-1 min-w-0 truncate" title={circuit.label}>
+              <span className="text-[11px] font-medium text-ink-body2 flex-1 min-w-0 truncate" title={circuit.label}>
                 {decodeCircuitLabel(circuit.label)}
               </span>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {[...circuit.actionTypes].map(a => <span key={a}>{actionBadge(a)}</span>)}
               </div>
               {circuit.wasRestored && (
-                <span className="text-[10px] text-emerald-600 font-medium flex-shrink-0 ml-1">↩ restored</span>
+                <span className="text-[10px] text-success font-medium flex-shrink-0 ml-1">↩ restored</span>
               )}
-              <span className="text-[11px] font-semibold text-gray-500 w-16 text-right flex-shrink-0 tabular-nums">
+              <span className="text-[11px] font-semibold font-mono text-ink-data w-16 text-right flex-shrink-0 tabular-nums">
                 {circuit.totalKwh.toFixed(3)} kWh
               </span>
             </button>
 
             {expanded[circuit.label] && (
               <div className="px-6 pb-3 pt-1">
-                <div className="border-l-2 border-orange-200 pl-3 space-y-1.5">
+                <div className="border-l-2 border-accent-border pl-3 space-y-1.5">
                   {circuit.timeline.map((item, i) => (
                     item.kind === 'restored' ? (
-                      <div key={i} className="flex items-center gap-2 text-[10px] text-emerald-600">
+                      <div key={i} className="flex items-center gap-2 text-[10px] text-success">
                         <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1601,9 +1603,9 @@ function ShedLoadsPanel({ shedding }) {
                       </div>
                     ) : (
                       <div key={i} className="flex items-center gap-2 text-[10px]">
-                        <span className="text-gray-400 w-12 flex-shrink-0 font-mono tabular-nums">{hourLabel(item.hour)}</span>
+                        <span className="text-ink-muted w-12 flex-shrink-0 font-mono tabular-nums">{hourLabel(item.hour)}</span>
                         {actionBadge(item.action)}
-                        <span className="text-gray-400 ml-auto tabular-nums">{(item.kwh ?? 0).toFixed(3)} kWh</span>
+                        <span className="text-ink-muted ml-auto font-mono tabular-nums">{(item.kwh ?? 0).toFixed(3)} kWh</span>
                       </div>
                     )
                   ))}
@@ -1615,8 +1617,8 @@ function ShedLoadsPanel({ shedding }) {
       </div>}
 
       {/* Footer note — only when list is open */}
-      {open && <div className="px-4 py-2 border-t border-orange-100">
-        <p className="text-[10px] text-orange-300">
+      {open && <div className="px-4 py-2 border-t border-accent-border">
+        <p className="text-[10px] text-accent-light">
           Restoration times are inferred from consecutive shed events — exact hour not logged.
           Loads are shed in priority order: Normal → Essential. Critical loads are never shed.
         </p>
@@ -1693,24 +1695,24 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
   }
 
   if (error) return (
-    <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-sm text-red-700">{error}</div>
+    <div className="bg-danger-soft border border-danger-border rounded-xl p-6 text-sm text-danger">{error}</div>
   );
 
   if (comps === null) return (
     <div className="flex items-center justify-center py-16">
-      <div className="w-8 h-8 border-4 border-yellow-200 border-t-yellow-500 rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-accent-soft border-t-accent rounded-full animate-spin" />
     </div>
   );
 
   if (comps.length === 0) return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm py-16 text-center">
-      <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="bg-surface-card rounded-2xl border border-line-subtle py-16 text-center">
+      <svg className="w-12 h-12 mx-auto mb-3 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
-      <p className="text-base font-semibold text-gray-600 mb-1">No shiftable loads found</p>
-      <p className="text-sm text-gray-400 max-w-sm mx-auto">
+      <p className="text-base font-semibold text-ink-body2 mb-1">No shiftable loads found</p>
+      <p className="text-sm text-ink-muted max-w-sm mx-auto">
         Edit any component and set its scheduling type to{' '}
-        <span className="font-semibold text-yellow-700">Shiftable</span> to enable optimization.
+        <span className="font-semibold text-accent">Shiftable</span> to enable optimization.
       </p>
     </div>
   );
@@ -1721,11 +1723,11 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">
+          <h2 className="text-sm font-semibold text-ink-heading">
             Shiftable Loads
-            <span className="ml-2 text-xs font-normal text-gray-400">({comps.length} component{comps.length !== 1 ? 's' : ''})</span>
+            <span className="ml-2 text-xs font-normal text-ink-muted">({comps.length} component{comps.length !== 1 ? 's' : ''})</span>
           </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-ink-muted mt-0.5">
             These loads have flexible scheduling — the optimizer assigns them to the cheapest available hours.
           </p>
         </div>
@@ -1733,10 +1735,10 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
           <button
             onClick={handleOptimize}
             disabled={optimizing}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-yellow-500
-              hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors">
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-base bg-accent-gradient
+              hover:shadow-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none rounded-xl transition-shadow">
             {optimizing ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-base border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -1748,13 +1750,13 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
       </div>
 
       {optimizeError && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700">
+        <div className="bg-danger-soft border border-danger-border rounded-xl px-4 py-3 text-xs text-danger">
           {optimizeError}
         </div>
       )}
       {lastOptCount !== null && !optimizing && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-xs text-emerald-700 flex items-center gap-2">
-          <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-success-soft border border-success-border rounded-xl px-4 py-3 text-xs text-success flex items-center gap-2">
+          <svg className="w-4 h-4 text-success flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           {lastOptCount > 0
@@ -1763,20 +1765,20 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-surface-card rounded-2xl border border-line-subtle overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-surface-inset border-b border-line">
                 <th className="px-4 py-3 w-10">
                   <input type="checkbox" checked={allChecked} onChange={toggleAll}
-                    className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-400" />
+                    className="rounded border-line-strong text-accent focus:ring-accent/40" />
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Component</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Location</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Run Hours</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Allowed Window</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wide">Assigned Window</th>
+                <th className="px-4 py-3 text-left font-semibold text-ink-muted text-xs uppercase tracking-wide">Component</th>
+                <th className="px-4 py-3 text-left font-semibold text-ink-muted text-xs uppercase tracking-wide">Location</th>
+                <th className="px-4 py-3 text-left font-semibold text-ink-muted text-xs uppercase tracking-wide">Run Hours</th>
+                <th className="px-4 py-3 text-left font-semibold text-ink-muted text-xs uppercase tracking-wide">Allowed Window</th>
+                <th className="px-4 py-3 text-left font-semibold text-ink-muted text-xs uppercase tracking-wide">Assigned Window</th>
               </tr>
             </thead>
             <tbody>
@@ -1787,17 +1789,17 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
                   : null;
                 return (
                   <tr key={`${c.model_type}:${c.id}`}
-                    className={`border-b border-gray-100 transition-colors ${
-                      selected.has(c.id) ? 'bg-yellow-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                    className={`border-b border-line-subtle transition-colors ${
+                      selected.has(c.id) ? 'bg-accent-soft' : i % 2 === 0 ? 'bg-surface-card' : 'bg-surface-inset2/50'
                     }`}>
                     <td className="px-4 py-3">
                       <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)}
-                        className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-400" />
+                        className="rounded border-line-strong text-accent focus:ring-accent/40" />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-800">{c.name}</span>
-                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-0.5">
+                        <span className="font-medium text-ink-heading2">{c.name}</span>
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-accent-soft text-accent flex items-center gap-0.5">
                           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
@@ -1805,21 +1807,21 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{c.location}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-gray-700">
+                    <td className="px-4 py-3 text-xs text-ink-muted">{c.location}</td>
+                    <td className="px-4 py-3 text-xs font-semibold font-mono text-ink-body2">
                       {c.required_run_hours != null
                         ? `${c.required_run_hours}h/day`
-                        : <span className="text-gray-400">—</span>}
+                        : <span className="text-ink-muted">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-600">
+                    <td className="px-4 py-3 text-xs font-mono text-ink-body">
                       {c.earliest_start_hour != null && c.latest_end_hour != null
                         ? `${fmtHour(c.earliest_start_hour)} – ${fmtHour(c.latest_end_hour)}`
-                        : <span className="text-gray-400">Any time</span>}
+                        : <span className="text-ink-muted">Any time</span>}
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {assignedStr
-                        ? <span className="font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{assignedStr}</span>
-                        : <span className="text-gray-400 italic">Not yet optimized</span>}
+                        ? <span className="font-medium font-mono text-accent bg-accent-soft px-2 py-0.5 rounded-full">{assignedStr}</span>
+                        : <span className="text-ink-muted italic">Not yet optimized</span>}
                     </td>
                   </tr>
                 );
@@ -1829,11 +1831,11 @@ function ShiftableLoadsPanel({ projectId, month, onOptimized, onSuccess }) {
         </div>
       </div>
 
-      <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3">
-        <svg className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex items-start gap-2 bg-accent-soft border border-accent-border rounded-xl px-4 py-3">
+        <svg className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
-        <p className="text-xs text-yellow-800">
+        <p className="text-xs text-accent">
           <strong>How it works:</strong> Select loads to include, then run the optimizer.
           It reads the cost signal for this month, finds the cheapest hours within each
           load&apos;s allowed window, and updates the component&apos;s time intervals automatically.

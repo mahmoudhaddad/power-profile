@@ -74,20 +74,20 @@ export default function RoomDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base">
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+      <header className="bg-surface-card border-b border-line px-6 py-4 flex items-center gap-4">
         <button
           onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floorId}/rooms`)}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100"
+          className="text-ink-muted hover:text-ink-heading transition-colors p-1.5 rounded-lg hover:bg-surface-inset"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -96,22 +96,22 @@ export default function RoomDetailPage() {
 
         <div>
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-0.5 flex-wrap">
+          <div className="flex items-center gap-1.5 text-sm text-ink-muted mb-0.5 flex-wrap">
             <span onClick={() => navigate('/dashboard')}
-              className="hover:text-blue-500 cursor-pointer transition-colors">{project?.name}</span>
+              className="hover:text-accent cursor-pointer transition-colors">{project?.name}</span>
             <Chevron />
             <span onClick={() => navigate(`/projects/${projectId}/buildings`)}
-              className="hover:text-blue-500 cursor-pointer transition-colors">{building?.name}</span>
+              className="hover:text-accent cursor-pointer transition-colors">{building?.name}</span>
             <Chevron />
             <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors`)}
-              className="hover:text-blue-500 cursor-pointer transition-colors">{floor?.name}</span>
+              className="hover:text-accent cursor-pointer transition-colors">{floor?.name}</span>
             <Chevron />
             <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}/floors/${floorId}/rooms`)}
-              className="hover:text-blue-500 cursor-pointer transition-colors">Rooms</span>
+              className="hover:text-accent cursor-pointer transition-colors">Rooms</span>
             <Chevron />
-            <span className="text-gray-600 font-medium">{room?.name}</span>
+            <span className="text-ink-body2 font-medium">{room?.name}</span>
           </div>
-          <h1 className="text-lg font-semibold text-gray-900">{room?.name}</h1>
+          <h1 className="text-lg font-semibold text-ink-heading">{room?.name}</h1>
         </div>
       </header>
 
@@ -119,14 +119,14 @@ export default function RoomDetailPage() {
 
         {/* Add Component */}
         <section className="mb-8">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Electrical Components</h2>
+          <h2 className="text-base font-semibold text-ink-heading mb-4">Electrical Components</h2>
           <button
             onClick={() => setShowModal(true)}
-            className="group flex items-center gap-3 border-2 border-dashed border-blue-300
-              hover:border-blue-500 hover:bg-blue-50 text-blue-500 hover:text-blue-700
-              rounded-xl px-5 py-4 w-full transition-all duration-200 hover:shadow-sm"
+            className="group flex items-center gap-3 border-2 border-dashed border-line-strong
+              hover:border-accent hover:bg-accent-soft text-accent hover:text-accent-light
+              rounded-xl px-5 py-4 w-full transition-all duration-200 hover:shadow-accent"
           >
-            <span className="w-9 h-9 rounded-full bg-blue-100 group-hover:bg-blue-200 flex items-center
+            <span className="w-9 h-9 rounded-full bg-accent-soft group-hover:bg-accent-softer flex items-center
               justify-center flex-shrink-0 transition-colors duration-200">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -134,7 +134,7 @@ export default function RoomDetailPage() {
             </span>
             <div className="text-left">
               <p className="font-semibold text-sm">Add New Component</p>
-              <p className="text-xs text-blue-400 group-hover:text-blue-500 transition-colors">
+              <p className="text-xs text-ink-muted group-hover:text-accent-light transition-colors">
                 Add an electrical component to this room
               </p>
             </div>
@@ -144,14 +144,14 @@ export default function RoomDetailPage() {
         {/* Components Grid */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+            <span className="text-xs text-ink-muted bg-surface-inset px-2.5 py-1 rounded-full">
               {components.length} component{components.length !== 1 ? 's' : ''}
             </span>
           </div>
 
           {components.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm py-14 text-center text-gray-400">
-              <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-surface-card rounded-xl border border-line py-14 text-center text-ink-muted">
+              <svg className="w-10 h-10 mx-auto mb-3 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -211,22 +211,22 @@ function Chevron() {
 
 function ComponentCard({ comp, onEdit, onDelete }) {
   return (
-    <div className="flex items-center gap-3 border border-yellow-300 rounded-xl px-4 bg-white
-      cursor-pointer group transition-all duration-200 hover:bg-yellow-50 hover:-translate-y-1 hover:shadow-md"
+    <div className="flex items-center gap-3 border border-line rounded-xl px-4 bg-surface-card
+      cursor-pointer group transition-all duration-200 hover:border-accent-border hover:bg-surface-inset hover:-translate-y-1 hover:shadow-accent"
       style={{ height: '70px' }}>
 
       {/* Icon */}
-      <div className="w-8 h-8 bg-yellow-50 group-hover:bg-yellow-100 rounded-lg flex items-center
+      <div className="w-8 h-8 bg-accent-soft group-hover:bg-accent-softer rounded-lg flex items-center
         justify-center flex-shrink-0 transition-colors duration-200">
-        <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </div>
 
       {/* Name + Power */}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900 text-sm truncate">{comp.component_type.name}</p>
-        <p className="text-xs text-gray-400">
+        <p className="font-semibold text-ink-heading text-sm truncate">{comp.component_type.name}</p>
+        <p className="text-xs text-ink-muted">
           {Number(comp.power) > 1000
             ? `${(Number(comp.power) / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} kVA`
             : `${Number(comp.power).toLocaleString()} VA`}
@@ -237,17 +237,17 @@ function ComponentCard({ comp, onEdit, onDelete }) {
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
           onClick={e => { e.stopPropagation(); onEdit(); }}
-          className="text-xs font-medium text-gray-500 px-2.5 py-1
-            rounded-lg border border-gray-200 bg-white hover:border-blue-400 hover:text-blue-600
-            hover:bg-blue-50 transition-all duration-150"
+          className="text-xs font-medium text-ink-body2 px-2.5 py-1
+            rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+            hover:bg-accent-soft transition-all duration-150"
         >
           Edit
         </button>
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          className="text-xs font-medium text-gray-500 px-2.5 py-1
-            rounded-lg border border-gray-200 bg-white hover:border-red-300 hover:text-red-600
-            hover:bg-red-50 transition-all duration-150"
+          className="text-xs font-medium text-ink-body2 px-2.5 py-1
+            rounded-lg border border-line bg-surface-card hover:border-danger-border hover:text-danger
+            hover:bg-danger-soft transition-all duration-150"
         >
           Delete
         </button>
@@ -285,13 +285,13 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-5">{title}</h3>
+      <div className="bg-surface-card border border-line rounded-2xl w-full max-w-sm p-6">
+        <h3 className="text-lg font-semibold text-ink-heading mb-5">{title}</h3>
 
         <div className="space-y-4">
           {/* Component name with suggestions */}
           <div className="relative" ref={wrapperRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Component Name</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">Component Name</label>
             <input
               ref={inputRef}
               type="text"
@@ -304,22 +304,22 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
                 if (e.key === 'Enter' && isValid) onSubmit();
               }}
               placeholder="Select or type a component name"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-line rounded-lg px-4 py-2.5 text-sm
+                focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
             />
             {showSuggestions && filtered.length > 0 && (
-              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg
+              <ul className="absolute z-10 w-full bg-surface-card border border-line rounded-lg
                 mt-1 max-h-28 overflow-y-auto">
                 {filtered.map(t => (
                   <li
                     key={t.id}
                     onMouseDown={() => selectType(t.name)}
-                    className="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700
+                    className="px-4 py-2 text-sm text-ink-body2 hover:bg-accent-soft hover:text-accent
                       cursor-pointer flex items-center justify-between"
                   >
                     <span>{t.name}</span>
                     {t.is_preset && (
-                      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">preset</span>
+                      <span className="text-xs text-ink-muted bg-surface-inset px-1.5 py-0.5 rounded">preset</span>
                     )}
                   </li>
                 ))}
@@ -329,7 +329,7 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
 
           {/* Power */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Power (W)</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">Power (W)</label>
             <input
               type="number"
               min="1"
@@ -338,21 +338,21 @@ function ComponentModal({ title, form, onChange, onSubmit, onClose, submitLabel,
               onChange={e => onChange({ ...form, power: e.target.value })}
               onKeyDown={e => e.key === 'Enter' && isValid && onSubmit()}
               placeholder="e.g. 60"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-line rounded-lg px-4 py-2.5 text-sm
+                focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
             />
           </div>
         </div>
 
         <div className="flex gap-3 mt-6">
           <button onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm
-              font-medium hover:bg-gray-50 transition-colors">
+            className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm
+              font-medium hover:bg-surface-inset transition-colors">
             Cancel
           </button>
           <button onClick={onSubmit} disabled={!isValid}
-            className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium
-              hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-medium
+              hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
             {submitLabel}
           </button>
         </div>

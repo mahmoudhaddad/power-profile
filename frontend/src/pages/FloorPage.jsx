@@ -201,14 +201,14 @@ export default function FloorPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base">
 
       <div className="sticky top-0 z-40">
         <ErrorBoundary label="power summary">
@@ -232,22 +232,22 @@ export default function FloorPage() {
         </ErrorBoundary>
       </div>
 
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+      <header className="bg-surface-card border-b border-line px-6 py-4 flex items-center gap-4">
         <button onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}`)}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+          className="text-ink-muted hover:text-ink-heading transition-colors p-1.5 rounded-lg hover:bg-surface-inset">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-0.5 flex-wrap">
-            <span onClick={() => navigate('/dashboard')} className="hover:text-blue-500 cursor-pointer transition-colors">Projects</span>
+          <div className="flex items-center gap-1.5 text-sm text-ink-muted mb-0.5 flex-wrap">
+            <span onClick={() => navigate('/dashboard')} className="hover:text-accent cursor-pointer transition-colors">Projects</span>
             <Chevron />
-            <span onClick={() => navigate(`/projects/${projectId}`)} className="hover:text-blue-500 cursor-pointer transition-colors">{project?.name}</span>
+            <span onClick={() => navigate(`/projects/${projectId}`)} className="hover:text-accent cursor-pointer transition-colors">{project?.name}</span>
             <Chevron />
-            <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}`)} className="hover:text-blue-500 cursor-pointer transition-colors">{building?.name}</span>
+            <span onClick={() => navigate(`/projects/${projectId}/buildings/${buildingId}`)} className="hover:text-accent cursor-pointer transition-colors">{building?.name}</span>
             <Chevron />
-            <span className="text-gray-600 font-medium">{floor?.name}</span>
+            <span className="text-ink-body2 font-medium">{floor?.name}</span>
           </div>
 
           {editingName ? (
@@ -255,18 +255,18 @@ export default function FloorPage() {
               <input autoFocus value={nameInput}
                 onChange={e => setNameInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
-                className="text-lg font-semibold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent w-56" />
+                className="text-lg font-semibold text-ink-heading border-b-2 border-accent outline-none bg-transparent w-56" />
               <button onClick={saveName}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors">Save</button>
+                className="text-xs text-accent hover:text-accent-light font-medium px-2 py-1 rounded hover:bg-accent-soft transition-colors">Save</button>
               <button onClick={() => setEditingName(false)}
-                className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 rounded hover:bg-gray-100 transition-colors">Cancel</button>
+                className="text-xs text-ink-muted hover:text-ink-body2 font-medium px-2 py-1 rounded hover:bg-surface-inset transition-colors">Cancel</button>
             </div>
           ) : (
             <div className="flex items-center gap-2 mt-0.5">
-              <h1 className="text-lg font-semibold text-gray-900">{floor?.name}</h1>
+              <h1 className="text-lg font-semibold text-ink-heading">{floor?.name}</h1>
               {canEdit && (
                 <button onClick={() => { setNameInput(floor.name); setEditingName(true); }}
-                  className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded hover:bg-blue-50">
+                  className="text-ink-muted hover:text-accent transition-colors p-1 rounded hover:bg-accent-soft">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -277,9 +277,9 @@ export default function FloorPage() {
           )}
         </div>
         {canEdit && <button onClick={() => setShowSchedule(true)}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-            rounded-lg border border-gray-200 bg-white hover:border-indigo-400 hover:text-indigo-600
-            hover:bg-indigo-50 transition-all duration-150 flex-shrink-0">
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+            rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+            hover:bg-accent-soft transition-all duration-150 flex-shrink-0">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -287,9 +287,9 @@ export default function FloorPage() {
           Schedule
         </button>}
         {canEdit && <button onClick={() => setBackupTarget({ type: 'floor', entity: floor })}
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 px-3 py-1.5
-            rounded-lg border border-gray-200 bg-white hover:border-emerald-400 hover:text-emerald-600
-            hover:bg-emerald-50 transition-all duration-150 flex-shrink-0">
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-body2 px-3 py-1.5
+            rounded-lg border border-line bg-surface-card hover:border-accent-border hover:text-accent
+            hover:bg-accent-soft transition-all duration-150 flex-shrink-0">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -305,20 +305,20 @@ export default function FloorPage() {
         <section>
           <div className={`flex items-center justify-between ${openRooms ? 'mb-4' : 'mb-0'}`}>
             <button onClick={() => setOpenRooms(o => !o)} className="flex items-center gap-2 group">
-              <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openRooms ? 'rotate-90' : ''}`}
+              <svg className={`w-4 h-4 text-ink-muted transition-transform duration-200 ${openRooms ? 'rotate-90' : ''}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
-              <h2 className="text-base font-semibold text-gray-900 group-hover:text-gray-700">
+              <h2 className="text-base font-semibold text-ink-heading group-hover:text-ink-body2">
                 Rooms
-                <span className="ml-2 text-xs font-normal text-gray-400">({rooms.length})</span>
+                <span className="ml-2 text-xs font-normal text-ink-muted">({rooms.length})</span>
               </h2>
             </button>
           </div>
-          {openRooms && <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {openRooms && <div className="bg-surface-card rounded-xl border border-line overflow-hidden">
             {rooms.length === 0 ? (
-              <div className="py-14 text-center text-gray-400">
-                <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="py-14 text-center text-ink-muted">
+                <svg className="w-10 h-10 mx-auto mb-3 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                     d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
@@ -363,33 +363,33 @@ export default function FloorPage() {
 
         {canEdit && (
           <aside className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="bg-white rounded-xl shadow-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Add Room</h2>
+            <div className="bg-surface-card rounded-xl border border-line p-4">
+              <h2 className="text-sm font-semibold text-ink-heading mb-3">Add Room</h2>
               <button onClick={() => setShowModal(true)}
-                className="group flex items-center gap-3 border-2 border-dashed border-blue-300
-                  hover:border-blue-500 hover:bg-blue-50 text-blue-500 hover:text-blue-700
-                  rounded-xl px-4 py-3 w-full transition-all duration-200 hover:shadow-sm">
-                <span className="w-8 h-8 rounded-full bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+                className="group flex items-center gap-3 border-2 border-dashed border-line-strong
+                  hover:border-accent hover:bg-accent-soft text-accent hover:text-accent-light
+                  rounded-xl px-4 py-3 w-full transition-all duration-200 hover:shadow-accent">
+                <span className="w-8 h-8 rounded-full bg-accent-soft group-hover:bg-accent-softer flex items-center justify-center flex-shrink-0 transition-colors duration-200">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </span>
                 <div className="text-left">
                   <p className="font-semibold text-xs">Add New Room</p>
-                  <p className="text-xs text-blue-400 group-hover:text-blue-500 transition-colors">Add a room to this floor</p>
+                  <p className="text-xs text-ink-muted group-hover:text-accent-light transition-colors">Add a room to this floor</p>
                 </div>
               </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Restore Room</h2>
-              <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-1">
+            <div className="bg-surface-card rounded-xl border border-line p-4">
+              <h2 className="text-sm font-semibold text-ink-heading mb-3">Restore Room</h2>
+              <div className="flex gap-1 mb-3 bg-surface-inset rounded-lg p-1">
                 <button onClick={() => setRestoreTab('computer')}
-                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${restoreTab === 'computer' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${restoreTab === 'computer' ? 'bg-surface-card text-ink-heading' : 'text-ink-muted hover:text-ink-body2'}`}>
                   Computer
                 </button>
                 <button onClick={() => setRestoreTab('server')}
-                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${restoreTab === 'server' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${restoreTab === 'server' ? 'bg-surface-card text-ink-heading' : 'text-ink-muted hover:text-ink-body2'}`}>
                   Server
                 </button>
               </div>
@@ -401,32 +401,32 @@ export default function FloorPage() {
                     onDrop={e => { e.preventDefault(); setDragOver(false); loadRestoreFile(e.dataTransfer.files[0]); }}
                     onClick={() => fileInputRef.current?.click()}
                     className={`border-2 border-dashed rounded-xl px-4 py-5 text-center cursor-pointer transition-all duration-200
-                      ${dragOver ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50'}`}>
+                      ${dragOver ? 'border-accent bg-accent-soft' : 'border-line-strong hover:border-accent hover:bg-accent-soft'}`}>
                     <input ref={fileInputRef} type="file" accept=".json" className="hidden"
                       onChange={e => loadRestoreFile(e.target.files[0])} />
-                    <svg className="w-7 h-7 mx-auto mb-1.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-7 h-7 mx-auto mb-1.5 text-accent-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>
-                    <p className="text-xs font-medium text-emerald-700">Drop backup or click to browse</p>
-                    <p className="text-xs text-emerald-500 mt-0.5">Accepts .json files</p>
+                    <p className="text-xs font-medium text-accent">Drop backup or click to browse</p>
+                    <p className="text-xs text-ink-muted mt-0.5">Accepts .json files</p>
                   </div>
                   {restoreFile && (
-                    <div className="mt-2 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                      <p className="text-xs font-semibold text-gray-900 truncate min-w-0">
+                    <div className="mt-2 flex items-center justify-between bg-accent-soft border border-accent-border rounded-xl px-3 py-2">
+                      <p className="text-xs font-semibold text-ink-heading truncate min-w-0">
                         {restoreFile.raw?.room?.name ?? restoreFile.raw?.name ?? restoreFile.name}
                       </p>
                       <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
                         <button onClick={() => { setRestoreFile(null); setRestoreError(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                          className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors">Clear</button>
+                          className="text-xs text-ink-muted hover:text-ink-body2 px-1.5 py-0.5 rounded hover:bg-surface-inset transition-colors">Clear</button>
                         <button onClick={() => doRestore(false)} disabled={restoring}
-                          className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1 rounded-lg transition-colors disabled:opacity-50">
+                          className="text-xs font-semibold text-base bg-accent-gradient hover:shadow-accent px-3 py-1 rounded-lg transition-shadow disabled:opacity-50">
                           {restoring ? '…' : 'Restore'}
                         </button>
                       </div>
                     </div>
                   )}
-                  {restoreError && <p className="mt-2 text-xs text-red-500">{restoreError}</p>}
+                  {restoreError && <p className="mt-2 text-xs text-danger">{restoreError}</p>}
                 </>
               ) : (
                 <ErrorBoundary label="backups">
@@ -463,19 +463,19 @@ export default function FloorPage() {
       )}
       {confirmData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-surface-card border border-line rounded-2xl w-full max-w-sm p-6">
+            <div className="w-12 h-12 bg-accent-soft rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-gray-900 text-center mb-2">Room Already Exists</h3>
-            <p className="text-sm text-gray-500 text-center mb-6">{confirmData.message}</p>
+            <h3 className="text-base font-semibold text-ink-heading text-center mb-2">Room Already Exists</h3>
+            <p className="text-sm text-ink-body text-center mb-6">{confirmData.message}</p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmData(null)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+                className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:bg-surface-inset transition-colors">Cancel</button>
               <button onClick={() => doRestore(true)}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-semibold transition-colors">Overwrite</button>
+                className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-semibold hover:shadow-accent transition-shadow">Overwrite</button>
             </div>
           </div>
         </div>
@@ -516,20 +516,20 @@ function Chevron() {
 
 function RoomCard({ room, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplicate }) {
   return (
-    <div onClick={onOpen} className="aspect-square flex flex-col border border-blue-300 rounded-xl p-4 cursor-pointer
-      group transition-all duration-200 hover:bg-blue-50 hover:-translate-y-1 hover:shadow-md bg-white">
-      <div className="w-10 h-10 bg-blue-50 group-hover:bg-blue-100 rounded-lg flex items-center
+    <div onClick={onOpen} className="aspect-square flex flex-col border border-line rounded-xl p-4 cursor-pointer
+      group transition-all duration-200 hover:border-accent-border hover:bg-surface-inset hover:-translate-y-1 hover:shadow-accent bg-surface-card">
+      <div className="w-10 h-10 bg-accent-soft group-hover:bg-accent-softer rounded-lg flex items-center
         justify-center mb-3 flex-shrink-0 transition-colors duration-200">
-        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
       </div>
-      <p className="font-semibold text-gray-900 text-sm truncate mb-1">{room.name}</p>
-      <p className="text-xs text-gray-400">{Number(room.area).toLocaleString()} m²</p>
+      <p className="font-semibold text-ink-heading text-sm truncate mb-1">{room.name}</p>
+      <p className="text-xs text-ink-muted">{Number(room.area).toLocaleString()} m²</p>
       <div className="mb-auto">
         {room.type && (
-          <span className="text-xs text-indigo-600 font-medium truncate block mt-0.5">
+          <span className="text-xs text-accent font-medium truncate block mt-0.5">
             {ROOM_TYPES.find(t => t.value === room.type)?.label ?? room.type}
           </span>
         )}
@@ -538,19 +538,19 @@ function RoomCard({ room, canEdit, onOpen, onEdit, onDelete, onBackup, onDuplica
         <div className="flex flex-col gap-1 mt-3">
           <div className="flex items-center gap-1.5">
             <button onClick={e => { e.stopPropagation(); onBackup(); }}
-              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
-                hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-150">Backup</button>
+              className="flex-1 text-xs font-medium text-ink-body2 py-1.5 rounded-lg border border-line bg-surface-card
+                hover:border-accent-border hover:text-accent hover:bg-accent-soft transition-all duration-150">Backup</button>
             <button onClick={e => { e.stopPropagation(); onDuplicate(); }}
-              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
-                hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-all duration-150">Dup</button>
+              className="flex-1 text-xs font-medium text-ink-body2 py-1.5 rounded-lg border border-line bg-surface-card
+                hover:border-accent-border hover:text-accent hover:bg-accent-soft transition-all duration-150">Dup</button>
           </div>
           <div className="flex items-center gap-1.5">
             <button onClick={e => { e.stopPropagation(); onEdit(); }}
-              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
-                hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-150">Edit</button>
+              className="flex-1 text-xs font-medium text-ink-body2 py-1.5 rounded-lg border border-line bg-surface-card
+                hover:border-accent-border hover:text-accent hover:bg-accent-soft transition-all duration-150">Edit</button>
             <button onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="flex-1 text-xs font-medium text-gray-500 py-1.5 rounded-lg border border-gray-200 bg-white
-                hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-all duration-150">Delete</button>
+              className="flex-1 text-xs font-medium text-ink-body2 py-1.5 rounded-lg border border-line bg-surface-card
+                hover:border-danger-border hover:text-danger hover:bg-danger-soft transition-all duration-150">Delete</button>
           </div>
         </div>
       )}
@@ -599,34 +599,34 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-5">{title}</h3>
+      <div className="bg-surface-card border border-line rounded-2xl w-full max-w-sm p-6">
+        <h3 className="text-lg font-semibold text-ink-heading mb-5">{title}</h3>
         <div className="space-y-4">
           <div className="relative" ref={wrapperRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{nameLabel}</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">{nameLabel}</label>
             <input type="text" autoFocus value={form.name}
               onChange={e => { onChange({ ...form, name: e.target.value }); setShowSuggestions(true); onClearError?.('name'); }}
               onFocus={() => setShowSuggestions(true)}
               onKeyDown={e => { if (e.key === 'Escape') setShowSuggestions(false); if (e.key === 'Enter') onSubmit(); }}
               placeholder={namePlaceholder}
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldErrors?.name ? 'border-red-400' : 'border-gray-300'}`} />
-            {fieldErrors?.name?.[0] && <p className="text-red-500 text-xs mt-1">{fieldErrors.name[0]}</p>}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${fieldErrors?.name ? 'border-danger' : 'border-line'}`} />
+            {fieldErrors?.name?.[0] && <p className="text-danger text-xs mt-1">{fieldErrors.name[0]}</p>}
             {showSuggestions && filtered.length > 0 && (
-              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+              <ul className="absolute z-10 w-full bg-surface-card border border-line rounded-lg mt-1 max-h-48 overflow-y-auto">
                 {filtered.map((s, i) => (
-                  <li key={i} className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between gap-2">
+                  <li key={i} className="px-3 py-2 text-sm text-ink-body2 hover:bg-surface-inset flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <span className="font-medium truncate block">{s.name}</span>
-                      {Number(s.area) > 0 && <span className="text-xs text-gray-400">{Number(s.area).toLocaleString()} m²</span>}
+                      {Number(s.area) > 0 && <span className="text-xs text-ink-muted">{Number(s.area).toLocaleString()} m²</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button onMouseDown={() => { onChange({ ...form, name: s.name, area: s.area ?? form.area }); setShowSuggestions(false); }}
-                        className="text-xs px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
+                        className="text-xs px-2 py-1 rounded-md border border-line text-ink-body2 hover:bg-surface-inset transition-colors">
                         Empty
                       </button>
                       {onDuplicateFrom && (
                         <button onMouseDown={() => { setShowSuggestions(false); onDuplicateFrom(s.id); }}
-                          className="text-xs px-2 py-1 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+                          className="text-xs px-2 py-1 rounded-md border border-accent-border text-accent hover:bg-accent-soft transition-colors">
                           Copy all
                         </button>
                       )}
@@ -637,28 +637,28 @@ function Modal({ title, form, onChange, onSubmit, onClose, submitLabel, suggesti
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">Room Type</label>
             <select value={form.type ?? ''} onChange={e => onChange({ ...form, type: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+              className="w-full border border-line rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent bg-surface-card">
               {ROOM_TYPES.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Area (m²)</label>
+            <label className="block text-sm font-medium text-ink-body2 mb-1">Area (m²)</label>
             <input type="number" min="0.01" step="0.01" value={form.area}
               onChange={e => { onChange({ ...form, area: e.target.value }); onClearError?.('area'); }}
               placeholder="e.g. 20"
-              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldErrors?.area ? 'border-red-400' : 'border-gray-300'}`} />
-            {fieldErrors?.area?.[0] && <p className="text-red-500 text-xs mt-1">{fieldErrors.area[0]}</p>}
+              className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent ${fieldErrors?.area ? 'border-danger' : 'border-line'}`} />
+            {fieldErrors?.area?.[0] && <p className="text-danger text-xs mt-1">{fieldErrors.area[0]}</p>}
           </div>
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+            className="flex-1 border border-line text-ink-body2 py-2.5 rounded-lg text-sm font-medium hover:bg-surface-inset transition-colors">Cancel</button>
           <button onClick={onSubmit} disabled={!form.name.trim() || Number(form.area) <= 0}
-            className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="flex-1 bg-accent-gradient text-base py-2.5 rounded-lg text-sm font-medium hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
             {submitLabel}
           </button>
         </div>

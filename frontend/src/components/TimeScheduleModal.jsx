@@ -187,7 +187,7 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
   const bars      = view === 'day' ? dayBars : view === 'week' ? weekBars : view === 'month' ? monthBars : yearBars;
   const maxVal    = Math.max(...bars.map(b => b.value), 1);
   const yUnit     = view === 'day' ? 'W' : 'Wh';
-  const barColor  = loadFilter === 'critical' ? 'red' : 'indigo';
+  const barColor  = loadFilter === 'critical' ? 'red' : 'accent';
 
   // ── navigator helpers ──
   const dayLabel   = `${DAY_FULL[selectedDay.getDay()]}, ${MONTH_NAMES[selectedDay.getMonth()]} ${selectedDay.getDate()}, ${selectedDay.getFullYear()}`;
@@ -214,34 +214,34 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+      <div className="bg-surface-card border border-line rounded-2xl shadow-2xl w-full max-w-3xl my-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-line-subtle">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800
-                px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors flex-shrink-0">
+              className="flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink-heading
+                px-2.5 py-1.5 rounded-lg border border-line hover:bg-surface-inset transition-colors flex-shrink-0">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Project
             </button>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Power Schedule</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{project.name}</p>
+              <h2 className="text-base font-semibold text-ink-heading">Power Schedule</h2>
+              <p className="text-xs text-ink-muted mt-0.5">{project.name}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {/* Load filter toggle */}
-            <div className="flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5">
+            <div className="flex items-center gap-0.5 bg-surface-inset rounded-full p-0.5">
               <button
                 onClick={() => setLoadFilter('all')}
                 className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                   loadFilter === 'all'
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-surface-card text-ink-heading'
+                    : 'text-ink-muted hover:text-ink-body2'
                 }`}>
                 All loads
               </button>
@@ -249,13 +249,13 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
                 onClick={() => setLoadFilter('critical')}
                 className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                   loadFilter === 'critical'
-                    ? 'bg-red-500 text-white shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-danger text-ink-heading'
+                    : 'text-ink-muted hover:text-ink-body2'
                 }`}>
                 Critical only
               </button>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
+            <button onClick={onClose} className="text-ink-muted hover:text-ink-heading p-1 rounded-lg hover:bg-surface-inset transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -265,21 +265,21 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <>
             {/* Summary cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-6 py-4 border-b border-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-6 py-4 border-b border-line-subtle">
               <StatCard
                 label="Peak Demand"
                 value={fmtPower(designPk)}
                 sub="peak demand"
-                accent="indigo"
+                accent="primary"
               />
-              <StatCard label="Day Energy"  value={fmtEnergy(dayEnergy)}  sub="selected day"          accent="blue"   />
-              <StatCard label="Weekly"      value={fmtEnergy(weekEnergy)} sub="current week"          accent="violet" />
-              <StatCard label="Yearly"      value={fmtEnergy(yearEnergy)} sub={`${selectedYear} total`} accent="purple" />
+              <StatCard label="Day Energy"  value={fmtEnergy(dayEnergy)}  sub="selected day"          accent="neutral" />
+              <StatCard label="Weekly"      value={fmtEnergy(weekEnergy)} sub="current week"          accent="neutral" />
+              <StatCard label="Yearly"      value={fmtEnergy(yearEnergy)} sub={`${selectedYear} total`} accent="neutral" />
             </div>
 
             {/* Chart section */}
@@ -291,8 +291,8 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
                   <button key={v} onClick={() => setView(v)}
                     className={`px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors ${
                       view === v
-                        ? loadFilter === 'critical' ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        ? loadFilter === 'critical' ? 'bg-danger text-ink-heading' : 'bg-accent text-base'
+                        : 'bg-surface-inset2 text-ink-body2 hover:bg-surface-inset'
                     }`}>
                     {v}
                   </button>
@@ -306,12 +306,12 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
                   <div className="flex items-center gap-2">
                     {!isToday && (
                       <button onClick={goToday}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
+                        className="text-xs text-accent hover:text-accent-light font-medium px-2 py-1 rounded hover:bg-accent-soft transition-colors">
                         Today
                       </button>
                     )}
                     {!isDayActive && (
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">Non-working day</span>
+                      <span className="text-xs text-ink-muted bg-surface-inset px-2 py-1 rounded-full">Non-working day</span>
                     )}
                   </div>
                 </div>
@@ -321,12 +321,12 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-1">
                     <NavBtn onClick={prevMonth}>‹</NavBtn>
-                    <span className="text-sm font-medium text-gray-700 px-2">{monthLabel}</span>
+                    <span className="text-sm font-medium text-ink-body2 px-2">{monthLabel}</span>
                     <NavBtn onClick={nextMonth}>›</NavBtn>
                   </div>
                   {!isCurrentMonth && (
                     <button onClick={goCurrentMonth}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
+                      className="text-xs text-accent hover:text-accent-light font-medium px-2 py-1 rounded hover:bg-accent-soft transition-colors">
                       This month
                     </button>
                   )}
@@ -338,7 +338,7 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
                   <YearPicker value={selectedYear} onChange={setSelectedYear} />
                   {!isCurrentYear && (
                     <button onClick={goCurrentYear}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded hover:bg-indigo-50 transition-colors">
+                      className="text-xs text-accent hover:text-accent-light font-medium px-2 py-1 rounded hover:bg-accent-soft transition-colors">
                       This year
                     </button>
                   )}
@@ -346,8 +346,8 @@ export default function TimeScheduleModal({ project, projectId, onClose }) {
               )}
 
               {filteredComponents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                  <svg className="w-10 h-10 mb-2 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex flex-col items-center justify-center py-10 text-ink-muted">
+                  <svg className="w-10 h-10 mb-2 text-ink-muted2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <p className="text-sm">
@@ -393,8 +393,8 @@ function YearPicker({ value, onChange }) {
         onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors
           ${open
-            ? 'border-indigo-400 text-indigo-600 bg-indigo-50'
-            : 'border-gray-200 text-gray-700 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+            ? 'border-accent-border text-accent bg-accent-soft'
+            : 'border-line text-ink-body2 hover:border-accent-border hover:text-accent hover:bg-accent-soft'}`}
       >
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -407,15 +407,15 @@ function YearPicker({ value, onChange }) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-3 w-52 select-none">
+        <div className="absolute top-full left-0 mt-1.5 bg-surface-card rounded-xl shadow-xl border border-line z-50 p-3 w-52 select-none">
           <div className="flex items-center justify-between mb-2">
             <button onClick={() => setRangeStart(r => r - 12)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-base font-bold transition-colors">
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-inset text-ink-muted hover:text-ink-body2 text-base font-bold transition-colors">
               ‹
             </button>
-            <span className="text-xs font-semibold text-gray-600">{rangeStart} – {rangeStart + 11}</span>
+            <span className="text-xs font-semibold text-ink-body2">{rangeStart} – {rangeStart + 11}</span>
             <button onClick={() => setRangeStart(r => r + 12)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-base font-bold transition-colors">
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-inset text-ink-muted hover:text-ink-body2 text-base font-bold transition-colors">
               ›
             </button>
           </div>
@@ -425,10 +425,10 @@ function YearPicker({ value, onChange }) {
                 onClick={() => { onChange(yr); setOpen(false); }}
                 className={`py-1.5 text-xs rounded-lg font-medium transition-colors
                   ${yr === value
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-accent text-base'
                     : yr === currentYear
-                      ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                      : 'text-gray-700 hover:bg-gray-100'}`}>
+                      ? 'bg-accent-soft text-accent hover:bg-accent-softer'
+                      : 'text-ink-body2 hover:bg-surface-inset'}`}>
                 {yr}
               </button>
             ))}
@@ -479,8 +479,8 @@ function DayPicker({ value, onChange, label }) {
         onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors
           ${open
-            ? 'border-indigo-400 text-indigo-600 bg-indigo-50'
-            : 'border-gray-200 text-gray-700 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+            ? 'border-accent-border text-accent bg-accent-soft'
+            : 'border-line text-ink-body2 hover:border-accent-border hover:text-accent hover:bg-accent-soft'}`}
       >
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -493,21 +493,21 @@ function DayPicker({ value, onChange, label }) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-3 w-64 select-none">
+        <div className="absolute top-full left-0 mt-1.5 bg-surface-card rounded-xl shadow-xl border border-line z-50 p-3 w-64 select-none">
           <div className="flex items-center justify-between mb-2">
             <button onClick={prevCal}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-base font-bold transition-colors">
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-inset text-ink-muted hover:text-ink-body2 text-base font-bold transition-colors">
               ‹
             </button>
-            <span className="text-sm font-semibold text-gray-700">{MONTH_FULL[calMonth]} {calYear}</span>
+            <span className="text-sm font-semibold text-ink-body2">{MONTH_FULL[calMonth]} {calYear}</span>
             <button onClick={nextCal}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-base font-bold transition-colors">
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-inset text-ink-muted hover:text-ink-body2 text-base font-bold transition-colors">
               ›
             </button>
           </div>
           <div className="grid grid-cols-7 mb-1">
             {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-              <div key={d} className="text-center text-xs font-medium text-gray-400 py-0.5">{d}</div>
+              <div key={d} className="text-center text-xs font-medium text-ink-muted py-0.5">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-y-0.5">
@@ -522,10 +522,10 @@ function DayPicker({ value, onChange, label }) {
                   onClick={() => { onChange(date); setOpen(false); }}
                   className={`w-full aspect-square flex items-center justify-center text-xs rounded-lg transition-colors
                     ${isSelected
-                      ? 'bg-indigo-600 text-white font-semibold'
+                      ? 'bg-accent text-base font-semibold'
                       : isToday
-                        ? 'bg-indigo-50 text-indigo-600 font-semibold hover:bg-indigo-100'
-                        : 'text-gray-700 hover:bg-gray-100'}`}>
+                        ? 'bg-accent-soft text-accent font-semibold hover:bg-accent-softer'
+                        : 'text-ink-body2 hover:bg-surface-inset'}`}>
                   {day}
                 </button>
               );
@@ -540,8 +540,8 @@ function DayPicker({ value, onChange, label }) {
 function NavBtn({ onClick, children }) {
   return (
     <button onClick={onClick}
-      className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200
-        text-gray-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50
+      className="w-7 h-7 flex items-center justify-center rounded-lg border border-line
+        text-ink-muted hover:border-accent-border hover:text-accent hover:bg-accent-soft
         text-base font-semibold transition-colors">
       {children}
     </button>
@@ -549,12 +549,9 @@ function NavBtn({ onClick, children }) {
 }
 
 function StatCard({ label, value, sub, accent }) {
-  const cls = {
-    indigo: 'bg-indigo-50 text-indigo-700',
-    blue:   'bg-blue-50   text-blue-700',
-    violet: 'bg-violet-50 text-violet-700',
-    purple: 'bg-purple-50 text-purple-700',
-  }[accent];
+  const cls = accent === 'primary'
+    ? 'bg-accent-soft text-accent border border-accent-border'
+    : 'bg-surface-inset text-ink-body2 border border-line';
   return (
     <div className={`rounded-xl px-3 py-3 ${cls}`}>
       <p className="text-xs font-medium opacity-70 mb-1">{label}</p>
@@ -566,14 +563,14 @@ function StatCard({ label, value, sub, accent }) {
 
 const TICKS = [1, 0.75, 0.5, 0.25, 0];
 
-function BarChart({ bars, maxVal, yUnit, color = 'indigo' }) {
-  const barCls  = color === 'red' ? 'bg-red-500 group-hover:bg-red-400'     : 'bg-indigo-500 group-hover:bg-indigo-400';
+function BarChart({ bars, maxVal, yUnit, color = 'accent' }) {
+  const barCls  = color === 'red' ? 'bg-danger group-hover:bg-danger/80' : 'bg-accent group-hover:bg-accent-light';
   return (
     <div className="flex gap-3 items-start">
       <div className="flex-shrink-0 w-16 relative select-none" style={{ height: CHART_H }}>
         {TICKS.map(t => (
           <span key={t}
-            className="absolute right-1 text-xs text-gray-400 leading-none -translate-y-1/2"
+            className="absolute right-1 text-xs text-ink-muted leading-none -translate-y-1/2"
             style={{ top: `${(1 - t) * CHART_H}px` }}>
             {t === 0 ? '0' : fmtAxis(maxVal * t, yUnit)}
           </span>
@@ -581,9 +578,9 @@ function BarChart({ bars, maxVal, yUnit, color = 'indigo' }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="relative border-l border-b border-gray-200 select-none" style={{ height: CHART_H }}>
+        <div className="relative border-l border-b border-line select-none" style={{ height: CHART_H }}>
           {TICKS.map(t => (
-            <div key={t} className="absolute left-0 right-0 border-t border-gray-100"
+            <div key={t} className="absolute left-0 right-0 border-t border-line-subtle"
               style={{ top: `${(1 - t) * CHART_H}px` }} />
           ))}
           <div className="absolute inset-0 flex gap-px px-1">
@@ -592,14 +589,14 @@ function BarChart({ bars, maxVal, yUnit, color = 'indigo' }) {
                 {bar.value > 0 && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-10
                     pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap shadow-lg">
+                    <div className="bg-surface-darker text-ink-heading text-xs px-2 py-1 rounded-lg whitespace-nowrap shadow-lg">
                       {bar.label}: {fmtAxis(bar.value, yUnit)}
                     </div>
                   </div>
                 )}
                 <div
                   className={`absolute bottom-0 left-0 right-0 rounded-t-sm transition-colors
-                    ${bar.value > 0 ? barCls : 'bg-gray-100'}`}
+                    ${bar.value > 0 ? barCls : 'bg-surface-inset'}`}
                   style={{ height: `${(bar.value / maxVal) * 100}%`, minHeight: bar.value > 0 ? '3px' : '1px' }}
                 />
               </div>
@@ -609,7 +606,7 @@ function BarChart({ bars, maxVal, yUnit, color = 'indigo' }) {
         <div className="flex gap-px px-1 mt-1.5">
           {bars.map((bar, i) => (
             <div key={i} className="flex-1 text-center overflow-hidden">
-              {bar.shortLabel && <span className="text-xs text-gray-400 leading-none">{bar.shortLabel}</span>}
+              {bar.shortLabel && <span className="text-xs text-ink-muted leading-none">{bar.shortLabel}</span>}
             </div>
           ))}
         </div>

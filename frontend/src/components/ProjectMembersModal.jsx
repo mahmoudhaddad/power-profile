@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 
 const ROLE_META = {
-  admin:  { label: 'Admin',       bg: 'bg-red-100',    text: 'text-red-700'   },
-  main:   { label: 'Main User',   bg: 'bg-blue-100',   text: 'text-blue-700'  },
-  normal: { label: 'View Only',   bg: 'bg-gray-100',   text: 'text-gray-600'  },
+  admin:  { label: 'Admin',       bg: 'bg-accent-tint',    text: 'text-accent'     },
+  main:   { label: 'Main User',   bg: 'bg-accent-soft',    text: 'text-accent'     },
+  normal: { label: 'View Only',   bg: 'bg-surface-inset',  text: 'text-ink-body2'  },
 };
 
 function RoleBadge({ role }) {
@@ -70,21 +70,21 @@ export default function ProjectMembersModal({ projectId, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-surface-card border border-line rounded-2xl w-full max-w-md">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line-subtle">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 bg-accent-soft rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-gray-900">Project Members</h3>
+            <h3 className="text-base font-semibold text-ink-heading">Project Members</h3>
           </div>
           <button onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
+            className="text-ink-muted hover:text-ink-body2 p-1 rounded-lg hover:bg-surface-inset transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -94,29 +94,29 @@ export default function ProjectMembersModal({ projectId, onClose }) {
         <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
 
           {/* Add member form */}
-          <form onSubmit={handleAdd} className="bg-gray-50 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add Member</p>
+          <form onSubmit={handleAdd} className="bg-surface-inset rounded-xl p-4 space-y-3">
+            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide">Add Member</p>
             <div className="flex gap-2">
               <input
                 type="email"
                 value={email}
                 onChange={e => { setEmail(e.target.value); setAddError(''); }}
                 placeholder="User's email address"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 border border-line rounded-lg px-3 py-2 text-sm bg-surface-card text-ink-heading
+                  focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
               />
               <select value={role} onChange={e => setRole(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                className="border border-line rounded-lg px-3 py-2 text-sm bg-surface-card text-ink-body
+                  focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent">
                 <option value="admin">Admin</option>
                 <option value="main">Main User</option>
                 <option value="normal">View Only</option>
               </select>
             </div>
-            {addError && <p className="text-xs text-red-600">{addError}</p>}
+            {addError && <p className="text-xs text-danger">{addError}</p>}
             <button type="submit" disabled={adding || !email.trim()}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium
-                hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              className="w-full bg-accent-gradient text-base py-2 rounded-lg text-sm font-medium
+                hover:shadow-accent transition-shadow disabled:opacity-40 disabled:cursor-not-allowed">
               {adding ? 'Adding…' : 'Add Member'}
             </button>
           </form>
@@ -124,19 +124,19 @@ export default function ProjectMembersModal({ projectId, onClose }) {
           {/* Members list */}
           {loading ? (
             <div className="flex justify-center py-6">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Members</p>
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide">Current Members</p>
 
               {/* Admin row */}
               {admin && (
-                <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-xl">
+                <div className="flex items-center gap-3 px-3 py-2.5 bg-surface-card border border-line rounded-xl">
                   <Avatar user={admin} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{admin.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{admin.email}</p>
+                    <p className="text-sm font-medium text-ink-heading truncate">{admin.name}</p>
+                    <p className="text-xs text-ink-muted truncate">{admin.email}</p>
                   </div>
                   <RoleBadge role="admin" />
                 </div>
@@ -144,26 +144,26 @@ export default function ProjectMembersModal({ projectId, onClose }) {
 
               {/* Added members */}
               {members.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-4">No members added yet.</p>
+                <p className="text-sm text-ink-muted text-center py-4">No members added yet.</p>
               )}
               {members.map(member => (
-                <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-xl">
+                <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 bg-surface-card border border-line rounded-xl">
                   <Avatar user={member.user} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{member.user?.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{member.user?.email}</p>
+                    <p className="text-sm font-medium text-ink-heading truncate">{member.user?.name}</p>
+                    <p className="text-xs text-ink-muted truncate">{member.user?.email}</p>
                   </div>
                   <select
                     value={member.role}
                     onChange={e => handleRoleChange(member.id, e.target.value)}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white
-                      focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700">
+                    className="text-xs border border-line rounded-lg px-2 py-1 bg-surface-card
+                      focus:outline-none focus:ring-1 focus:ring-accent/40 text-ink-body2">
                     <option value="admin">Admin</option>
                     <option value="main">Main User</option>
                     <option value="normal">View Only</option>
                   </select>
                   <button onClick={() => handleRemove(member.id)}
-                    className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0">
+                    className="text-ink-muted hover:text-danger p-1 rounded hover:bg-danger-soft transition-colors flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -175,10 +175,10 @@ export default function ProjectMembersModal({ projectId, onClose }) {
           )}
         </div>
 
-        <div className="px-6 py-3 border-t border-gray-100">
+        <div className="px-6 py-3 border-t border-line-subtle">
           <button onClick={onClose}
-            className="w-full border border-gray-300 text-gray-700 py-2 rounded-lg text-sm
-              font-medium hover:bg-gray-50 transition-colors">
+            className="w-full border border-line text-ink-body2 py-2 rounded-lg text-sm
+              font-medium hover:bg-surface-inset hover:border-line-strong transition-colors">
             Close
           </button>
         </div>
@@ -193,8 +193,8 @@ function Avatar({ user }) {
   }
   const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() ?? '?';
   return (
-    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-      <span className="text-xs font-semibold text-blue-600">{initials}</span>
+    <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0">
+      <span className="text-xs font-semibold text-accent">{initials}</span>
     </div>
   );
 }

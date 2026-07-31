@@ -1,87 +1,280 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Power Profile – Full Project Report</title>
-<style>
-  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; margin: 0; padding: 0; background: #fff; }
-  .page { max-width: 900px; margin: 0 auto; padding: 48px 56px; }
-  h1 { font-size: 26pt; color: #1e3a5f; border-bottom: 3px solid #2563eb; padding-bottom: 10px; margin-bottom: 4px; }
-  h2 { font-size: 16pt; color: #1e3a5f; border-left: 5px solid #2563eb; padding-left: 10px; margin-top: 40px; }
-  h3 { font-size: 13pt; color: #1e40af; margin-top: 24px; margin-bottom: 6px; }
-  h4 { font-size: 11pt; color: #374151; margin-top: 14px; margin-bottom: 4px; }
-  p { margin: 6px 0 10px 0; line-height: 1.6; }
-  ul, ol { margin: 6px 0 10px 16px; line-height: 1.7; }
-  li { margin-bottom: 3px; }
-  code { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 10pt; }
-  pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 16px; font-size: 9.5pt; font-family: Consolas, monospace; white-space: pre-wrap; line-height: 1.5; overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 10pt; }
-  th { background: #1e3a5f; color: white; padding: 8px 10px; text-align: left; }
-  td { border: 1px solid #d1d5db; padding: 7px 10px; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8fafc; }
-  .subtitle { color: #64748b; font-size: 12pt; margin-bottom: 2px; }
-  .meta { color: #64748b; font-size: 10pt; margin-top: 8px; border-top: 1px solid #e5e7eb; padding-top: 8px; }
-  .badge { display: inline-block; background: #dbeafe; color: #1e40af; border-radius: 4px; padding: 2px 8px; font-size: 9pt; font-weight: bold; margin: 2px; }
-  .section-intro { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0 20px 0; font-size: 10.5pt; color: #1e40af; }
-  .note { background: #fefce8; border-left: 4px solid #eab308; padding: 8px 14px; border-radius: 0 6px 6px 0; font-size: 10pt; color: #713f12; margin: 10px 0; }
-  hr { border: none; border-top: 1px solid #e5e7eb; margin: 36px 0; }
-  @media print { .page { padding: 20px 30px; } h2 { margin-top: 28px; } }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Power Profile – Full Project Report</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 56px;
+    }
+
+    h1 {
+      font-size: 26pt;
+      color: #1e3a5f;
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 10px;
+      margin-bottom: 4px;
+    }
+
+    h2 {
+      font-size: 16pt;
+      color: #1e3a5f;
+      border-left: 5px solid #2563eb;
+      padding-left: 10px;
+      margin-top: 40px;
+    }
+
+    h3 {
+      font-size: 13pt;
+      color: #1e40af;
+      margin-top: 24px;
+      margin-bottom: 6px;
+    }
+
+    h4 {
+      font-size: 11pt;
+      color: #374151;
+      margin-top: 14px;
+      margin-bottom: 4px;
+    }
+
+    p {
+      margin: 6px 0 10px 0;
+      line-height: 1.6;
+    }
+
+    ul,
+    ol {
+      margin: 6px 0 10px 16px;
+      line-height: 1.7;
+    }
+
+    li {
+      margin-bottom: 3px;
+    }
+
+    code {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: Consolas, monospace;
+      font-size: 10pt;
+    }
+
+    pre {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 14px 16px;
+      font-size: 9.5pt;
+      font-family: Consolas, monospace;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 10pt;
+    }
+
+    th {
+      background: #1e3a5f;
+      color: white;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    td {
+      border: 1px solid #d1d5db;
+      padding: 7px 10px;
+      vertical-align: top;
+    }
+
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 12pt;
+      margin-bottom: 2px;
+    }
+
+    .meta {
+      color: #64748b;
+      font-size: 10pt;
+      margin-top: 8px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1e40af;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 9pt;
+      font-weight: bold;
+      margin: 2px;
+    }
+
+    .section-intro {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 10px 0 20px 0;
+      font-size: 10.5pt;
+      color: #1e40af;
+    }
+
+    .note {
+      background: #fefce8;
+      border-left: 4px solid #eab308;
+      padding: 8px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 10pt;
+      color: #713f12;
+      margin: 10px 0;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 36px 0;
+    }
+
+    @media print {
+      .page {
+        padding: 20px 30px;
+      }
+
+      h2 {
+        margin-top: 28px;
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="page">
+  <div class="page">
 
-<!-- ══════════════ COVER ══════════════ -->
-<h1>Power Profile</h1>
-<p class="subtitle">Building Energy Analysis Platform — Full Technical Report</p>
-<p class="meta">
-  Graduation Project &nbsp;|&nbsp; Full-Stack Web Application &nbsp;|&nbsp;
-  Backend: Laravel 13 (PHP 8.3) &nbsp;|&nbsp; Frontend: React 18 + Vite &nbsp;|&nbsp;
-  Database: SQLite &nbsp;|&nbsp; Report Date: May 2026
-</p>
+    <!-- ══════════════ COVER ══════════════ -->
+    <h1>Power Profile</h1>
+    <p class="subtitle">Building Energy Analysis Platform — Full Technical Report</p>
+    <p class="meta">
+      Graduation Project &nbsp;|&nbsp; Full-Stack Web Application &nbsp;|&nbsp;
+      Backend: Laravel 13 (PHP 8.3) &nbsp;|&nbsp; Frontend: React 18 + Vite &nbsp;|&nbsp;
+      Database: SQLite &nbsp;|&nbsp; Report Date: May 2026
+    </p>
 
-<!-- ══════════════ 1. OVERVIEW ══════════════ -->
-<h2>1. Project Overview</h2>
-<div class="section-intro">
-  Power Profile is a full-stack web application designed to help engineers and architects
-  model, analyse, and manage the electrical power consumption of buildings. It provides
-  a structured hierarchy (Project → Building → Floor → Room) where electrical components
-  are assigned at every level, and the system computes load profiles, peak demand, and
-  optimal dispatch of power sources (solar, grid, generator).
-</div>
+    <!-- ══════════════ 1. OVERVIEW ══════════════ -->
+    <h2>1. Project Overview</h2>
+    <div class="section-intro">
+      Power Profile is a full-stack web application designed to help engineers and architects
+      model, analyse, and manage the electrical power consumption of buildings. It provides
+      a structured hierarchy (Project → Building → Floor → Room) where electrical components
+      are assigned at every level, and the system computes load profiles, peak demand, and
+      optimal dispatch of power sources (solar, grid, generator).
+    </div>
 
-<h3>Core Capabilities</h3>
-<ul>
-  <li>Define multi-building projects with a four-level hierarchy</li>
-  <li>Attach electrical components (AC units, lighting, motors, etc.) at any level</li>
-  <li>Model power sources: utility grid lines, generator backup lines, solar panels</li>
-  <li>Calculate 24-hour load profiles based on component usage schedules</li>
-  <li>Simulate priority-based dispatch (Solar → Grid → Generator)</li>
-  <li>Backup and restore configurations (local file or server storage)</li>
-  <li>Collaborate with a team using role-based access control</li>
-  <li>Google OAuth authentication — no separate password management needed</li>
-</ul>
+    <h3>Core Capabilities</h3>
+    <ul>
+      <li>Define multi-building projects with a four-level hierarchy</li>
+      <li>Attach electrical components (AC units, lighting, motors, etc.) at any level</li>
+      <li>Model power sources: utility grid lines, generator backup lines, solar panels</li>
+      <li>Calculate 24-hour load profiles based on component usage schedules</li>
+      <li>Simulate priority-based dispatch (Solar → Grid → Generator)</li>
+      <li>Backup and restore configurations (local file or server storage)</li>
+      <li>Collaborate with a team using role-based access control</li>
+      <li>Google OAuth authentication — no separate password management needed</li>
+    </ul>
 
-<h3>Technology Stack</h3>
-<table>
-  <tr><th>Layer</th><th>Technology</th><th>Version</th></tr>
-  <tr><td>Backend Framework</td><td>Laravel</td><td>13.x</td></tr>
-  <tr><td>Backend Language</td><td>PHP</td><td>8.3+</td></tr>
-  <tr><td>API Authentication</td><td>Laravel Sanctum</td><td>4.3</td></tr>
-  <tr><td>OAuth</td><td>Laravel Socialite (Google)</td><td>5.26</td></tr>
-  <tr><td>Database</td><td>SQLite</td><td>3.x</td></tr>
-  <tr><td>Frontend Framework</td><td>React</td><td>18.2</td></tr>
-  <tr><td>Routing (Frontend)</td><td>React Router DOM</td><td>6.30</td></tr>
-  <tr><td>Build Tool</td><td>Vite</td><td>4.4</td></tr>
-  <tr><td>CSS Framework</td><td>Tailwind CSS</td><td>3.4</td></tr>
-  <tr><td>HTTP Client</td><td>Axios</td><td>1.13</td></tr>
-  <tr><td>Charts</td><td>Recharts</td><td>3.8</td></tr>
-</table>
+    <h3>Technology Stack</h3>
+    <table>
+      <tr>
+        <th>Layer</th>
+        <th>Technology</th>
+        <th>Version</th>
+      </tr>
+      <tr>
+        <td>Backend Framework</td>
+        <td>Laravel</td>
+        <td>13.x</td>
+      </tr>
+      <tr>
+        <td>Backend Language</td>
+        <td>PHP</td>
+        <td>8.3+</td>
+      </tr>
+      <tr>
+        <td>API Authentication</td>
+        <td>Laravel Sanctum</td>
+        <td>4.3</td>
+      </tr>
+      <tr>
+        <td>OAuth</td>
+        <td>Laravel Socialite (Google)</td>
+        <td>5.26</td>
+      </tr>
+      <tr>
+        <td>Database</td>
+        <td>SQLite</td>
+        <td>3.x</td>
+      </tr>
+      <tr>
+        <td>Frontend Framework</td>
+        <td>React</td>
+        <td>18.2</td>
+      </tr>
+      <tr>
+        <td>Routing (Frontend)</td>
+        <td>React Router DOM</td>
+        <td>6.30</td>
+      </tr>
+      <tr>
+        <td>Build Tool</td>
+        <td>Vite</td>
+        <td>4.4</td>
+      </tr>
+      <tr>
+        <td>CSS Framework</td>
+        <td>Tailwind CSS</td>
+        <td>3.4</td>
+      </tr>
+      <tr>
+        <td>HTTP Client</td>
+        <td>Axios</td>
+        <td>1.13</td>
+      </tr>
+      <tr>
+        <td>Charts</td>
+        <td>Recharts</td>
+        <td>3.8</td>
+      </tr>
+    </table>
 
-<!-- ══════════════ 2. FOLDER STRUCTURE ══════════════ -->
-<h2>2. Project Folder Structure</h2>
-<pre>
+    <!-- ══════════════ 2. FOLDER STRUCTURE ══════════════ -->
+    <h2>2. Project Folder Structure</h2>
+    <pre>
 power-profile/
 ├── backend/                         Laravel 13 REST API
 │   ├── app/
@@ -121,364 +314,951 @@ power-profile/
     └── package.json
 </pre>
 
-<!-- ══════════════ 3. DATABASE ══════════════ -->
-<h2>3. Database Schema</h2>
-<div class="section-intro">
-  The database uses SQLite with 15 tables. The design follows a strict hierarchy for
-  buildings, a polymorphic pattern for shared power-source entities, and a separate
-  component-type catalogue for reusable presets.
-</div>
+    <!-- ══════════════ 3. DATABASE ══════════════ -->
+    <h2>3. Database Schema</h2>
+    <div class="section-intro">
+      The database uses SQLite with 15 tables. The design follows a strict hierarchy for
+      buildings, a polymorphic pattern for shared power-source entities, and a separate
+      component-type catalogue for reusable presets.
+    </div>
 
-<h3>3.1 Entity Hierarchy Tables</h3>
-<table>
-  <tr><th>Table</th><th>Key Fields</th><th>Purpose</th></tr>
-  <tr>
-    <td><code>users</code></td>
-    <td>id, name, email, password (nullable), google_id, avatar, google_token, google_refresh_token, email_verified_at, is_admin</td>
-    <td>User accounts. Accounts are created automatically on first Google login.</td>
-  </tr>
-  <tr>
-    <td><code>projects</code></td>
-    <td>id, user_id, name, building_type, current_step, buildings_count, total_power, solar_power, existing_solar_power, solar_source, generator_power, generator_source, auto_backup_interval, last_auto_backup_at, work_days (JSON), work_time_intervals (JSON), working_season_intervals (JSON), location_lat, location_lng, location_name</td>
-    <td>Top-level project. Owns buildings. Holds project-wide schedule and location for solar calculations.</td>
-  </tr>
-  <tr>
-    <td><code>buildings</code></td>
-    <td>id, project_id, name, floors (count), area, power_consumption, solar_power, existing_solar_power, solar_source, generator_power, work_days, work_time_intervals, working_season_intervals</td>
-    <td>Building inside a project. Inherits or overrides schedule from project.</td>
-  </tr>
-  <tr>
-    <td><code>floors</code></td>
-    <td>id, building_id, name, area, power_consumption, solar_power, existing_solar_power, solar_source, generator_power, work_days, work_time_intervals, working_season_intervals</td>
-    <td>Floor inside a building.</td>
-  </tr>
-  <tr>
-    <td><code>rooms</code></td>
-    <td>id, floor_id, name, area, power_consumption, solar_power, existing_solar_power, solar_source, generator_power, work_days, work_time_intervals, working_season_intervals</td>
-    <td>Room inside a floor. Lowest level in the hierarchy.</td>
-  </tr>
-</table>
+    <h3>3.1 Entity Hierarchy Tables</h3>
+    <table>
+      <tr>
+        <th>Table</th>
+        <th>Key Fields</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td><code>users</code></td>
+        <td>id, name, email, password (nullable), google_id, avatar, google_token, google_refresh_token,
+          email_verified_at, is_admin</td>
+        <td>User accounts. Accounts are created automatically on first Google login.</td>
+      </tr>
+      <tr>
+        <td><code>projects</code></td>
+        <td>id, user_id, name, building_type, current_step, buildings_count, total_power, solar_power,
+          existing_solar_power, solar_source, generator_power, generator_source, auto_backup_interval,
+          last_auto_backup_at, work_days (JSON), work_time_intervals (JSON), working_season_intervals (JSON),
+          location_lat, location_lng, location_name</td>
+        <td>Top-level project. Owns buildings. Holds project-wide schedule and location for solar calculations.</td>
+      </tr>
+      <tr>
+        <td><code>buildings</code></td>
+        <td>id, project_id, name, floors (count), area, power_consumption, solar_power, existing_solar_power,
+          solar_source, generator_power, work_days, work_time_intervals, working_season_intervals</td>
+        <td>Building inside a project. Inherits or overrides schedule from project.</td>
+      </tr>
+      <tr>
+        <td><code>floors</code></td>
+        <td>id, building_id, name, area, power_consumption, solar_power, existing_solar_power, solar_source,
+          generator_power, work_days, work_time_intervals, working_season_intervals</td>
+        <td>Floor inside a building.</td>
+      </tr>
+      <tr>
+        <td><code>rooms</code></td>
+        <td>id, floor_id, name, area, power_consumption, solar_power, existing_solar_power, solar_source,
+          generator_power, work_days, work_time_intervals, working_season_intervals</td>
+        <td>Room inside a floor. Lowest level in the hierarchy.</td>
+      </tr>
+    </table>
 
-<h3>3.2 Component Tables</h3>
-<p>
-  Components exist at four levels. Each table mirrors the same set of fields but with a
-  different parent FK. A shared <code>component_types</code> catalogue provides preset defaults.
-</p>
-<table>
-  <tr><th>Table</th><th>Parent FK</th><th>Shared Component Fields</th></tr>
-  <tr><td><code>project_components</code></td><td>project_id</td><td rowspan="4">component_type_id, power (W), phases (1phase/3phase), power_factor (0–1), quantity, group_name, priority (critical/normal/non_critical), needs_socket (bool), usage_season (all/summer/winter), usage_day_type (all/weekday/weekend), usage_time_intervals (JSON array of {start, end})</td></tr>
-  <tr><td><code>building_components</code></td><td>building_id</td></tr>
-  <tr><td><code>floor_components</code></td><td>floor_id</td></tr>
-  <tr><td><code>room_components</code></td><td>room_id</td></tr>
-</table>
+    <h3>3.2 Component Tables</h3>
+    <p>
+      Components exist at four levels. Each table mirrors the same set of fields but with a
+      different parent FK. A shared <code>component_types</code> catalogue provides preset defaults.
+    </p>
+    <table>
+      <tr>
+        <th>Table</th>
+        <th>Parent FK</th>
+        <th>Shared Component Fields</th>
+      </tr>
+      <tr>
+        <td><code>project_components</code></td>
+        <td>project_id</td>
+        <td rowspan="4">component_type_id, power (W), phases (1phase/3phase), power_factor (0–1), quantity, group_name,
+          priority (critical/normal/non_critical), needs_socket (bool), usage_season (all/summer/winter), usage_day_type
+          (all/weekday/weekend), usage_time_intervals (JSON array of {start, end})</td>
+      </tr>
+      <tr>
+        <td><code>building_components</code></td>
+        <td>building_id</td>
+      </tr>
+      <tr>
+        <td><code>floor_components</code></td>
+        <td>floor_id</td>
+      </tr>
+      <tr>
+        <td><code>room_components</code></td>
+        <td>room_id</td>
+      </tr>
+    </table>
 
-<table>
-  <tr><th>Table</th><th>Key Fields</th><th>Purpose</th></tr>
-  <tr>
-    <td><code>component_types</code></td>
-    <td>id, name (unique), is_preset, default_power, default_phases, default_power_factor, default_needs_socket, default_usage_season, default_usage_day_type, default_usage_time_intervals</td>
-    <td>Master catalogue of component definitions. Preset types ship with the app; custom types are created per-user.</td>
-  </tr>
-</table>
+    <table>
+      <tr>
+        <th>Table</th>
+        <th>Key Fields</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td><code>component_types</code></td>
+        <td>id, name (unique), is_preset, default_power, default_phases, default_power_factor, default_needs_socket,
+          default_usage_season, default_usage_day_type, default_usage_time_intervals</td>
+        <td>Master catalogue of component definitions. Preset types ship with the app; custom types are created
+          per-user.</td>
+      </tr>
+    </table>
 
-<h3>3.3 Power Source Tables (Polymorphic)</h3>
-<p>
-  Each of the three power-source tables uses Laravel's polymorphic relation, meaning a
-  single table holds rows for project, building, floor, and room owners.
-</p>
-<table>
-  <tr><th>Table</th><th>Polymorphic Columns</th><th>Other Fields</th><th>Purpose</th></tr>
-  <tr><td><code>utility_lines</code></td><td>lineable_type, lineable_id</td><td>name, power (VA capacity), phases</td><td>Utility grid connections (mains supply).</td></tr>
-  <tr><td><code>generator_lines</code></td><td>generable_type, generable_id</td><td>name, power, phases</td><td>Diesel / backup generator capacity.</td></tr>
-  <tr><td><code>sockets</code></td><td>socketable_type, socketable_id</td><td>phase_type, power (VA per outlet), quantity</td><td>Electrical outlets; demand computed with diversity factors.</td></tr>
-</table>
+    <h3>3.3 Power Source Tables (Polymorphic)</h3>
+    <p>
+      Each of the three power-source tables uses Laravel's polymorphic relation, meaning a
+      single table holds rows for project, building, floor, and room owners.
+    </p>
+    <table>
+      <tr>
+        <th>Table</th>
+        <th>Polymorphic Columns</th>
+        <th>Other Fields</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td><code>utility_lines</code></td>
+        <td>lineable_type, lineable_id</td>
+        <td>name, power (VA capacity), phases</td>
+        <td>Utility grid connections (mains supply).</td>
+      </tr>
+      <tr>
+        <td><code>generator_lines</code></td>
+        <td>generable_type, generable_id</td>
+        <td>name, power, phases</td>
+        <td>Diesel / backup generator capacity.</td>
+      </tr>
+      <tr>
+        <td><code>sockets</code></td>
+        <td>socketable_type, socketable_id</td>
+        <td>phase_type, power (VA per outlet), quantity</td>
+        <td>Electrical outlets; demand computed with diversity factors.</td>
+      </tr>
+    </table>
 
-<h3>3.4 Support Tables</h3>
-<table>
-  <tr><th>Table</th><th>Key Fields</th><th>Purpose</th></tr>
-  <tr>
-    <td><code>project_users</code></td>
-    <td>project_id, user_id, role (admin/main/normal)</td>
-    <td>Project membership and permissions. Project creator is always admin.</td>
-  </tr>
-  <tr>
-    <td><code>server_backups</code></td>
-    <td>project_id, entity_type, entity_id, entity_name, created_by, data (longText JSON)</td>
-    <td>Stores full JSON snapshots of any entity on the server for later restore.</td>
-  </tr>
-  <tr>
-    <td><code>personal_access_tokens</code></td>
-    <td>tokenable_type, tokenable_id, name, token (hashed), abilities, last_used_at, expires_at</td>
-    <td>Laravel Sanctum API bearer tokens (one token per user session).</td>
-  </tr>
-</table>
+    <h3>3.4 Support Tables</h3>
+    <table>
+      <tr>
+        <th>Table</th>
+        <th>Key Fields</th>
+        <th>Purpose</th>
+      </tr>
+      <tr>
+        <td><code>project_users</code></td>
+        <td>project_id, user_id, role (admin/main/normal)</td>
+        <td>Project membership and permissions. Project creator is always admin.</td>
+      </tr>
+      <tr>
+        <td><code>server_backups</code></td>
+        <td>project_id, entity_type, entity_id, entity_name, created_by, data (longText JSON)</td>
+        <td>Stores full JSON snapshots of any entity on the server for later restore.</td>
+      </tr>
+      <tr>
+        <td><code>personal_access_tokens</code></td>
+        <td>tokenable_type, tokenable_id, name, token (hashed), abilities, last_used_at, expires_at</td>
+        <td>Laravel Sanctum API bearer tokens (one token per user session).</td>
+      </tr>
+    </table>
 
-<!-- ══════════════ 4. BACKEND API ══════════════ -->
-<h2>4. Backend API Reference</h2>
-<div class="section-intro">
-  All routes below (except admin login and Google OAuth) are protected by
-  <code>auth:sanctum</code> middleware. Clients must include the header
-  <code>Authorization: Bearer {token}</code>.
-</div>
+    <!-- ══════════════ 4. BACKEND API ══════════════ -->
+    <h2>4. Backend API Reference</h2>
+    <div class="section-intro">
+      All routes below (except admin login and Google OAuth) are protected by
+      <code>auth:sanctum</code> middleware. Clients must include the header
+      <code>Authorization: Bearer {token}</code>.
+    </div>
 
-<h3>Authentication (Web Routes)</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/auth/google</td><td>Redirect user to Google consent screen</td></tr>
-  <tr><td>GET</td><td>/auth/google/callback</td><td>Handle Google callback, create/update user, return Sanctum token to frontend</td></tr>
-  <tr><td>GET</td><td>/api/user</td><td>Get authenticated user profile</td></tr>
-  <tr><td>POST</td><td>/api/logout</td><td>Revoke current Sanctum token</td></tr>
-</table>
+    <h3>Authentication (Web Routes)</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/auth/google</td>
+        <td>Redirect user to Google consent screen</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/auth/google/callback</td>
+        <td>Handle Google callback, create/update user, return Sanctum token to frontend</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/user</td>
+        <td>Get authenticated user profile</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/logout</td>
+        <td>Revoke current Sanctum token</td>
+      </tr>
+    </table>
 
-<h3>Projects</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/projects</td><td>List all projects owned by or shared with the user</td></tr>
-  <tr><td>POST</td><td>/api/projects</td><td>Create a new project</td></tr>
-  <tr><td>GET</td><td>/api/projects/{project}</td><td>Get project details</td></tr>
-  <tr><td>PUT</td><td>/api/projects/{project}</td><td>Update project (name, schedule, location, solar/generator settings)</td></tr>
-  <tr><td>DELETE</td><td>/api/projects/{project}</td><td>Delete project (admin only)</td></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/all-floors</td><td>List every floor in the project (all buildings)</td></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/all-rooms</td><td>List every room in the project (all floors/buildings)</td></tr>
-</table>
+    <h3>Projects</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects</td>
+        <td>List all projects owned by or shared with the user</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects</td>
+        <td>Create a new project</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}</td>
+        <td>Get project details</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/projects/{project}</td>
+        <td>Update project (name, schedule, location, solar/generator settings)</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/projects/{project}</td>
+        <td>Delete project (admin only)</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/all-floors</td>
+        <td>List every floor in the project (all buildings)</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/all-rooms</td>
+        <td>List every room in the project (all floors/buildings)</td>
+      </tr>
+    </table>
 
-<h3>Buildings</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/buildings</td><td>List buildings in project</td></tr>
-  <tr><td>POST</td><td>/api/projects/{project}/buildings</td><td>Create building</td></tr>
-  <tr><td>PUT</td><td>/api/projects/{project}/buildings/{building}</td><td>Update building</td></tr>
-  <tr><td>DELETE</td><td>/api/projects/{project}/buildings/{building}</td><td>Delete building</td></tr>
-</table>
+    <h3>Buildings</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/buildings</td>
+        <td>List buildings in project</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects/{project}/buildings</td>
+        <td>Create building</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/projects/{project}/buildings/{building}</td>
+        <td>Update building</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/projects/{project}/buildings/{building}</td>
+        <td>Delete building</td>
+      </tr>
+    </table>
 
-<h3>Floors</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/buildings/{building}/floors</td><td>List floors in building (includes building + project metadata)</td></tr>
-  <tr><td>POST</td><td>/api/buildings/{building}/floors</td><td>Create floor</td></tr>
-  <tr><td>PUT</td><td>/api/buildings/{building}/floors/{floor}</td><td>Update floor</td></tr>
-  <tr><td>DELETE</td><td>/api/buildings/{building}/floors/{floor}</td><td>Delete floor</td></tr>
-</table>
+    <h3>Floors</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/buildings/{building}/floors</td>
+        <td>List floors in building (includes building + project metadata)</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/buildings/{building}/floors</td>
+        <td>Create floor</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/buildings/{building}/floors/{floor}</td>
+        <td>Update floor</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/buildings/{building}/floors/{floor}</td>
+        <td>Delete floor</td>
+      </tr>
+    </table>
 
-<h3>Rooms</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/floors/{floor}/rooms</td><td>List rooms in floor (includes floor + building + project metadata)</td></tr>
-  <tr><td>POST</td><td>/api/floors/{floor}/rooms</td><td>Create room</td></tr>
-  <tr><td>PUT</td><td>/api/floors/{floor}/rooms/{room}</td><td>Update room</td></tr>
-  <tr><td>DELETE</td><td>/api/floors/{floor}/rooms/{room}</td><td>Delete room</td></tr>
-</table>
+    <h3>Rooms</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/floors/{floor}/rooms</td>
+        <td>List rooms in floor (includes floor + building + project metadata)</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/floors/{floor}/rooms</td>
+        <td>Create room</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/floors/{floor}/rooms/{room}</td>
+        <td>Update room</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/floors/{floor}/rooms/{room}</td>
+        <td>Delete room</td>
+      </tr>
+    </table>
 
-<h3>Components (same pattern at 4 levels)</h3>
-<table>
-  <tr><th>Method</th><th>URL Pattern</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/{entity}/{id}/components</td><td>List components. Entity = projects, buildings, floors, rooms</td></tr>
-  <tr><td>POST</td><td>/api/{entity}/{id}/components</td><td>Add component</td></tr>
-  <tr><td>PUT</td><td>/api/{entity}/{id}/components/{component}</td><td>Update component</td></tr>
-  <tr><td>DELETE</td><td>/api/{entity}/{id}/components/{component}</td><td>Remove component</td></tr>
-  <tr><td>GET</td><td>/api/component-types</td><td>List all preset and custom component types</td></tr>
-</table>
+    <h3>Components (same pattern at 4 levels)</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL Pattern</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/{entity}/{id}/components</td>
+        <td>List components. Entity = projects, buildings, floors, rooms</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/{entity}/{id}/components</td>
+        <td>Add component</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/{entity}/{id}/components/{component}</td>
+        <td>Update component</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/{entity}/{id}/components/{component}</td>
+        <td>Remove component</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/component-types</td>
+        <td>List all preset and custom component types</td>
+      </tr>
+    </table>
 
-<h3>Power Sources (same pattern for utility-lines, generator-lines, sockets)</h3>
-<table>
-  <tr><th>Method</th><th>URL Pattern</th><th>Description</th></tr>
-  <tr><td>GET/POST</td><td>/api/{entity}/{id}/utility-lines</td><td>List or add utility grid connections</td></tr>
-  <tr><td>GET/POST</td><td>/api/{entity}/{id}/generator-lines</td><td>List or add generator backup lines</td></tr>
-  <tr><td>GET/POST</td><td>/api/{entity}/{id}/sockets</td><td>List or add electrical outlet groups</td></tr>
-  <tr><td>PUT/DELETE</td><td>/api/utility-lines/{line}</td><td>Update or delete a utility line</td></tr>
-  <tr><td>PUT/DELETE</td><td>/api/generator-lines/{line}</td><td>Update or delete a generator line</td></tr>
-  <tr><td>PUT/DELETE</td><td>/api/sockets/{socket}</td><td>Update or delete a socket group</td></tr>
-</table>
+    <h3>Power Sources (same pattern for utility-lines, generator-lines, sockets)</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL Pattern</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET/POST</td>
+        <td>/api/{entity}/{id}/utility-lines</td>
+        <td>List or add utility grid connections</td>
+      </tr>
+      <tr>
+        <td>GET/POST</td>
+        <td>/api/{entity}/{id}/generator-lines</td>
+        <td>List or add generator backup lines</td>
+      </tr>
+      <tr>
+        <td>GET/POST</td>
+        <td>/api/{entity}/{id}/sockets</td>
+        <td>List or add electrical outlet groups</td>
+      </tr>
+      <tr>
+        <td>PUT/DELETE</td>
+        <td>/api/utility-lines/{line}</td>
+        <td>Update or delete a utility line</td>
+      </tr>
+      <tr>
+        <td>PUT/DELETE</td>
+        <td>/api/generator-lines/{line}</td>
+        <td>Update or delete a generator line</td>
+      </tr>
+      <tr>
+        <td>PUT/DELETE</td>
+        <td>/api/sockets/{socket}</td>
+        <td>Update or delete a socket group</td>
+      </tr>
+    </table>
 
-<h3>Power Analytics</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/total-power</td><td>Total apparent power (VA) + solar/generator computed values</td></tr>
-  <tr><td>GET</td><td>/api/buildings/{building}/total-power</td><td>Same aggregated for a building</td></tr>
-  <tr><td>GET</td><td>/api/floors/{floor}/total-power</td><td>Same for a floor</td></tr>
-  <tr><td>GET</td><td>/api/rooms/{room}/total-power</td><td>Same for a room</td></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/load-profile</td><td>24-hour hourly load array (W per hour, 0–23)</td></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/schedule</td><td>Operating schedule summary</td></tr>
-</table>
+    <h3>Power Analytics</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/total-power</td>
+        <td>Total apparent power (VA) + solar/generator computed values</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/buildings/{building}/total-power</td>
+        <td>Same aggregated for a building</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/floors/{floor}/total-power</td>
+        <td>Same for a floor</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/rooms/{room}/total-power</td>
+        <td>Same for a room</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/load-profile</td>
+        <td>24-hour hourly load array (W per hour, 0–23)</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/schedule</td>
+        <td>Operating schedule summary</td>
+      </tr>
+    </table>
 
-<h3>Backup, Restore, and Duplicate</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/backup</td><td>Download full project as JSON file</td></tr>
-  <tr><td>POST</td><td>/api/projects/restore</td><td>Restore project from JSON file (with overwrite option)</td></tr>
-  <tr><td>GET</td><td>/api/buildings/{building}/backup</td><td>Download building as JSON</td></tr>
-  <tr><td>POST</td><td>/api/projects/{project}/buildings/restore</td><td>Restore building into project</td></tr>
-  <tr><td>GET</td><td>/api/floors/{floor}/backup</td><td>Download floor as JSON</td></tr>
-  <tr><td>POST</td><td>/api/buildings/{building}/floors/restore</td><td>Restore floor into building</td></tr>
-  <tr><td>GET</td><td>/api/rooms/{room}/backup</td><td>Download room as JSON</td></tr>
-  <tr><td>POST</td><td>/api/floors/{floor}/rooms/restore</td><td>Restore room into floor</td></tr>
-  <tr><td>POST</td><td>/api/projects/{project}/save-backup</td><td>Save project snapshot to server database</td></tr>
-  <tr><td>POST</td><td>/api/buildings/{building}/save-backup</td><td>Save building snapshot to server</td></tr>
-  <tr><td>POST</td><td>/api/floors/{floor}/save-backup</td><td>Save floor snapshot to server</td></tr>
-  <tr><td>POST</td><td>/api/rooms/{room}/save-backup</td><td>Save room snapshot to server</td></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/server-backups</td><td>List all server-stored backups for project</td></tr>
-  <tr><td>GET</td><td>/api/server-backups/{backup}/data</td><td>Retrieve a specific server backup's data</td></tr>
-  <tr><td>DELETE</td><td>/api/server-backups/{backup}</td><td>Delete a server backup</td></tr>
-  <tr><td>POST</td><td>/api/projects/{project}/buildings/{building}/duplicate</td><td>Clone a building (with all floors, rooms, components)</td></tr>
-  <tr><td>POST</td><td>/api/buildings/{building}/floors/{floor}/duplicate</td><td>Clone a floor (any floor in same project) into building</td></tr>
-  <tr><td>POST</td><td>/api/floors/{floor}/rooms/{room}/duplicate</td><td>Clone a room (any room in same project) into floor</td></tr>
-</table>
+    <h3>Backup, Restore, and Duplicate</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/backup</td>
+        <td>Download full project as JSON file</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects/restore</td>
+        <td>Restore project from JSON file (with overwrite option)</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/buildings/{building}/backup</td>
+        <td>Download building as JSON</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects/{project}/buildings/restore</td>
+        <td>Restore building into project</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/floors/{floor}/backup</td>
+        <td>Download floor as JSON</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/buildings/{building}/floors/restore</td>
+        <td>Restore floor into building</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/rooms/{room}/backup</td>
+        <td>Download room as JSON</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/floors/{floor}/rooms/restore</td>
+        <td>Restore room into floor</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects/{project}/save-backup</td>
+        <td>Save project snapshot to server database</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/buildings/{building}/save-backup</td>
+        <td>Save building snapshot to server</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/floors/{floor}/save-backup</td>
+        <td>Save floor snapshot to server</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/rooms/{room}/save-backup</td>
+        <td>Save room snapshot to server</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/server-backups</td>
+        <td>List all server-stored backups for project</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/server-backups/{backup}/data</td>
+        <td>Retrieve a specific server backup's data</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/server-backups/{backup}</td>
+        <td>Delete a server backup</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects/{project}/buildings/{building}/duplicate</td>
+        <td>Clone a building (with all floors, rooms, components)</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/buildings/{building}/floors/{floor}/duplicate</td>
+        <td>Clone a floor (any floor in same project) into building</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/floors/{floor}/rooms/{room}/duplicate</td>
+        <td>Clone a room (any room in same project) into floor</td>
+      </tr>
+    </table>
 
-<h3>Project Members</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>GET</td><td>/api/projects/{project}/members</td><td>List members + admin (admin-only)</td></tr>
-  <tr><td>POST</td><td>/api/projects/{project}/members</td><td>Add member by email (user must already be registered)</td></tr>
-  <tr><td>PUT</td><td>/api/projects/{project}/members/{member}</td><td>Change member role</td></tr>
-  <tr><td>DELETE</td><td>/api/projects/{project}/members/{member}</td><td>Remove member from project</td></tr>
-</table>
+    <h3>Project Members</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/projects/{project}/members</td>
+        <td>List members + admin (admin-only)</td>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/projects/{project}/members</td>
+        <td>Add member by email (user must already be registered)</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/projects/{project}/members/{member}</td>
+        <td>Change member role</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/projects/{project}/members/{member}</td>
+        <td>Remove member from project</td>
+      </tr>
+    </table>
 
-<h3>Admin Panel</h3>
-<table>
-  <tr><th>Method</th><th>URL</th><th>Description</th></tr>
-  <tr><td>POST</td><td>/api/admin/login</td><td>Admin login (email + password). Returns Sanctum token.</td></tr>
-  <tr><td>GET</td><td>/api/admin/users</td><td>List all users in the system</td></tr>
-  <tr><td>PUT</td><td>/api/admin/users/{user}</td><td>Edit any user's details</td></tr>
-  <tr><td>DELETE</td><td>/api/admin/users/{user}</td><td>Delete a user account</td></tr>
-</table>
+    <h3>Admin Panel</h3>
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>URL</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>POST</td>
+        <td>/api/admin/login</td>
+        <td>Admin login (email + password). Returns Sanctum token.</td>
+      </tr>
+      <tr>
+        <td>GET</td>
+        <td>/api/admin/users</td>
+        <td>List all users in the system</td>
+      </tr>
+      <tr>
+        <td>PUT</td>
+        <td>/api/admin/users/{user}</td>
+        <td>Edit any user's details</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>/api/admin/users/{user}</td>
+        <td>Delete a user account</td>
+      </tr>
+    </table>
 
-<!-- ══════════════ 5. BACKEND CONTROLLERS ══════════════ -->
-<h2>5. Backend Controllers</h2>
-<p>All 21 API controllers live in <code>app/Http/Controllers/Api/</code>.</p>
-<table>
-  <tr><th>Controller</th><th>Responsibility</th></tr>
-  <tr><td>AdminController</td><td>Admin authentication (email+password) and full user management CRUD.</td></tr>
-  <tr><td>BuildingController</td><td>CRUD for buildings, includes project ownership check.</td></tr>
-  <tr><td>BuildingComponentController</td><td>CRUD for components attached to a building.</td></tr>
-  <tr><td>ComponentTypeController</td><td>Returns list of all component types (presets + custom). Used to populate component-name dropdowns in the frontend.</td></tr>
-  <tr><td>FloorController</td><td>CRUD for floors, returns floor with building + project metadata in index response.</td></tr>
-  <tr><td>FloorComponentController</td><td>CRUD for components attached to a floor.</td></tr>
-  <tr><td>GeneratorLineController</td><td>Polymorphic CRUD for generator backup lines. Accepts parent type + ID, operates on the correct morph relationship.</td></tr>
-  <tr><td>LoadProfileController</td><td>Builds 24-hour hourly load arrays. Sums component power × quantity × schedule overlap. Returns per-hour demand for charting.</td></tr>
-  <tr><td>NavigationController</td><td>Resolves entity names to IDs for breadcrumb navigation.</td></tr>
-  <tr><td>ProjectBackupController</td><td>Full backup/restore/duplicate system. Exports entities to nested JSON; imports JSON back; duplicates entities across the hierarchy.</td></tr>
-  <tr><td>ProjectComponentController</td><td>CRUD for components attached directly to a project.</td></tr>
-  <tr><td>ProjectController</td><td>Main project CRUD. Also provides project-wide all-floors and all-rooms endpoints. Calculates total_power for dashboard listing.</td></tr>
-  <tr><td>ProjectMemberController</td><td>Manages project membership (add by email, change role, remove). Only project admin (owner) can call these.</td></tr>
-  <tr><td>RoomComponentController</td><td>CRUD for components in a room.</td></tr>
-  <tr><td>RoomController</td><td>CRUD for rooms. Index returns rooms with floor + building + project metadata.</td></tr>
-  <tr><td>ScheduleController</td><td>Returns operating schedule summary (work days, hours, seasonal info).</td></tr>
-  <tr><td>ServerBackupController</td><td>Lists, retrieves, and deletes server-stored backup snapshots.</td></tr>
-  <tr><td>SocketController</td><td>Polymorphic CRUD for electrical outlet groups. Uses SocketDemandService for diversity calculations.</td></tr>
-  <tr><td>TotalPowerController</td><td>Aggregates all power loads (components at all levels + sockets) plus solar/generator computed values. Returns max_va, total_va, solar_computed, generator_computed.</td></tr>
-  <tr><td>UserController</td><td>Returns authenticated user info. Handles logout (token revocation).</td></tr>
-  <tr><td>UtilityLineController</td><td>Polymorphic CRUD for utility grid connection lines.</td></tr>
-</table>
-<p><strong>Auth Controller:</strong> <code>Auth/GoogleController</code> — handles the Google OAuth redirect and callback, creates/updates the user record, and issues a Sanctum bearer token redirected to the frontend.</p>
+    <!-- ══════════════ 5. BACKEND CONTROLLERS ══════════════ -->
+    <h2>5. Backend Controllers</h2>
+    <p>All 21 API controllers live in <code>app/Http/Controllers/Api/</code>.</p>
+    <table>
+      <tr>
+        <th>Controller</th>
+        <th>Responsibility</th>
+      </tr>
+      <tr>
+        <td>AdminController</td>
+        <td>Admin authentication (email+password) and full user management CRUD.</td>
+      </tr>
+      <tr>
+        <td>BuildingController</td>
+        <td>CRUD for buildings, includes project ownership check.</td>
+      </tr>
+      <tr>
+        <td>BuildingComponentController</td>
+        <td>CRUD for components attached to a building.</td>
+      </tr>
+      <tr>
+        <td>ComponentTypeController</td>
+        <td>Returns list of all component types (presets + custom). Used to populate component-name dropdowns in the
+          frontend.</td>
+      </tr>
+      <tr>
+        <td>FloorController</td>
+        <td>CRUD for floors, returns floor with building + project metadata in index response.</td>
+      </tr>
+      <tr>
+        <td>FloorComponentController</td>
+        <td>CRUD for components attached to a floor.</td>
+      </tr>
+      <tr>
+        <td>GeneratorLineController</td>
+        <td>Polymorphic CRUD for generator backup lines. Accepts parent type + ID, operates on the correct morph
+          relationship.</td>
+      </tr>
+      <tr>
+        <td>LoadProfileController</td>
+        <td>Builds 24-hour hourly load arrays. Sums component power × quantity × schedule overlap. Returns per-hour
+          demand for charting.</td>
+      </tr>
+      <tr>
+        <td>NavigationController</td>
+        <td>Resolves entity names to IDs for breadcrumb navigation.</td>
+      </tr>
+      <tr>
+        <td>ProjectBackupController</td>
+        <td>Full backup/restore/duplicate system. Exports entities to nested JSON; imports JSON back; duplicates
+          entities across the hierarchy.</td>
+      </tr>
+      <tr>
+        <td>ProjectComponentController</td>
+        <td>CRUD for components attached directly to a project.</td>
+      </tr>
+      <tr>
+        <td>ProjectController</td>
+        <td>Main project CRUD. Also provides project-wide all-floors and all-rooms endpoints. Calculates total_power for
+          dashboard listing.</td>
+      </tr>
+      <tr>
+        <td>ProjectMemberController</td>
+        <td>Manages project membership (add by email, change role, remove). Only project admin (owner) can call these.
+        </td>
+      </tr>
+      <tr>
+        <td>RoomComponentController</td>
+        <td>CRUD for components in a room.</td>
+      </tr>
+      <tr>
+        <td>RoomController</td>
+        <td>CRUD for rooms. Index returns rooms with floor + building + project metadata.</td>
+      </tr>
+      <tr>
+        <td>ScheduleController</td>
+        <td>Returns operating schedule summary (work days, hours, seasonal info).</td>
+      </tr>
+      <tr>
+        <td>ServerBackupController</td>
+        <td>Lists, retrieves, and deletes server-stored backup snapshots.</td>
+      </tr>
+      <tr>
+        <td>SocketController</td>
+        <td>Polymorphic CRUD for electrical outlet groups. Uses SocketDemandService for diversity calculations.</td>
+      </tr>
+      <tr>
+        <td>TotalPowerController</td>
+        <td>Aggregates all power loads (components at all levels + sockets) plus solar/generator computed values.
+          Returns max_va, total_va, solar_computed, generator_computed.</td>
+      </tr>
+      <tr>
+        <td>UserController</td>
+        <td>Returns authenticated user info. Handles logout (token revocation).</td>
+      </tr>
+      <tr>
+        <td>UtilityLineController</td>
+        <td>Polymorphic CRUD for utility grid connection lines.</td>
+      </tr>
+    </table>
+    <p><strong>Auth Controller:</strong> <code>Auth/GoogleController</code> — handles the Google OAuth redirect and
+      callback, creates/updates the user record, and issues a Sanctum bearer token redirected to the frontend.</p>
 
-<!-- ══════════════ 6. SERVICES ══════════════ -->
-<h2>6. Business Logic Services</h2>
+    <!-- ══════════════ 6. SERVICES ══════════════ -->
+    <h2>6. Business Logic Services</h2>
 
-<h3>BackupExporter.php</h3>
-<p>Converts any entity into a fully nested JSON snapshot suitable for backup, restore, or duplication. Exports name, area, all components (with every field), utility lines, generator lines, sockets, and recursively exports all children (buildings → floors → rooms).</p>
+    <h3>BackupExporter.php</h3>
+    <p>Converts any entity into a fully nested JSON snapshot suitable for backup, restore, or duplication. Exports name,
+      area, all components (with every field), utility lines, generator lines, sockets, and recursively exports all
+      children (buildings → floors → rooms).</p>
 
-<h3>SourceDispatchService.php</h3>
-<p>Implements a priority-based dispatch algorithm across 24 hours:</p>
-<ol>
-  <li><strong>Solar first</strong> — free generation, use as much as available</li>
-  <li><strong>Utility grid second</strong> — grid electricity at standard tariff</li>
-  <li><strong>Generator last</strong> — diesel/backup only when solar + grid are insufficient</li>
-</ol>
-<p>Returns hourly arrays for each source plus unmet demand and summary statistics used in the PowerBanner component.</p>
+    <h3>SourceDispatchService.php</h3>
+    <p>Implements a priority-based dispatch algorithm across 24 hours:</p>
+    <ol>
+      <li><strong>Solar first</strong> — free generation, use as much as available</li>
+      <li><strong>Utility grid second</strong> — grid electricity at standard tariff</li>
+      <li><strong>Generator last</strong> — diesel/backup only when solar + grid are insufficient</li>
+    </ol>
+    <p>Returns hourly arrays for each source plus unmet demand and summary statistics used in the PowerBanner component.
+    </p>
 
-<h3>SocketDemandService.php</h3>
-<p>Applies diversified demand factors to electrical outlet groups (based on IEC/NEC diversity):
-</p>
-<ul>
-  <li>Outlets 1–10: <strong>100%</strong> demand factor</li>
-  <li>Outlets 11–20: <strong>75%</strong> demand factor</li>
-  <li>Outlets 21+: <strong>40%</strong> demand factor</li>
-</ul>
-<p>Each outlet has a default of 200 VA. The service also applies a building-wide coincidence factor when pooling across floors.</p>
+    <h3>SocketDemandService.php</h3>
+    <p>Applies diversified demand factors to electrical outlet groups (based on IEC/NEC diversity):
+    </p>
+    <ul>
+      <li>Outlets 1–10: <strong>100%</strong> demand factor</li>
+      <li>Outlets 11–20: <strong>75%</strong> demand factor</li>
+      <li>Outlets 21+: <strong>40%</strong> demand factor</li>
+    </ul>
+    <p>Each outlet has a default of 200 VA. The service also applies a building-wide coincidence factor when pooling
+      across floors.</p>
 
-<h3>SolarIrradianceService.php</h3>
-<p>Estimates hourly solar generation without external API calls:</p>
-<ol>
-  <li>Computes solar declination using Spencer's equation (day of year)</li>
-  <li>Derives sunrise/sunset from hour-angle formula</li>
-  <li>Looks up Peak Sun Hours (PSH) from a built-in table (latitude × month)</li>
-  <li>Distributes PSH as a sinusoidal curve between sunrise and sunset</li>
-  <li>Applies a performance ratio of 0.80 (inverter losses, temperature, soiling)</li>
-</ol>
-<p>Returns a 24-element array of watts per hour. Accuracy is ±10–15% vs measured data.</p>
+    <h3>SolarIrradianceService.php</h3>
+    <p>Estimates hourly solar generation without external API calls:</p>
+    <ol>
+      <li>Computes solar declination using Spencer's equation (day of year)</li>
+      <li>Derives sunrise/sunset from hour-angle formula</li>
+      <li>Looks up Peak Sun Hours (PSH) from a built-in table (latitude × month)</li>
+      <li>Distributes PSH as a sinusoidal curve between sunrise and sunset</li>
+      <li>Applies a performance ratio of 0.80 (inverter losses, temperature, soiling)</li>
+    </ol>
+    <p>Returns a 24-element array of watts per hour. Accuracy is ±10–15% vs measured data.</p>
 
-<!-- ══════════════ 7. FRONTEND PAGES ══════════════ -->
-<h2>7. Frontend Pages</h2>
-<table>
-  <tr><th>Page File</th><th>Route / Access</th><th>Description</th></tr>
-  <tr><td>LoginPage.jsx</td><td>/login</td><td>Landing page with "Sign in with Google" button. Redirects to /dashboard if already authenticated.</td></tr>
-  <tr><td>AuthCallbackPage.jsx</td><td>/auth/callback</td><td>Reads the Sanctum token from the URL query string after Google OAuth, stores it in localStorage, navigates to dashboard.</td></tr>
-  <tr><td>AdminLoginPage.jsx</td><td>/admin/login</td><td>Email + password login form for the platform administrator.</td></tr>
-  <tr><td>AdminDashboardPage.jsx</td><td>/admin</td><td>Table of all registered users with edit (name, email, admin flag) and delete actions.</td></tr>
-  <tr><td>DashboardPage.jsx</td><td>/dashboard</td><td>Main user home. Lists all projects (owned + shared) with total power. Create, edit, delete, backup/restore projects. Shows role badge (Admin / Main / View Only).</td></tr>
-  <tr><td>ProjectPage.jsx</td><td>/project</td><td>Project overview. Manage buildings (list, add with suggestion dropdown, duplicate, backup). Project-level components, sockets, utility/generator lines. Schedule settings. Members management. Power sources banner.</td></tr>
-  <tr><td>BuildingPage.jsx</td><td>/project/building</td><td>Building details. Manage floors (list, add, duplicate from any floor in project, backup). Building-level components and sockets. Schedule settings. Power banner.</td></tr>
-  <tr><td>FloorPage.jsx</td><td>/project/building/floor</td><td>Floor details. Manage rooms (grid cards, add, duplicate from any room in project, backup). Floor-level components and sockets. Schedule settings. Power banner.</td></tr>
-  <tr><td>NewRoomPage.jsx</td><td>/project/building/floor/room (create)</td><td>Full room editor for creating/editing a room. Manage room components with dropdown selector (component type presets), bulk duplicate, time-interval scheduling per component. Sockets management.</td></tr>
-  <tr><td>RoomPage.jsx</td><td>/project/.../rooms (alt view)</td><td>URL-param based room view (older navigation style). Lists rooms in a floor with edit/delete.</td></tr>
-  <tr><td>RoomDetailPage.jsx</td><td>/project/building/floor/room (view)</td><td>Read-only room analysis view with power summary.</td></tr>
-  <tr><td>LoadSchedulePage.jsx</td><td>/project/load-profile</td><td>Interactive 24-hour load profile chart (Recharts). Schedule configuration (work days, time intervals, seasons). Shows hourly demand breakdown.</td></tr>
-  <tr><td>BuildingsPage.jsx</td><td>/project/buildings</td><td>Alternate buildings listing view.</td></tr>
-  <tr><td>FloorsPage.jsx</td><td>/project/building/floors</td><td>Alternate floors listing view.</td></tr>
-</table>
+    <!-- ══════════════ 7. FRONTEND PAGES ══════════════ -->
+    <h2>7. Frontend Pages</h2>
+    <table>
+      <tr>
+        <th>Page File</th>
+        <th>Route / Access</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>LoginPage.jsx</td>
+        <td>/login</td>
+        <td>Landing page with "Sign in with Google" button. Redirects to /dashboard if already authenticated.</td>
+      </tr>
+      <tr>
+        <td>AuthCallbackPage.jsx</td>
+        <td>/auth/callback</td>
+        <td>Reads the Sanctum token from the URL query string after Google OAuth, stores it in localStorage, navigates
+          to dashboard.</td>
+      </tr>
+      <tr>
+        <td>AdminLoginPage.jsx</td>
+        <td>/admin/login</td>
+        <td>Email + password login form for the platform administrator.</td>
+      </tr>
+      <tr>
+        <td>AdminDashboardPage.jsx</td>
+        <td>/admin</td>
+        <td>Table of all registered users with edit (name, email, admin flag) and delete actions.</td>
+      </tr>
+      <tr>
+        <td>DashboardPage.jsx</td>
+        <td>/dashboard</td>
+        <td>Main user home. Lists all projects (owned + shared) with total power. Create, edit, delete, backup/restore
+          projects. Shows role badge (Admin / Main / View Only).</td>
+      </tr>
+      <tr>
+        <td>ProjectPage.jsx</td>
+        <td>/project</td>
+        <td>Project overview. Manage buildings (list, add with suggestion dropdown, duplicate, backup). Project-level
+          components, sockets, utility/generator lines. Schedule settings. Members management. Power sources banner.
+        </td>
+      </tr>
+      <tr>
+        <td>BuildingPage.jsx</td>
+        <td>/project/building</td>
+        <td>Building details. Manage floors (list, add, duplicate from any floor in project, backup). Building-level
+          components and sockets. Schedule settings. Power banner.</td>
+      </tr>
+      <tr>
+        <td>FloorPage.jsx</td>
+        <td>/project/building/floor</td>
+        <td>Floor details. Manage rooms (grid cards, add, duplicate from any room in project, backup). Floor-level
+          components and sockets. Schedule settings. Power banner.</td>
+      </tr>
+      <tr>
+        <td>NewRoomPage.jsx</td>
+        <td>/project/building/floor/room (create)</td>
+        <td>Full room editor for creating/editing a room. Manage room components with dropdown selector (component type
+          presets), bulk duplicate, time-interval scheduling per component. Sockets management.</td>
+      </tr>
+      <tr>
+        <td>RoomPage.jsx</td>
+        <td>/project/.../rooms (alt view)</td>
+        <td>URL-param based room view (older navigation style). Lists rooms in a floor with edit/delete.</td>
+      </tr>
+      <tr>
+        <td>RoomDetailPage.jsx</td>
+        <td>/project/building/floor/room (view)</td>
+        <td>Read-only room analysis view with power summary.</td>
+      </tr>
+      <tr>
+        <td>LoadSchedulePage.jsx</td>
+        <td>/project/load-profile</td>
+        <td>Interactive 24-hour load profile chart (Recharts). Schedule configuration (work days, time intervals,
+          seasons). Shows hourly demand breakdown.</td>
+      </tr>
+      <tr>
+        <td>BuildingsPage.jsx</td>
+        <td>/project/buildings</td>
+        <td>Alternate buildings listing view.</td>
+      </tr>
+      <tr>
+        <td>FloorsPage.jsx</td>
+        <td>/project/building/floors</td>
+        <td>Alternate floors listing view.</td>
+      </tr>
+    </table>
 
-<!-- ══════════════ 8. FRONTEND COMPONENTS ══════════════ -->
-<h2>8. Reusable Frontend Components</h2>
-<table>
-  <tr><th>Component</th><th>Description</th></tr>
-  <tr><td>Navbar.jsx</td><td>Top navigation bar. Shows user avatar, name, and a logout button. Persists across all protected pages.</td></tr>
-  <tr><td>UserCard.jsx</td><td>Profile card showing name, email, avatar, join date, account type (Google / admin).</td></tr>
-  <tr><td>ProjectSidebar.jsx</td><td>Collapsible left sidebar that shows the project hierarchy tree (project → buildings → floors → rooms) for quick navigation.</td></tr>
-  <tr><td>PowerBanner.jsx</td><td>Sticky top banner showing live power calculations: total load (VA/kVA), solar generation, generator capacity. Refreshes on data changes via a <code>refreshKey</code> prop.</td></tr>
-  <tr><td>PowerSourcesBanner.jsx</td><td>Expandable section showing utility lines, generator lines, solar settings, and dispatch mode for the current entity.</td></tr>
-  <tr><td>EntityComponents.jsx</td><td>Full component management UI (for projects, buildings, floors). Add via dropdown (with auto-fill from component type defaults), edit, delete, duplicate, set usage schedule per component. Handles JSON parse for time intervals.</td></tr>
-  <tr><td>EntitySockets.jsx</td><td>Add/edit/delete electrical outlet groups for any entity. Displays computed diversified demand.</td></tr>
-  <tr><td>EntityScheduleModal.jsx</td><td>Modal for editing work schedule: select days of week, add/remove time intervals, seasonal intervals. Shows inherited schedule from parent entity.</td></tr>
-  <tr><td>TimeScheduleModal.jsx</td><td>Advanced sub-modal for defining precise time intervals (start/end). Used inside EntityScheduleModal and component editors.</td></tr>
-  <tr><td>BackupChoiceModal.jsx</td><td>Two-button modal asking whether to download backup to computer or save to server.</td></tr>
-  <tr><td>ServerBackupsList.jsx</td><td>Lists all server-stored backups for the current project with entity type, date, and a Restore button.</td></tr>
-  <tr><td>ProjectMembersModal.jsx</td><td>Full members management modal: add member by Gmail address (must be registered), change roles, remove members. Shows project admin separately.</td></tr>
-  <tr><td>LoadingSpinner.jsx</td><td>Animated spinning circle. Used as full-page loading state across all pages.</td></tr>
-</table>
+    <!-- ══════════════ 8. FRONTEND COMPONENTS ══════════════ -->
+    <h2>8. Reusable Frontend Components</h2>
+    <table>
+      <tr>
+        <th>Component</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td>Navbar.jsx</td>
+        <td>Top navigation bar. Shows user avatar, name, and a logout button. Persists across all protected pages.</td>
+      </tr>
+      <tr>
+        <td>UserCard.jsx</td>
+        <td>Profile card showing name, email, avatar, join date, account type (Google / admin).</td>
+      </tr>
+      <tr>
+        <td>ProjectSidebar.jsx</td>
+        <td>Collapsible left sidebar that shows the project hierarchy tree (project → buildings → floors → rooms) for
+          quick navigation.</td>
+      </tr>
+      <tr>
+        <td>PowerBanner.jsx</td>
+        <td>Sticky top banner showing live power calculations: total load (VA/kVA), solar generation, generator
+          capacity. Refreshes on data changes via a <code>refreshKey</code> prop.</td>
+      </tr>
+      <tr>
+        <td>PowerSourcesBanner.jsx</td>
+        <td>Expandable section showing utility lines, generator lines, solar settings, and dispatch mode for the current
+          entity.</td>
+      </tr>
+      <tr>
+        <td>EntityComponents.jsx</td>
+        <td>Full component management UI (for projects, buildings, floors). Add via dropdown (with auto-fill from
+          component type defaults), edit, delete, duplicate, set usage schedule per component. Handles JSON parse for
+          time intervals.</td>
+      </tr>
+      <tr>
+        <td>EntitySockets.jsx</td>
+        <td>Add/edit/delete electrical outlet groups for any entity. Displays computed diversified demand.</td>
+      </tr>
+      <tr>
+        <td>EntityScheduleModal.jsx</td>
+        <td>Modal for editing work schedule: select days of week, add/remove time intervals, seasonal intervals. Shows
+          inherited schedule from parent entity.</td>
+      </tr>
+      <tr>
+        <td>TimeScheduleModal.jsx</td>
+        <td>Advanced sub-modal for defining precise time intervals (start/end). Used inside EntityScheduleModal and
+          component editors.</td>
+      </tr>
+      <tr>
+        <td>BackupChoiceModal.jsx</td>
+        <td>Two-button modal asking whether to download backup to computer or save to server.</td>
+      </tr>
+      <tr>
+        <td>ServerBackupsList.jsx</td>
+        <td>Lists all server-stored backups for the current project with entity type, date, and a Restore button.</td>
+      </tr>
+      <tr>
+        <td>ProjectMembersModal.jsx</td>
+        <td>Full members management modal: add member by Gmail address (must be registered), change roles, remove
+          members. Shows project admin separately.</td>
+      </tr>
+      <tr>
+        <td>LoadingSpinner.jsx</td>
+        <td>Animated spinning circle. Used as full-page loading state across all pages.</td>
+      </tr>
+    </table>
 
-<!-- ══════════════ 9. AUTHENTICATION ══════════════ -->
-<h2>9. Authentication Flow</h2>
-<ol>
-  <li>User visits the app and clicks <strong>"Sign in with Google"</strong>.</li>
-  <li>Browser is redirected to <code>/auth/google</code> → Laravel redirects to Google's consent screen.</li>
-  <li>User approves → Google redirects to <code>/auth/google/callback</code>.</li>
-  <li>Laravel's <code>GoogleController</code> calls <code>Socialite::driver('google')->user()</code> to get the Google profile.</li>
-  <li><code>User::updateOrCreate(['email' => ...])</code> — creates the user on first login, or updates their name/avatar on subsequent logins.</li>
-  <li>A Sanctum bearer token is generated: <code>$user->createToken('google-auth')-&gt;plainTextToken</code>.</li>
-  <li>The user is redirected to <code>http://localhost:5173/auth/callback?token=XXX</code>.</li>
-  <li>The <code>AuthCallbackPage</code> reads the token from the URL, stores it in <code>localStorage</code>, and calls <code>/api/user</code> to load the profile.</li>
-  <li>All subsequent API calls include <code>Authorization: Bearer XXX</code> via the Axios interceptor.</li>
-</ol>
-<div class="note">
-  <strong>Important:</strong> There is no email/password registration. The only way for a user to get an account is to sign in with Google at least once. This means you can only add project members who have already logged in to the platform.
-</div>
+    <!-- ══════════════ 9. AUTHENTICATION ══════════════ -->
+    <h2>9. Authentication Flow</h2>
+    <ol>
+      <li>User visits the app and clicks <strong>"Sign in with Google"</strong>.</li>
+      <li>Browser is redirected to <code>/auth/google</code> → Laravel redirects to Google's consent screen.</li>
+      <li>User approves → Google redirects to <code>/auth/google/callback</code>.</li>
+      <li>Laravel's <code>GoogleController</code> calls <code>Socialite::driver('google')->user()</code> to get the
+        Google profile.</li>
+      <li><code>User::updateOrCreate(['email' => ...])</code> — creates the user on first login, or updates their
+        name/avatar on subsequent logins.</li>
+      <li>A Sanctum bearer token is generated: <code>$user->createToken('google-auth')-&gt;plainTextToken</code>.</li>
+      <li>The user is redirected to <code>http://localhost:5173/auth/callback?token=XXX</code>.</li>
+      <li>The <code>AuthCallbackPage</code> reads the token from the URL, stores it in <code>localStorage</code>, and
+        calls <code>/api/user</code> to load the profile.</li>
+      <li>All subsequent API calls include <code>Authorization: Bearer XXX</code> via the Axios interceptor.</li>
+    </ol>
+    <div class="note">
+      <strong>Important:</strong> There is no email/password registration. The only way for a user to get an account is
+      to sign in with Google at least once. This means you can only add project members who have already logged in to
+      the platform.
+    </div>
 
-<!-- ══════════════ 10. ROLE-BASED ACCESS ══════════════ -->
-<h2>10. Role-Based Access Control</h2>
-<table>
-  <tr><th>Role</th><th>Who Has It</th><th>Permissions</th></tr>
-  <tr><td><strong>Admin</strong></td><td>Project creator (owner)</td><td>Full control: create/edit/delete all entities, manage members, backup/restore, configure settings</td></tr>
-  <tr><td><strong>Main</strong></td><td>Members assigned by owner</td><td>Create/edit/delete entities, backup/restore. Cannot manage members or delete the project.</td></tr>
-  <tr><td><strong>Normal</strong></td><td>Members assigned by owner</td><td>Read-only. Can view all data but cannot modify anything.</td></tr>
-</table>
-<p>In the frontend, a <code>canEdit</code> flag (<code>userRole === 'admin' || userRole === 'main'</code>) gates all add/edit/delete buttons and forms.</p>
+    <!-- ══════════════ 10. ROLE-BASED ACCESS ══════════════ -->
+    <h2>10. Role-Based Access Control</h2>
+    <table>
+      <tr>
+        <th>Role</th>
+        <th>Who Has It</th>
+        <th>Permissions</th>
+      </tr>
+      <tr>
+        <td><strong>Admin</strong></td>
+        <td>Project creator (owner)</td>
+        <td>Full control: create/edit/delete all entities, manage members, backup/restore, configure settings</td>
+      </tr>
+      <tr>
+        <td><strong>Main</strong></td>
+        <td>Members assigned by owner</td>
+        <td>Create/edit/delete entities, backup/restore. Cannot manage members or delete the project.</td>
+      </tr>
+      <tr>
+        <td><strong>Normal</strong></td>
+        <td>Members assigned by owner</td>
+        <td>Read-only. Can view all data but cannot modify anything.</td>
+      </tr>
+    </table>
+    <p>In the frontend, a <code>canEdit</code> flag (<code>userRole === 'admin' || userRole === 'main'</code>) gates all
+      add/edit/delete buttons and forms.</p>
 
-<!-- ══════════════ 11. BACKUP SYSTEM ══════════════ -->
-<h2>11. Backup &amp; Restore System</h2>
-<p>The system supports backup at four entity levels (project, building, floor, room), each producing a self-contained JSON file.</p>
+    <!-- ══════════════ 11. BACKUP SYSTEM ══════════════ -->
+    <h2>11. Backup &amp; Restore System</h2>
+    <p>The system supports backup at four entity levels (project, building, floor, room), each producing a
+      self-contained JSON file.</p>
 
-<h3>JSON Structure (example — Floor backup)</h3>
-<pre>{
+    <h3>JSON Structure (example — Floor backup)</h3>
+    <pre>{
   "version": "1.0",
   "exported_at": "2026-05-15T10:00:00.000Z",
   "floor": {
@@ -513,87 +1293,93 @@ power-profile/
   }
 }</pre>
 
-<h3>Restore Behaviour</h3>
-<ul>
-  <li>If an entity with the same name already exists, the API returns a <code>409 Conflict</code> with a message asking to overwrite.</li>
-  <li>If the user confirms, the existing entity is deleted and re-created from the backup.</li>
-  <li>All child entities (floors, rooms, components) are restored recursively.</li>
-</ul>
+    <h3>Restore Behaviour</h3>
+    <ul>
+      <li>If an entity with the same name already exists, the API returns a <code>409 Conflict</code> with a message
+        asking to overwrite.</li>
+      <li>If the user confirms, the existing entity is deleted and re-created from the backup.</li>
+      <li>All child entities (floors, rooms, components) are restored recursively.</li>
+    </ul>
 
-<h3>Duplicate Feature</h3>
-<p>Duplicate creates a copy of any entity (building, floor, or room) within the same project, appending "(Copy)" to the name. Since the project-wide suggestion feature was added, a floor from any building can be duplicated into any other building in the same project.</p>
+    <h3>Duplicate Feature</h3>
+    <p>Duplicate creates a copy of any entity (building, floor, or room) within the same project, appending "(Copy)" to
+      the name. Since the project-wide suggestion feature was added, a floor from any building can be duplicated into
+      any other building in the same project.</p>
 
-<!-- ══════════════ 12. SUGGESTION DROPDOWN ══════════════ -->
-<h2>12. Suggestion Dropdown (Copy From Existing)</h2>
-<p>When creating a new building, floor, or room, the name field shows a suggestion dropdown populated with existing entities from the <em>entire project</em> (not just the current parent).</p>
-<p>Each suggestion has two buttons:</p>
-<ul>
-  <li><strong>Empty</strong> — Pre-fills the name and area fields only. Creates a new empty entity.</li>
-  <li><strong>Copy all</strong> — Duplicates the selected entity in full (all components, sub-rooms, etc.) into the current parent. Uses the duplicate API endpoint.</li>
-</ul>
-<p>Project-wide endpoints used: <code>GET /api/projects/{id}/all-floors</code> and <code>GET /api/projects/{id}/all-rooms</code>.</p>
+    <!-- ══════════════ 12. SUGGESTION DROPDOWN ══════════════ -->
+    <h2>12. Suggestion Dropdown (Copy From Existing)</h2>
+    <p>When creating a new building, floor, or room, the name field shows a suggestion dropdown populated with existing
+      entities from the <em>entire project</em> (not just the current parent).</p>
+    <p>Each suggestion has two buttons:</p>
+    <ul>
+      <li><strong>Empty</strong> — Pre-fills the name and area fields only. Creates a new empty entity.</li>
+      <li><strong>Copy all</strong> — Duplicates the selected entity in full (all components, sub-rooms, etc.) into the
+        current parent. Uses the duplicate API endpoint.</li>
+    </ul>
+    <p>Project-wide endpoints used: <code>GET /api/projects/{id}/all-floors</code> and
+      <code>GET /api/projects/{id}/all-rooms</code>.</p>
 
-<!-- ══════════════ 13. POWER CALCULATION ══════════════ -->
-<h2>13. Power Calculation Logic</h2>
+    <!-- ══════════════ 13. POWER CALCULATION ══════════════ -->
+    <h2>13. Power Calculation Logic</h2>
 
-<h3>Apparent Power (VA)</h3>
-<p>For each component: <code>VA = power × power_factor × quantity</code></p>
-<p>
-  The <code>TotalPowerController</code> sums this across all four component tables
-  (project, building, floor, room levels) plus socket demand.
-  Two totals are returned:
-</p>
-<ul>
-  <li><code>max_va</code> — all components regardless of schedule (peak design load)</li>
-  <li><code>total_va</code> — components filtered to the current operating schedule (optimised load)</li>
-</ul>
+    <h3>Apparent Power (VA)</h3>
+    <p>For each component: <code>VA = power × power_factor × quantity</code></p>
+    <p>
+      The <code>TotalPowerController</code> sums this across all four component tables
+      (project, building, floor, room levels) plus socket demand.
+      Two totals are returned:
+    </p>
+    <ul>
+      <li><code>max_va</code> — all components regardless of schedule (peak design load)</li>
+      <li><code>total_va</code> — components filtered to the current operating schedule (optimised load)</li>
+    </ul>
 
-<h3>Socket Demand</h3>
-<p>Outlets are aggregated using diversity factors:</p>
-<ul>
-  <li>1–10 outlets: 100% (e.g., 10 × 200 VA = 2,000 VA)</li>
-  <li>11–20 outlets: 75% additional</li>
-  <li>21+ outlets: 40% additional</li>
-</ul>
+    <h3>Socket Demand</h3>
+    <p>Outlets are aggregated using diversity factors:</p>
+    <ul>
+      <li>1–10 outlets: 100% (e.g., 10 × 200 VA = 2,000 VA)</li>
+      <li>11–20 outlets: 75% additional</li>
+      <li>21+ outlets: 40% additional</li>
+    </ul>
 
-<h3>Solar Generation</h3>
-<p>
-  Computed from panel capacity (kW), project location (lat/lng), and month of year.
-  Uses a lookup table of Peak Sun Hours (PSH) per latitude band and distributes
-  output sinusoidally between sunrise and sunset.
-</p>
+    <h3>Solar Generation</h3>
+    <p>
+      Computed from panel capacity (kW), project location (lat/lng), and month of year.
+      Uses a lookup table of Peak Sun Hours (PSH) per latitude band and distributes
+      output sinusoidally between sunrise and sunset.
+    </p>
 
-<h3>Power Dispatch Priority</h3>
-<ol>
-  <li>Consume solar first (zero marginal cost)</li>
-  <li>Draw remaining load from utility grid (if solar insufficient)</li>
-  <li>Start generator only when both solar and grid are insufficient</li>
-</ol>
+    <h3>Power Dispatch Priority</h3>
+    <ol>
+      <li>Consume solar first (zero marginal cost)</li>
+      <li>Draw remaining load from utility grid (if solar insufficient)</li>
+      <li>Start generator only when both solar and grid are insufficient</li>
+    </ol>
 
-<!-- ══════════════ 14. NAVIGATION ══════════════ -->
-<h2>14. Frontend Navigation Architecture</h2>
-<p>
-  The app uses a <strong>context-based navigation</strong> pattern rather than deep URL parameters
-  for most pages. A lightweight module <code>navContext.js</code> stores the current
-  <code>projectId</code>, <code>buildingId</code>, <code>floorId</code>, <code>roomId</code>
-  in memory. Pages read these with <code>getNav()</code> and write with <code>setNav()</code>.
-</p>
-<p>
-  React Router handles top-level routes (<code>/dashboard</code>, <code>/project</code>,
-  <code>/project/building</code>, <code>/project/building/floor</code>, etc.).
-  The older URL-param style (used in RoomPage) coexists but is being phased out.
-</p>
-<div class="note">
-  Because nav state is in-memory, refreshing a page at /project/building/floor
-  loses the building context. This is a known limitation of the current architecture.
-  A future improvement would be to persist IDs in URL params or sessionStorage.
-</div>
+    <!-- ══════════════ 14. NAVIGATION ══════════════ -->
+    <h2>14. Frontend Navigation Architecture</h2>
+    <p>
+      The app uses a <strong>context-based navigation</strong> pattern rather than deep URL parameters
+      for most pages. A lightweight module <code>navContext.js</code> stores the current
+      <code>projectId</code>, <code>buildingId</code>, <code>floorId</code>, <code>roomId</code>
+      in memory. Pages read these with <code>getNav()</code> and write with <code>setNav()</code>.
+    </p>
+    <p>
+      React Router handles top-level routes (<code>/dashboard</code>, <code>/project</code>,
+      <code>/project/building</code>, <code>/project/building/floor</code>, etc.).
+      The older URL-param style (used in RoomPage) coexists but is being phased out.
+    </p>
+    <div class="note">
+      Because nav state is in-memory, refreshing a page at /project/building/floor
+      loses the building context. This is a known limitation of the current architecture.
+      A future improvement would be to persist IDs in URL params or sessionStorage.
+    </div>
 
-<!-- ══════════════ 15. DEPLOYMENT ══════════════ -->
-<h2>15. Local Setup &amp; Deployment</h2>
+    <!-- ══════════════ 15. DEPLOYMENT ══════════════ -->
+    <h2>15. Local Setup &amp; Deployment</h2>
 
-<h3>Running Locally</h3>
-<pre>
+    <h3>Running Locally</h3>
+    <pre>
 # Backend
 cd backend
 php artisan serve           # runs on http://localhost:8000
@@ -603,23 +1389,23 @@ cd frontend
 npm run dev                 # runs on http://localhost:5173
 </pre>
 
-<h3>Environment Variables (backend/.env — key values)</h3>
-<pre>
-APP_URL=http://localhost:8000
+    <h3>Environment Variables (backend/.env — key values)</h3>
+    <pre>
+APP_URL=http://localhost:7654
 FRONTEND_URL=http://localhost:5173
 DB_CONNECTION=sqlite
 
 GOOGLE_CLIENT_ID=&lt;your-google-client-id&gt;
 GOOGLE_CLIENT_SECRET=&lt;your-google-client-secret&gt;
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
+GOOGLE_REDIRECT_URI=http://localhost:7654/auth/google/callback
 </pre>
 
-<h3>SSL Note (Windows Localhost)</h3>
-<p>
-  Guzzle (used by Laravel Socialite) fails SSL verification on Windows localhost.
-  <code>AppServiceProvider.php</code> disables SSL verification in the local environment only:
-</p>
-<pre>
+    <h3>SSL Note (Windows Localhost)</h3>
+    <p>
+      Guzzle (used by Laravel Socialite) fails SSL verification on Windows localhost.
+      <code>AppServiceProvider.php</code> disables SSL verification in the local environment only:
+    </p>
+    <pre>
 if (app()->environment('local')) {
     Socialite::extend('google', function ($app) {
         $config = $app['config']['services.google'];
@@ -629,35 +1415,76 @@ if (app()->environment('local')) {
 }
 </pre>
 
-<h3>Deploying for Other Users</h3>
-<p>
-  Currently the app runs only on localhost. For other users to access it, the backend
-  must be deployed to a public server (Railway, Render, DigitalOcean, etc.) and the
-  Google OAuth callback URL must be updated in both the Google Cloud Console and
-  <code>.env</code>. The SQLite database should be replaced with MySQL or PostgreSQL
-  for production use.
-</p>
+    <h3>Deploying for Other Users</h3>
+    <p>
+      Currently the app runs only on localhost. For other users to access it, the backend
+      must be deployed to a public server (Railway, Render, DigitalOcean, etc.) and the
+      Google OAuth callback URL must be updated in both the Google Cloud Console and
+      <code>.env</code>. The SQLite database should be replaced with MySQL or PostgreSQL
+      for production use.
+    </p>
 
-<!-- ══════════════ 16. KNOWN LIMITATIONS ══════════════ -->
-<h2>16. Known Limitations &amp; Future Improvements</h2>
-<table>
-  <tr><th>Area</th><th>Current State</th><th>Suggested Improvement</th></tr>
-  <tr><td>Database</td><td>SQLite (single file, no concurrency)</td><td>Migrate to PostgreSQL or MySQL for production</td></tr>
-  <tr><td>Auth</td><td>Google OAuth only</td><td>Add email/password registration so users without Google accounts can sign up</td></tr>
-  <tr><td>Navigation</td><td>In-memory nav state lost on refresh</td><td>Persist IDs in URL params or sessionStorage</td></tr>
-  <tr><td>Deployment</td><td>Localhost only</td><td>Deploy backend to a cloud server; update Google OAuth redirect</td></tr>
-  <tr><td>Member Invites</td><td>Invitee must sign up before being added</td><td>Build an email invitation system</td></tr>
-  <tr><td>Solar Model</td><td>Static PSH lookup table (±10–15% accuracy)</td><td>Integrate NASA POWER or PVGIS API for real irradiance data</td></tr>
-  <tr><td>Load Profile</td><td>Simplified schedule overlap calculation</td><td>Add Monte Carlo simulation for stochastic load modelling</td></tr>
-  <tr><td>Export</td><td>JSON only</td><td>Add PDF report generation and Excel export</td></tr>
-  <tr><td>Real-time</td><td>No real-time updates between users</td><td>Add WebSockets (Laravel Broadcasting + Echo) for collaborative editing</td></tr>
-</table>
+    <!-- ══════════════ 16. KNOWN LIMITATIONS ══════════════ -->
+    <h2>16. Known Limitations &amp; Future Improvements</h2>
+    <table>
+      <tr>
+        <th>Area</th>
+        <th>Current State</th>
+        <th>Suggested Improvement</th>
+      </tr>
+      <tr>
+        <td>Database</td>
+        <td>SQLite (single file, no concurrency)</td>
+        <td>Migrate to PostgreSQL or MySQL for production</td>
+      </tr>
+      <tr>
+        <td>Auth</td>
+        <td>Google OAuth only</td>
+        <td>Add email/password registration so users without Google accounts can sign up</td>
+      </tr>
+      <tr>
+        <td>Navigation</td>
+        <td>In-memory nav state lost on refresh</td>
+        <td>Persist IDs in URL params or sessionStorage</td>
+      </tr>
+      <tr>
+        <td>Deployment</td>
+        <td>Localhost only</td>
+        <td>Deploy backend to a cloud server; update Google OAuth redirect</td>
+      </tr>
+      <tr>
+        <td>Member Invites</td>
+        <td>Invitee must sign up before being added</td>
+        <td>Build an email invitation system</td>
+      </tr>
+      <tr>
+        <td>Solar Model</td>
+        <td>Static PSH lookup table (±10–15% accuracy)</td>
+        <td>Integrate NASA POWER or PVGIS API for real irradiance data</td>
+      </tr>
+      <tr>
+        <td>Load Profile</td>
+        <td>Simplified schedule overlap calculation</td>
+        <td>Add Monte Carlo simulation for stochastic load modelling</td>
+      </tr>
+      <tr>
+        <td>Export</td>
+        <td>JSON only</td>
+        <td>Add PDF report generation and Excel export</td>
+      </tr>
+      <tr>
+        <td>Real-time</td>
+        <td>No real-time updates between users</td>
+        <td>Add WebSockets (Laravel Broadcasting + Echo) for collaborative editing</td>
+      </tr>
+    </table>
 
-<hr/>
-<p style="text-align:center; color:#94a3b8; font-size:9pt;">
-  Power Profile — Graduation Project Report &nbsp;|&nbsp; Generated May 2026
-</p>
+    <hr />
+    <p style="text-align:center; color:#94a3b8; font-size:9pt;">
+      Power Profile — Graduation Project Report &nbsp;|&nbsp; Generated May 2026
+    </p>
 
-</div>
+  </div>
 </body>
+
 </html>

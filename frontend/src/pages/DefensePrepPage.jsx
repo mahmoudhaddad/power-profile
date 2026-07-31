@@ -6,22 +6,22 @@ import api from '../api/axios';
 
 // ── Category config ────────────────────────────────────────────────────────────
 const CAT_STYLES = {
-  Engineering:  'bg-blue-100   text-blue-700',
-  Algorithms:   'bg-purple-100 text-purple-700',
-  Standards:    'bg-green-100  text-green-700',
-  Architecture: 'bg-orange-100 text-orange-700',
-  Financial:    'bg-emerald-100 text-emerald-700',
-  Limitations:  'bg-red-100   text-red-700',
-  General:      'bg-gray-100  text-gray-700',
+  Engineering:  'bg-surface-inset text-ink-body2',
+  Algorithms:   'bg-surface-inset text-ink-body2',
+  Standards:    'bg-surface-inset text-ink-body2',
+  Architecture: 'bg-surface-inset text-ink-body2',
+  Financial:    'bg-surface-inset text-ink-body2',
+  Limitations:  'bg-surface-inset text-ink-body2',
+  General:      'bg-surface-inset text-ink-body2',
 };
 const CATEGORIES = ['All', ...Object.keys(CAT_STYLES)];
 
 // ── Live data pill ─────────────────────────────────────────────────────────────
 function Live({ s, children }) {
-  if (!s) return <em className="text-gray-400 text-xs not-italic">— select a project above to see live data.</em>;
+  if (!s) return <em className="text-ink-muted text-xs not-italic">— select a project above to see live data.</em>;
   return (
-    <span className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-100 text-blue-700 text-xs rounded-md px-2 py-0.5 font-medium mt-1">
-      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse flex-shrink-0" />
+    <span className="inline-flex items-center gap-1.5 bg-accent-soft border border-accent-border text-accent text-xs rounded-md px-2 py-0.5 font-medium mt-1">
+      <span className="w-1.5 h-1.5 bg-accent-light rounded-full animate-pulse flex-shrink-0" />
       {children}
     </span>
   );
@@ -37,7 +37,7 @@ function pfStatus(pf) {
 
 // ── Text block helpers ─────────────────────────────────────────────────────────
 function P({ children }) { return <p className="mb-2 last:mb-0">{children}</p>; }
-function Pre({ children }) { return <pre className="bg-white border border-gray-200 rounded p-3 text-xs font-mono whitespace-pre-wrap my-2">{children}</pre>; }
+function Pre({ children }) { return <pre className="bg-surface-deep border border-line rounded p-3 text-xs font-mono text-ink-data whitespace-pre-wrap my-2">{children}</pre>; }
 function Li({ children }) { return <li className="ml-4 list-disc">{children}</li>; }
 
 // ── All 42 questions ───────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ function buildQuestions(s) {
       id: 1, category: 'Engineering',
       q: 'How do you know your calculations are correct?',
       a: <>
-        <P>The system includes a built-in validation case study at <code className="bg-gray-200 px-1 rounded text-xs">/validation</code>. A 2-floor office building is manually calculated using the exact formulas from the technical report, then compared against system output with 0.1% tolerance. All key outputs — S, P, Q, power factor, and capacitor sizing — are verified to match hand calculations with a live PASS/FAIL comparison table.</P>
+        <P>The system includes a built-in validation case study at <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">/validation</code>. A 2-floor office building is manually calculated using the exact formulas from the technical report, then compared against system output with 0.1% tolerance. All key outputs — S, P, Q, power factor, and capacitor sizing — are verified to match hand calculations with a live PASS/FAIL comparison table.</P>
         <Live s={s}>Current project demand: {s?.total_demand_kva} kVA at PF {s?.system_power_factor}</Live>
       </>,
     },
@@ -94,7 +94,7 @@ Beyond 20:         200 VA each × 40%   =  80 VA/outlet`}</Pre>
         <ul className="space-y-1 my-2">
           <Li><strong>P (active power, kW):</strong> the real work done — heat, light, mechanical motion.</Li>
           <Li><strong>Q (reactive power, kVAR):</strong> energy stored and released by inductors/capacitors — does no useful work but must be supplied by the source.</Li>
-          <Li><strong>S (apparent power, kVA):</strong> the vector sum — what the cables and transformer actually carry: <code className="bg-gray-200 px-1 rounded text-xs">S = √(P² + Q²)</code>.</Li>
+          <Li><strong>S (apparent power, kVA):</strong> the vector sum — what the cables and transformer actually carry: <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">S = √(P² + Q²)</code>.</Li>
         </ul>
         <P>Power factor PF = P/S = cos(φ) — how efficiently the load uses the supplied power. A PF of 1.0 is ideal (pure resistive). Motors and transformers typically have PF 0.75–0.90 because they are inductive loads. The system aggregates P and Q separately as scalars, then computes S from the vector sum — scalar addition of VA values would overestimate S when loads have different power factors.</P>
         <Live s={s}>{s?.total_demand_kva} kVA = √({s?.total_demand_kw}² + {s?.total_demand_kvar}²)</Live>
@@ -146,8 +146,8 @@ Step 3 — Size delta capacitors across 400V 3-phase:
       id: 9, category: 'Algorithms',
       q: 'Prove your load scheduling window search is exact.',
       a: <>
-        <P>For contiguous shiftable loads the algorithm tries every possible window of length <code className="bg-gray-200 px-1 rounded text-xs">required_run_hours</code> within <code className="bg-gray-200 px-1 rounded text-xs">[earliest_start, latest_end]</code>. Since the search is exhaustive over all valid windows, it is provably optimal by definition — no valid window is skipped.</P>
-        <P>The number of windows is at most <code className="bg-gray-200 px-1 rounded text-xs">(latest_end − earliest_start − required_run_hours + 1)</code>, which for a 24-hour day is at most 24 iterations — trivially fast.</P>
+        <P>For contiguous shiftable loads the algorithm tries every possible window of length <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">required_run_hours</code> within <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">[earliest_start, latest_end]</code>. Since the search is exhaustive over all valid windows, it is provably optimal by definition — no valid window is skipped.</P>
+        <P>The number of windows is at most <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">(latest_end − earliest_start − required_run_hours + 1)</code>, which for a 24-hour day is at most 24 iterations — trivially fast.</P>
         <P>For fragmented loads the dynamic programming formulation is also exact:</P>
         <Pre>{`State:  dp[h][hours_run][interruptions_used] = min cost to reach hour h
 All states explored, optimal substructure holds → DP is globally optimal.`}</Pre>
@@ -201,7 +201,7 @@ Step 7: Any remaining unmet demand → logged as shortfall`}</Pre>
       id: 13, category: 'Algorithms',
       q: 'How does the cost signal engine work and what drives the optimizer?',
       a: <>
-        <P>The cost signal is a 24-element array (one value per hour) that represents the marginal cost of energy at each hour. It is computed in <code className="bg-gray-200 px-1 rounded text-xs">CostSignalService.php</code> as a blend of two layers:</P>
+        <P>The cost signal is a 24-element array (one value per hour) that represents the marginal cost of energy at each hour. It is computed in <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">CostSignalService.php</code> as a blend of two layers:</P>
         <Pre>{`Monetary layer: tariff_per_kwh OR generator_cost_per_kwh (whichever exists)
 Solar layer:    discount = base_cost × (1.0 − 0.9 × solarFrac)
                 where solarFrac = solar[h] / max(solar) ∈ [0, 1]
@@ -223,7 +223,7 @@ Final signal[h] = max(0, base_cost × (1 − 0.9 × solarFrac))`}</Pre>
           <Li>The 0.70 project-level top-of-hierarchy factor from §8.3</Li>
           <Li>Critical load override (DF = 1.00) for life-safety equipment</Li>
         </ul>
-        <P>The implementation is in <code className="bg-gray-200 px-1 rounded text-xs">DiversityFactorService.php</code> which applies the correct factor at each level of the project hierarchy.</P>
+        <P>The implementation is in <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">DiversityFactorService.php</code> which applies the correct factor at each level of the project hierarchy.</P>
       </>,
     },
     {
@@ -257,7 +257,7 @@ Parameter: ALLSKY_SFC_SW_DWN (all-sky surface shortwave downward irradiance)
 Day: the 15th of each month as the representative day
 Returns: hourly W/m² values — ±3% accuracy for monthly means
 Cache: 30 days (historical satellite data does not change)`}</Pre>
-        <P>If the API is unavailable the system falls back to a static 7-latitude PSH lookup table and flags the response with <code className="bg-gray-200 px-1 rounded text-xs">solar_data_source: 'nasa_fallback'</code>.</P>
+        <P>If the API is unavailable the system falls back to a static 7-latitude PSH lookup table and flags the response with <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">solar_data_source: 'nasa_fallback'</code>.</P>
         <Live s={s}>
           {s?.has_solar
             ? `Solar installed: ${s.solar_capacity_kw} kW`
@@ -295,9 +295,9 @@ Cache: 30 days (historical satellite data does not change)`}</Pre>
       id: 21, category: 'Architecture',
       q: 'Why SQLite instead of MySQL or PostgreSQL?',
       a: <>
-        <P>SQLite requires zero server configuration — the entire database is one file. This makes the application portable, easy to deploy, and easy to back up. All Eloquent ORM queries are fully database-agnostic — switching to PostgreSQL requires only changing three lines in <code className="bg-gray-200 px-1 rounded text-xs">.env</code>.</P>
+        <P>SQLite requires zero server configuration — the entire database is one file. This makes the application portable, easy to deploy, and easy to back up. All Eloquent ORM queries are fully database-agnostic — switching to PostgreSQL requires only changing three lines in <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">.env</code>.</P>
         <Live s={s}>{s?.building_count} buildings, {s?.floor_count} floors, {s?.room_count} rooms, {s?.component_count} components — SQLite handles this comfortably</Live>
-        <P className="mt-2">For a multi-user production deployment: change <code className="bg-gray-200 px-1 rounded text-xs">DATABASE_CONNECTION=pgsql</code>, run <code className="bg-gray-200 px-1 rounded text-xs">php artisan migrate:fresh</code> — zero code changes required.</P>
+        <P className="mt-2">For a multi-user production deployment: change <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">DATABASE_CONNECTION=pgsql</code>, run <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">php artisan migrate:fresh</code> — zero code changes required.</P>
       </>,
     },
     {
@@ -324,8 +324,8 @@ Total round-trip: under 500ms including NASA API cache hit`}</Pre>
       id: 23, category: 'Architecture',
       q: 'How does authentication work — what happens when a user logs in?',
       a: <>
-        <P><strong>Path 1 — Google OAuth:</strong> User clicks "Sign in with Google" → Socialite redirects to Google consent screen → Google returns authorization code → Socialite exchanges for user profile data → System creates or finds user record → Sanctum generates an API token → Token stored in memory (not localStorage) → All subsequent API calls include <code className="bg-gray-200 px-1 rounded text-xs">Authorization: Bearer {'{token}'}</code>.</P>
-        <P><strong>Path 2 — Admin credential login:</strong> <code className="bg-gray-200 px-1 rounded text-xs">POST /api/admin/login</code> with email + password → Laravel validates credentials → Sanctum generates token → Used only for admin access, regular users must use Google OAuth.</P>
+        <P><strong>Path 1 — Google OAuth:</strong> User clicks "Sign in with Google" → Socialite redirects to Google consent screen → Google returns authorization code → Socialite exchanges for user profile data → System creates or finds user record → Sanctum generates an API token → Token stored in memory (not localStorage) → All subsequent API calls include <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">Authorization: Bearer {'{token}'}</code>.</P>
+        <P><strong>Path 2 — Admin credential login:</strong> <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">POST /api/admin/login</code> with email + password → Laravel validates credentials → Sanctum generates token → Used only for admin access, regular users must use Google OAuth.</P>
       </>,
     },
     {
@@ -342,7 +342,7 @@ Total round-trip: under 500ms including NASA API cache hit`}</Pre>
   'solarSystems', 'batteries',
   'utilitySources', 'generatorSources'
 ])->findOrFail($id)`}</Pre>
-        <P>This reduces 5000+ queries to approximately 12 queries regardless of project size. The comment in <code className="bg-gray-200 px-1 rounded text-xs">ScheduleController.php</code> explicitly documents the N+1 problem and the solution.</P>
+        <P>This reduces 5000+ queries to approximately 12 queries regardless of project size. The comment in <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">ScheduleController.php</code> explicitly documents the N+1 problem and the solution.</P>
       </>,
     },
     // ═══════════════════════════════════════════════════════ FINANCIAL
@@ -470,8 +470,8 @@ LCOE = total_lifetime_cost / total_lifetime_energy   ($/kWh)
       id: 33, category: 'General',
       q: 'If you could redesign one part of the system, what would it be?',
       a: <>
-        <P>The database schema for components. Currently there are four separate component tables (<code className="bg-gray-200 px-1 rounded text-xs">room_components</code>, <code className="bg-gray-200 px-1 rounded text-xs">floor_components</code>, <code className="bg-gray-200 px-1 rounded text-xs">building_components</code>, <code className="bg-gray-200 px-1 rounded text-xs">project_components</code>) with identical columns duplicated across all four.</P>
-        <P>A cleaner design would use a single <code className="bg-gray-200 px-1 rounded text-xs">components</code> table with a polymorphic relation pointing to the parent entity. This would eliminate schema duplication, make migrations simpler, and reduce the number of queries needed to fetch all components. The current design was chosen for simplicity of joins in calculation services, but the polymorphic approach would have been more maintainable long-term.</P>
+        <P>The database schema for components. Currently there are four separate component tables (<code className="bg-surface-inset text-ink-data px-1 rounded text-xs">room_components</code>, <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">floor_components</code>, <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">building_components</code>, <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">project_components</code>) with identical columns duplicated across all four.</P>
+        <P>A cleaner design would use a single <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">components</code> table with a polymorphic relation pointing to the parent entity. This would eliminate schema duplication, make migrations simpler, and reduce the number of queries needed to fetch all components. The current design was chosen for simplicity of joins in calculation services, but the polymorphic approach would have been more maintainable long-term.</P>
       </>,
     },
     {
@@ -495,7 +495,7 @@ LCOE = total_lifetime_cost / total_lifetime_energy   ($/kWh)
         <P>Four levels of verification:</P>
         <ol className="space-y-1 my-2 ml-4 list-decimal">
           <li><strong>PHPUnit automated tests:</strong> 36 tests, 152 assertions covering the Electrical Design module — circuit classification, cable sizing, breaker sizing, RCD policy, voltage-drop computation, derating, and group-critical logic. All tests pass on the current codebase.</li>
-          <li><strong>Reference case study (<code className="bg-gray-200 px-1 rounded text-xs">/validation</code>):</strong> a 2-floor office building is hand-calculated using the exact formulas from the technical report, then compared against system output with 0.1% tolerance. The IEC 60364-5-52 cable ampacity table (12 sizes) and voltage-drop spot checks are verified live on the /validation page.</li>
+          <li><strong>Reference case study (<code className="bg-surface-inset text-ink-data px-1 rounded text-xs">/validation</code>):</strong> a 2-floor office building is hand-calculated using the exact formulas from the technical report, then compared against system output with 0.1% tolerance. The IEC 60364-5-52 cable ampacity table (12 sizes) and voltage-drop spot checks are verified live on the /validation page.</li>
           <li><strong>Integration-level:</strong> each API endpoint was tested via the frontend — adding components and verifying the total-power response updates correctly.</li>
           <li><strong>Solar model:</strong> NASA POWER data was compared against the static PSH lookup table for Gaza (31.5°N) and confirmed within expected seasonal variation ranges.</li>
         </ol>
@@ -560,12 +560,12 @@ Step 2b: Remaining surplus from ALL solar systems is pooled
       id: 40, category: 'Architecture',
       q: 'How does the project collaboration and access control system work?',
       a: <>
-        <P>Each project has an owner (the user who created it) and optional members. Access control is enforced at every project-scoped endpoint via <code className="bg-gray-200 px-1 rounded text-xs">$project-&gt;userRole($userId)</code> which returns one of:</P>
+        <P>Each project has an owner (the user who created it) and optional members. Access control is enforced at every project-scoped endpoint via <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">$project-&gt;userRole($userId)</code> which returns one of:</P>
         <Pre>{`'admin'  → project owner (can delete the project, manage members)
 'main'   → trusted member (can edit everything, run optimizer)
 'normal' → read-only member (can view but not modify)
 null     → no access → 403 Forbidden`}</Pre>
-        <P>Project members are managed via the <code className="bg-gray-200 px-1 rounded text-xs">project_users</code> pivot table. The project index endpoint returns both owned projects and shared-to-user projects in a single list, so collaborators see the project in their dashboard without any extra steps.</P>
+        <P>Project members are managed via the <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">project_users</code> pivot table. The project index endpoint returns both owned projects and shared-to-user projects in a single list, so collaborators see the project in their dashboard without any extra steps.</P>
       </>,
     },
     {
@@ -575,8 +575,8 @@ null     → no access → 403 Forbidden`}</Pre>
         <P>Five layers of protection:</P>
         <ol className="space-y-1 my-2 ml-4 list-decimal">
           <li><strong>Authentication:</strong> Laravel Sanctum token — every protected endpoint requires a valid Bearer token. No token = 401 Unauthorized.</li>
-          <li><strong>Authorization:</strong> per-project role checks (<code className="bg-gray-200 px-1 rounded text-xs">userRole()</code>) on every project-scoped endpoint — users can only access their own projects.</li>
-          <li><strong>Input validation:</strong> all endpoints use Form Request classes or inline <code className="bg-gray-200 px-1 rounded text-xs">validate()</code> with typed rules (min/max on numerics, enums on strings) — invalid input returns 422 with field-level error messages.</li>
+          <li><strong>Authorization:</strong> per-project role checks (<code className="bg-surface-inset text-ink-data px-1 rounded text-xs">userRole()</code>) on every project-scoped endpoint — users can only access their own projects.</li>
+          <li><strong>Input validation:</strong> all endpoints use Form Request classes or inline <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">validate()</code> with typed rules (min/max on numerics, enums on strings) — invalid input returns 422 with field-level error messages.</li>
           <li><strong>Rate limiting:</strong> three tiers — general (api-general), heavy calculations (api-heavy, 20/min), optimizer/financial (10/min).</li>
           <li><strong>SQL injection prevention:</strong> Eloquent ORM for all queries — no raw SQL in the codebase, so parameterization is enforced at the framework level.</li>
         </ol>
@@ -586,8 +586,8 @@ null     → no access → 403 Forbidden`}</Pre>
       id: 42, category: 'Engineering',
       q: 'What is the difference between the load profile and the dispatch simulation?',
       a: <>
-        <P><strong>Load profile</strong> (<code className="bg-gray-200 px-1 rounded text-xs">/load-profile</code>) answers: <em>what is the demand at each hour?</em> It applies diversity factors and component schedules to produce a 24-hour demand curve in watts. No sources are considered — it is pure load-side calculation.</P>
-        <P><strong>Dispatch simulation</strong> (<code className="bg-gray-200 px-1 rounded text-xs">/schedule</code>) answers: <em>where does each kWh come from?</em> It takes the load profile as input, then simulates the supply sources (solar → battery → utility → generator) hour by hour to determine how much each source contributes. It produces the stacked-area chart, daily energy statistics, and generator/utility costs.</P>
+        <P><strong>Load profile</strong> (<code className="bg-surface-inset text-ink-data px-1 rounded text-xs">/load-profile</code>) answers: <em>what is the demand at each hour?</em> It applies diversity factors and component schedules to produce a 24-hour demand curve in watts. No sources are considered — it is pure load-side calculation.</P>
+        <P><strong>Dispatch simulation</strong> (<code className="bg-surface-inset text-ink-data px-1 rounded text-xs">/schedule</code>) answers: <em>where does each kWh come from?</em> It takes the load profile as input, then simulates the supply sources (solar → battery → utility → generator) hour by hour to determine how much each source contributes. It produces the stacked-area chart, daily energy statistics, and generator/utility costs.</P>
         <P>The separation is intentional — load profile can be reused across different source configurations without recalculation, and the dispatch service is independently testable against any demand array.</P>
       </>,
     },
@@ -639,7 +639,7 @@ Limits:  3 % for LIGHTING circuits (IEC 60364-8-1 Table 1)
       id: 45, category: 'Engineering',
       q: 'What is the group_small_critical option in the Electrical Design module?',
       a: <>
-        <P>By default every CRITICAL load gets its own dedicated circuit (one-per-load). The <code className="bg-gray-200 px-1 rounded text-xs">group_small_critical</code> design rule changes this for small critical loads:</P>
+        <P>By default every CRITICAL load gets its own dedicated circuit (one-per-load). The <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">group_small_critical</code> design rule changes this for small critical loads:</P>
         <Pre>{`group_small_critical = false (default):
   Each critical load → dedicated CRITICAL circuit
 
@@ -648,8 +648,8 @@ group_small_critical = true:
     → all small criticals across the whole floor share ONE circuit
   va_each ≥ threshold
     → always gets a dedicated circuit regardless of flag`}</Pre>
-        <P>Use case: a floor with 10 emergency LED luminaires at 20 VA each would generate 10 separate circuits at default settings. With <code className="bg-gray-200 px-1 rounded text-xs">group_small_critical = true</code> these pack into one 200 VA CRITICAL circuit — more practical for a real distribution board where breaker count is constrained. Large criticals (fire panel, UPS, life-support) always stay dedicated regardless of the flag, preserving life-safety isolation.</P>
-        <P>No 30 mA RCD is fitted on any CRITICAL circuit under the <code className="bg-gray-200 px-1 rounded text-xs">30mA_socket_lighting</code> policy — this is correct because an RCD trip on a life-safety circuit is itself a hazard.</P>
+        <P>Use case: a floor with 10 emergency LED luminaires at 20 VA each would generate 10 separate circuits at default settings. With <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">group_small_critical = true</code> these pack into one 200 VA CRITICAL circuit — more practical for a real distribution board where breaker count is constrained. Large criticals (fire panel, UPS, life-support) always stay dedicated regardless of the flag, preserving life-safety isolation.</P>
+        <P>No 30 mA RCD is fitted on any CRITICAL circuit under the <code className="bg-surface-inset text-ink-data px-1 rounded text-xs">30mA_socket_lighting</code> policy — this is correct because an RCD trip on a life-safety circuit is itself a hazard.</P>
       </>,
     },
   ];
@@ -665,18 +665,18 @@ function AccordionItem({ item, isOpen, onToggle }) {
   }, [isOpen]);
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden print-item">
+    <div className="border border-line rounded-xl overflow-hidden print-item">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3.5 bg-white hover:bg-gray-50 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3.5 bg-surface-card hover:bg-surface-inset transition-colors text-left"
       >
-        <span className="text-gray-400 text-sm font-mono w-6 shrink-0">{String(item.id).padStart(2, '0')}</span>
+        <span className="text-ink-muted text-sm font-mono w-6 shrink-0">{String(item.id).padStart(2, '0')}</span>
         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${CAT_STYLES[item.category]}`}>
           {item.category}
         </span>
-        <span className="flex-1 text-sm font-semibold text-gray-800">{item.q}</span>
+        <span className="flex-1 text-sm font-semibold text-ink-heading">{item.q}</span>
         <svg
-          className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-ink-muted shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -688,7 +688,7 @@ function AccordionItem({ item, isOpen, onToggle }) {
         style={{ maxHeight: height }}
       >
         <div ref={contentRef}>
-          <div className="px-4 pb-4 pt-1 text-sm text-gray-600 bg-gray-50 leading-relaxed border-t border-gray-100">
+          <div className="px-4 pb-4 pt-1 text-sm text-ink-body2 bg-surface-inset leading-relaxed border-t border-line-subtle">
             {item.a}
           </div>
         </div>
@@ -746,7 +746,7 @@ export default function DefensePrepPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-base">
       {/* Print styles */}
       <style>{`
         @media print {
@@ -764,17 +764,17 @@ export default function DefensePrepPage() {
       `}</style>
 
       {/* Top nav bar */}
-      <nav className="bg-white border-b border-gray-200 no-print">
+      <nav className="bg-surface-card border-b border-line no-print">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-base" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Power Profile</span>
+            <span className="font-semibold text-ink-heading text-sm">Power Profile</span>
           </div>
-          <Link to="/dashboard" className="text-xs text-gray-500 hover:text-blue-600 transition-colors">
+          <Link to="/dashboard" className="text-xs text-ink-muted hover:text-accent transition-colors">
             ← Back to Dashboard
           </Link>
         </div>
@@ -787,17 +787,17 @@ export default function DefensePrepPage() {
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold text-gray-900">Defense Q&amp;A Reference</h1>
-                <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                <h1 className="text-2xl font-bold text-ink-heading">Defense Q&amp;A Reference</h1>
+                <span className="inline-flex items-center gap-1.5 bg-accent-soft text-accent border border-accent-border text-xs font-semibold px-2.5 py-1 rounded-full">
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                   </svg>
                   Admin Only
                 </span>
               </div>
-              <p className="text-gray-500 text-sm mt-1">Graduation Project Examination Preparation Tool &mdash; {allQuestions.length} questions</p>
+              <p className="text-ink-muted text-sm mt-1">Graduation Project Examination Preparation Tool &mdash; {allQuestions.length} questions</p>
               {user && (
-                <p className="text-xs text-gray-400 mt-0.5">Logged in as {user.name} {user.is_admin ? '· Admin' : ''}</p>
+                <p className="text-xs text-ink-muted2 mt-0.5">Logged in as {user.name} {user.is_admin ? '· Admin' : ''}</p>
               )}
             </div>
 
@@ -805,13 +805,13 @@ export default function DefensePrepPage() {
             <div className="flex items-center gap-2 no-print">
               <button
                 onClick={expandAll}
-                className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold text-ink-body2 bg-surface-card border border-line rounded-lg hover:bg-surface-inset hover:border-line-strong transition-colors"
               >
                 Expand All
               </button>
               <button
                 onClick={handlePrint}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-semibold text-base bg-accent-gradient rounded-lg hover:shadow-accent transition-shadow flex items-center gap-1.5"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -823,12 +823,12 @@ export default function DefensePrepPage() {
 
           {/* Project selector */}
           <div className="mt-4 flex items-center gap-3 no-print">
-            <label className="text-xs font-semibold text-gray-500 shrink-0">LIVE DATA FROM</label>
+            <label className="text-xs font-semibold text-ink-muted shrink-0">LIVE DATA FROM</label>
             <div className="relative flex-1 max-w-sm">
               <select
                 value={selectedId}
                 onChange={e => setSelectedId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm bg-surface-card appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
               >
                 <option value="">— Select a project —</option>
                 {projects.map(p => (
@@ -837,14 +837,14 @@ export default function DefensePrepPage() {
               </select>
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
                 {fetching
-                  ? <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  : <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  ? <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  : <svg className="w-4 h-4 text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 }
               </div>
             </div>
             {summary && (
-              <span className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full font-medium">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              <span className="flex items-center gap-1.5 text-xs text-accent bg-accent-soft border border-accent-border px-2 py-1 rounded-full font-medium">
+                <span className="w-1.5 h-1.5 bg-accent-light rounded-full animate-pulse" />
                 Live Data
               </span>
             )}
@@ -852,7 +852,7 @@ export default function DefensePrepPage() {
 
           {/* Live stats strip */}
           {summary && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3 text-center no-print">
+            <div className="mt-3 p-3 bg-accent-soft border border-accent-border rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3 text-center no-print">
               {[
                 ['Total Demand',  `${summary.total_demand_kva} kVA`],
                 ['Power Factor',  summary.system_power_factor],
@@ -860,8 +860,8 @@ export default function DefensePrepPage() {
                 ['Solar',         summary.has_solar ? `${summary.solar_capacity_kw} kW` : 'None'],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <div className="text-xs text-blue-500 font-medium">{label}</div>
-                  <div className="text-sm font-bold text-blue-800">{value}</div>
+                  <div className="text-xs text-accent font-medium">{label}</div>
+                  <div className="text-sm font-bold text-ink-heading">{value}</div>
                 </div>
               ))}
             </div>
@@ -876,8 +876,8 @@ export default function DefensePrepPage() {
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${
                 activeCategory === cat
-                  ? 'bg-gray-800 text-white border-gray-800'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                  ? 'bg-accent-tint text-accent-bright border-accent-border-strong'
+                  : 'bg-surface-card text-ink-body2 border-line hover:border-line-strong'
               }`}
             >
               {cat}
@@ -903,11 +903,11 @@ export default function DefensePrepPage() {
         </div>
 
         {/* Standards footer */}
-        <div className="mt-8 p-4 bg-white border border-gray-200 rounded-xl no-print">
-          <p className="text-xs font-semibold text-gray-500 mb-2">STANDARDS IMPLEMENTED</p>
+        <div className="mt-8 p-4 bg-surface-card border border-line rounded-xl no-print">
+          <p className="text-xs font-semibold text-ink-muted mb-2">STANDARDS IMPLEMENTED</p>
           <div className="flex flex-wrap gap-2">
             {['IEC 60364-8-1','IEC 60364-5-52','IEC 60364-5-54','BS 7671','PENRA','NEC Article 430','IEC 60947-2','IEC 60831','IEC 61675-3','Spencer (1971)','NASA POWER v2','CIBSE Guide C'].map(s => (
-              <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s}</span>
+              <span key={s} className="text-xs bg-surface-inset text-ink-body2 px-2 py-0.5 rounded-full">{s}</span>
             ))}
           </div>
         </div>
